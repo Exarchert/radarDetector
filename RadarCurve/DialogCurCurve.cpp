@@ -766,7 +766,6 @@ void CDialogCurCurve::OnTimer(UINT_PTR nIDEvent)
 void CDialogCurCurve::OnClose()
 {
 	// TODO: 在此添加消息处理程序代码和/或调用默认值
-	
 	KillTimer( 1 );
 	//CDialog::OnClose();
 	ShowWindow(FALSE);
@@ -777,7 +776,6 @@ void CDialogCurCurve::OnSize(UINT nType, int cx, int cy)
 	CDialog::OnSize(nType, cx, cy);
 
 	resizeChannelWnd();
-	
 }
 
 
