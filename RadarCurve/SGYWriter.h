@@ -55,6 +55,7 @@ protected:
 	int _namePathLength;
 
 	int m_nRoadPart;
+	int m_dLastRecordedDataCount;
 	
 	int _dataCount;
 	int m_nUpload;

@@ -198,7 +198,7 @@ void RadarDataRader::init()
 	m_iModeType = atoi( cs->get("radar", "testtype").c_str());
 	int precRatio = atoi( cs->get("radar", "precratio").c_str() );
 	float precLen = atof ( cs->get("radar", "preclen").c_str() );
-	int precIndex = atoi( cs->get("radar", "precindex").c_str() );
+	//int precIndex = atoi( cs->get("radar", "precindex").c_str() );
 	
 
 	//叶博士提供的方法
@@ -277,7 +277,7 @@ bool RadarDataRader::open(int iType)
 	m_iModeType = m_uPort->m_bMode;
 	
 		//	 0x0A,0x00,			
-	m_uPort->m_iMeasureIndex = atoi( cs->get("radar", "precindex").c_str());			//测量轮精度   precindex   1
+	m_uPort->m_iMeasureIndex = atoi( cs->get("radar", "precindex").c_str());			//测量轮精度   precindex   1  //这真的起作用的吗
 
 	_sampleCount = RadarManager::Instance()->getSampCount( atoi ( cs->get("radar", "sample" ).c_str() )  );
 	//int pSampRatio = atoi( cs->get("radar", "sampleratio").c_str());//old
@@ -292,18 +292,9 @@ bool RadarDataRader::open(int iType)
 
 	int precRatio = atoi( cs->get("radar", "precratio").c_str() );//脉冲数
 	float precLen = atof ( cs->get("radar", "preclen").c_str() );//测量轮周长
-	int precIndex = atoi( cs->get("radar", "precindex").c_str() );//精度(用于标识的index)
-	
-	/*
-	m_precIndex.AddString(L"1cm");
-	m_precIndex.AddString(L"2cm");
-	m_precIndex.AddString(L"5cm");
-	m_precIndex.AddString(L"10cm");
-	m_precIndex.AddString(L"20cm");
-
-	*/
-	//cm
-	float fJihuaAccuracy = RadarManager::Instance()->GetJihuaAccuracy(precIndex);//测量轮精度(0,1,2,3,4-->1,2,5,10,20),
+	//int precIndex = atoi( cs->get("radar", "precindex").c_str() );//精度(用于标识的index)
+	//float fJihuaAccuracy = RadarManager::Instance()->GetJihuaAccuracy(precIndex);//测量轮精度(0,1,2,3,4-->1,2,5,10,20),
+	float fJihuaAccuracy = (float)atoi( cs->get("radar", "precision").c_str() );
 	m_uPort->m_iMeasure = RadarManager::Instance()->GetTrueCmdIndexFromPreclenAndAccuracy(precLen,fJihuaAccuracy);//
 	float fp = RadarManager::Instance()->GetTrueAccuracyFromPreclenAndPrecindex(precLen,fJihuaAccuracy);//获得实际测量轮精度
 	_precValue = fp / 100.0;//转化为米 是精度

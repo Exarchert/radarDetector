@@ -1849,8 +1849,7 @@ void MeasureProject::writeRadFile(){
 
 	int sampleNum = RadarManager::Instance()->getSampCount( atoi ( set.get("radar", "sample").c_str()) );
 	float sampleRate = RadarManager::Instance()->getSampRatio( atoi ( set.get("radar", "sampleratio" ).c_str() ), 0 );
-	float distanceInterval = RadarManager::Instance()->GetTrueAccuracyFromPreclenAndPrecindex(atoi ( set.get("radar", "preclen").c_str() ),RadarManager::Instance()->GetJihuaAccuracy(atoi( set.get("radar", "precindex").c_str() ))) / 100.0;
-
+	float distanceInterval = RadarManager::Instance()->GetTrueAccuracyFromPreclenAndPrecindex(atoi ( set.get("radar", "preclen").c_str() ),(float)atoi( set.get("radar", "precision").c_str() )) / 100.0;
 	
 	for(int i=0;i<CHANNELCOUNT;i++){
 		ofstream ofile; 
@@ -1948,7 +1947,7 @@ void MeasureProject::writeRadFileForPart( int roadPart ){
 	set.fromGroupXML( lpProjectRow->_paramXML );
 	int sampleNum = RadarManager::Instance()->getSampCount( atoi ( set.get("radar", "sample").c_str()) );
 	float sampleRate = RadarManager::Instance()->getSampRatio( atoi ( set.get("radar", "sampleratio" ).c_str() ), 0 );
-	float distanceInterval = RadarManager::Instance()->GetTrueAccuracyFromPreclenAndPrecindex(atoi ( set.get("radar", "preclen").c_str() ),RadarManager::Instance()->GetJihuaAccuracy(atoi( set.get("radar", "precindex").c_str() ))) / 100.0;
+	float distanceInterval = RadarManager::Instance()->GetTrueAccuracyFromPreclenAndPrecindex(atoi ( set.get("radar", "preclen").c_str() ),(float)atoi( set.get("radar", "precision").c_str() )) / 100.0;
 	int wheelCount;
 	/*
 	if(_realTotalWheelCount>=(roadPart*m_nThreshold)){
@@ -2065,7 +2064,7 @@ void MeasureProject::writeRadFileForPart( int roadPart ){
 ////	set.fromGroupXML( lpProjectRow->_paramXML );
 ////	int sampleNum = RadarManager::Instance()->getSampCount( atoi ( set.get("radar", "sample").c_str()) );
 ////	float sampleRate = RadarManager::Instance()->getSampRatio( atoi ( set.get("radar", "sampleratio" ).c_str() ), 0 );
-////	float distanceInterval = RadarManager::Instance()->GetTrueAccuracyFromPreclenAndPrecindex(atoi ( set.get("radar", "preclen").c_str() ),RadarManager::Instance()->GetJihuaAccuracy(atoi( set.get("radar", "precindex").c_str() ))) / 100.0;
+////	float distanceInterval = RadarManager::Instance()->GetTrueAccuracyFromPreclenAndPrecindex(atoi ( set.get("radar", "preclen").c_str() ),(float)atoi( cfg->get("radar", "precision").c_str() )) / 100.0;
 ////	int wheelCount;
 ////	/*
 ////	if(_realTotalWheelCount>=(roadPart*m_nThreshold)){
@@ -2344,7 +2343,7 @@ void MeasureProject::writeRadFileForPart( int roadPart ){
 	set.fromGroupXML( lpProjectRow->_paramXML );
 	int sampleNum = RadarManager::Instance()->getSampCount( atoi ( set.get("radar", "sample").c_str()) );
 	float sampleRate = RadarManager::Instance()->getSampRatio( atoi ( set.get("radar", "sampleratio" ).c_str() ), 0 );
-	float distanceInterval = RadarManager::Instance()->GetTrueAccuracyFromPreclenAndPrecindex(atoi ( set.get("radar", "preclen").c_str() ),RadarManager::Instance()->GetJihuaAccuracy(atoi( set.get("radar", "precindex").c_str() ))) / 100.0;
+	float distanceInterval = RadarManager::Instance()->GetTrueAccuracyFromPreclenAndPrecindex(atoi ( set.get("radar", "preclen").c_str() ),(float)atoi( cfg->get("radar", "precision").c_str() )) / 100.0;
 	int wheelCount;
 	wheelCount=m_vecUploadWheelCount[roadPart]-m_vecUploadWheelCount[roadPart-1];
 
@@ -2416,7 +2415,7 @@ void MeasureProject::writeTxtFile(){
 	set.fromGroupXML( lpProjectRow->_paramXML );
 	int sampleNum = RadarManager::Instance()->getSampCount( atoi ( set.get("radar", "sample").c_str()) );
 	float sampleRate = RadarManager::Instance()->getSampRatio( atoi ( set.get("radar", "sampleratio" ).c_str() ), 0 );
-	float distanceInterval = RadarManager::Instance()->GetTrueAccuracyFromPreclenAndPrecindex(atoi ( set.get("radar", "preclen").c_str() ),RadarManager::Instance()->GetJihuaAccuracy(atoi( set.get("radar", "precindex").c_str() ))) / 100.0;
+	float distanceInterval = RadarManager::Instance()->GetTrueAccuracyFromPreclenAndPrecindex(atoi ( set.get("radar", "preclen").c_str() ),(float)atoi( set.get("radar", "precision").c_str() )) / 100.0;
 	float tempArr[25]={1,1.9,2,2.5,2.8,2.8,3.2,4,4,4.1,5,5,6,6.4,7,7,7,8,8,12,15,16,30,30,81};
 	float dieletric = tempArr [atoi ( set.get("radar", "dielectric").c_str() ) ];
 	int startingPoint = atoi(set.get("radar", "directWave").c_str());
@@ -2617,7 +2616,7 @@ void MeasureProject::writeNameCsvFile(){
 	ProjectNameTab::ProjectNameRow *lpProjectRow = dynamic_cast<ProjectNameTab::ProjectNameRow *>(_projectRow.get());
 	ConfigureSet set;
 	set.fromGroupXML( lpProjectRow->_paramXML );
-	float distanceInterval = RadarManager::Instance()->GetTrueAccuracyFromPreclenAndPrecindex(atoi ( set.get("radar", "preclen").c_str() ),RadarManager::Instance()->GetJihuaAccuracy(atoi( set.get("radar", "precindex").c_str() ))) / 100.0;
+	float distanceInterval = RadarManager::Instance()->GetTrueAccuracyFromPreclenAndPrecindex(atoi ( set.get("radar", "preclen").c_str() ),(float)atoi( set.get("radar", "precision").c_str() )) / 100.0;
 	float totalDistance=distanceInterval*(float)m_arrnRecordTotalWheelCount[0];
 	fprintf(_lpFile, "%d", (int)totalDistance);
 

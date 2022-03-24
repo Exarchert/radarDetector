@@ -1916,9 +1916,10 @@ bool RadarManager::startNewWorkWithoutProjectName()
 	}
 	addGpsModel();
 	CmdNewLine();
-	if(m_nUpload==0){
+	/*if(m_nUpload==0){
 		showCurCurve(A2W(projectName.c_str()));
-	}
+	}*/
+	showCurCurve(A2W(projectName.c_str()));//temp
 	_working = true;
 	_radarReader.ReadThreadStart(true);
 	
@@ -3417,7 +3418,7 @@ bool RadarManager::ExportGprFile(void *_lpProjectRow/*std::string strProName*/,i
 	return true;
 };
 
-float RadarManager::GetJihuaAccuracy(int precIndex)
+/*float RadarManager::GetJihuaAccuracy(int precIndex)
 {
 	float floatPrec = 1.0f;
 	switch ( precIndex )
@@ -3439,7 +3440,7 @@ float RadarManager::GetJihuaAccuracy(int precIndex)
 		break;
 	}
 	return floatPrec;
-}
+}*/
 
 int RadarManager::GetTrueCmdIndexFromPreclenAndAccuracy(float fCLen,float fAccuracy)
 {

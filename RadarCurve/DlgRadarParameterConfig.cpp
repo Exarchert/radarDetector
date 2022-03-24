@@ -282,11 +282,11 @@ BOOL DlgRadarParameterConfig::OnInitDialog()
 	m_testTypeComboBox.AddString(L"时间触发");
 	m_testTypeComboBox.AddString(L"距离触发");
 
-	m_precIndex.AddString(L"1cm");
+	/*m_precIndex.AddString(L"1cm");
 	m_precIndex.AddString(L"2cm");
 	m_precIndex.AddString(L"5cm");
 	m_precIndex.AddString(L"10cm");
-	m_precIndex.AddString(L"20cm");
+	m_precIndex.AddString(L"20cm");*/
 
 	m_parityBit.AddString(L"NONE");
 	m_parityBit.AddString(L"ODD");

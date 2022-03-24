@@ -45,7 +45,7 @@ private:
 	float m_precLen;
 	int m_precRatio;
 
-	CComboBox m_precIndex;
+	//CComboBox m_precIndex;
 
 	//各屏幕要展示的频道
 	CString m_screenFirstChannels;
