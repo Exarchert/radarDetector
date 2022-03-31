@@ -2300,11 +2300,11 @@ void RadarManager::showCurCurve(LPCWSTR pszPath/* = NULL*/)
 	g_CurCurveFourthDlg->UpdateData();
 	
 	//20210628 hjl 
-	g_ThreeViewDlg->SendMessage(WM_SIZE,0,0);
-	g_ThreeViewDlg->UpdateWindow();
-	g_ThreeViewDlg->UpdateData();
-	
-
+	if(m_nUpload==0){
+		g_ThreeViewDlg->SendMessage(WM_SIZE,0,0);
+		g_ThreeViewDlg->UpdateWindow();
+		g_ThreeViewDlg->UpdateData();
+	}
 }
 
 

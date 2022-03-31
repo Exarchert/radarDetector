@@ -830,7 +830,8 @@ void Radar3DWnd::DrawSection( CDC *lpDC, int newData, int channelIndex, int dept
 					float value = (float)rd->getIndexData( i+m_dVecCorrection[channelIndex], NULL );//不要增益了
 					if ( !verticalSectionToBreak ){
 						//int y = mapIndexToSectionYValue( i, rd->getDataCount() );//旧的
-						int y = mapIndexToSectionYValue( i, rd->getDataCount() ) + (m_dVerticalSectionMinY - m_dHorizontalSectionMinY);//横切面区域的y要加上起始值
+						//index * 1.0f * ( _sectionMaxY - _sectionMinY ) / dataCount
+						int y = i * 1.0f * ( m_dVerticalSectionMaxY - m_dVerticalSectionMinY ) / (rd->getDataCount()) + (m_dVerticalSectionMinY - m_dHorizontalSectionMinY);//横切面区域的y要加上起始值
 						COLORREF color;
 						if ( rd->getMark() ){
 							color = RGB( 255, 255, 255 );
@@ -893,7 +894,12 @@ void Radar3DWnd::drawFrontView( CDC *lpDC, int channelIndex, int depthIndex ){
 	it = m_vecRadarGroupData.rbegin();
 	
 	int dFrontViewSectionHight = frontViewSectionRect.Height();
-	float *interpolationValueOne=new float[dFrontViewSectionHight*2];//给插值用的
+	float *interpolationValueOne;
+	if(dFrontViewSectionHight>_sampleCount){
+		interpolationValueOne=new float[dFrontViewSectionHight*2];//给插值用的
+	}else{
+		interpolationValueOne=new float[_sampleCount*2];//给插值用的
+	}
 	for(int j=0;j<dFrontViewSectionHight*2;j++){interpolationValueOne[j]=0.0;}
 	
 	int dDataCount = _sampleCount-4;
@@ -1003,7 +1009,8 @@ void Radar3DWnd::drawFrontView( CDC *lpDC, int channelIndex, int depthIndex ){
 				//float value = (float)rd->getIndexData( i+m_dVecCorrection[i]i, NULL ) * (1.0 +  (float)_scaleRatio * (float)(i+1)/(float)dDataCount);//不要增益了
 				float fValue = (float)rd->getIndexData( j+m_dVecCorrection[i], NULL );//不要增益了
 				//int y = mapIndexToSectionYValue( i, rd->getDataCount() );//旧的
-				int y = mapIndexToSectionYValue( j, rd->getDataCount() ) + m_dFrontViewSectionMinY;//横切面区域的y要加上起始值
+				//int y = mapIndexToSectionYValue( j, rd->getDataCount() ) + m_dFrontViewSectionMinY;//横切面区域的y要加上起始值
+				int y = j * 1.0f * ( m_dVerticalSectionMaxY - m_dVerticalSectionMinY ) / (rd->getDataCount()) + m_dFrontViewSectionMinY;//横切面区域的y要加上起始值
 				COLORREF color;
 				if ( rd->getMark() ){
 					color = RGB( 255, 255, 255 );
@@ -1030,7 +1037,8 @@ void Radar3DWnd::drawFrontView( CDC *lpDC, int channelIndex, int depthIndex ){
 	if (dDataCount < dFrontViewSectionHight && dDataCount > 0){////数据数量小于高度 需要补充
 		dDepthY=(int)((float)depthIndex/(float)dDataCount*(float)dFrontViewSectionHight) + m_dFrontViewSectionMinY;
 	}else{//数据数量大于高度,需要压缩，即抽值显示，mapIndexToSectionYValue利用比例关系 i/i总数量 = y/y总数量 来求得i对应的
-		dDepthY = mapIndexToSectionYValue( depthIndex, rd->getDataCount() ) + m_dFrontViewSectionMinY;
+		//dDepthY = mapIndexToSectionYValue( depthIndex, rd->getDataCount() ) + m_dFrontViewSectionMinY;
+		dDepthY = depthIndex * 1.0f * ( m_dVerticalSectionMaxY - m_dVerticalSectionMinY ) / (rd->getDataCount()) + m_dFrontViewSectionMinY;
 	}
 	CPen penRed( PS_SOLID,1,RGB(255,105,105));//红色中线
 	lpDC->SelectObject(penRed);

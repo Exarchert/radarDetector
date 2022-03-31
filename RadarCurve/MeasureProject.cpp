@@ -2434,7 +2434,7 @@ void MeasureProject::writeTxtFile(){
 		ofile<<"Y向数据距离间隔(厘米):"<<"0,0,0,0,0,0,0,0,0,0,0,0"<<endl;
 	}else{
 		ofile<<"Y向数据通道数:"<<6<<endl;
-		ofile<<"Y向数据距离间隔(厘米):"<<"0,12,24,36,48,60"<<endl;
+		ofile<<"Y向数据距离间隔(厘米):"<<"0,15,30,45,60,75"<<endl;
 		ofile<<"直达波起点:"<<startingPoint<<endl;
 	}
 	ofile.close();//关闭文件
