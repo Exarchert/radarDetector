@@ -56,6 +56,7 @@ protected:
 
 	int m_nRoadPart;
 	int m_dLastRecordedDataCount;
+	int m_dStartDataCount;
 	
 	int _dataCount;
 	int m_nUpload;

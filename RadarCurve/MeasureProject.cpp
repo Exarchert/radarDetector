@@ -366,16 +366,28 @@ class SaveOnlineThread : public OpenThreads::Thread{
 					for ( std::vector<int>::iterator it = tmpQueue.begin(); it != tmpQueue.end(); it++ ){
 						//int *dPart = *it;
 						_MeasureProject->changeTimeTab();
-						//if ( *it!=1 ){
-							Sleep(1000);
-							_MeasureProject->changeFtpFolderPath();
-							_MeasureProject->writeRadFileForPart( *it );
-							//_MeasureProject->uploadTxtFileForGroup( *it );
-							_MeasureProject->uploadDataForPart( *it );
-							_MeasureProject->postEndMessage( *it );
-							
-						//}
-						_MeasureProject->m_nFinishedPart = *it;
+						Sleep(1000);
+						_MeasureProject->changeFtpFolderPath();
+						_MeasureProject->writeRadFileForPart( *it );
+						//_MeasureProject->uploadTxtFileForGroup( *it );
+						_MeasureProject->uploadDataForPart( *it );
+						//_MeasureProject->postEndMessage( *it );
+						//_MeasureProject->m_nFinishedPart = *it;
+						/*
+						bool postFlag=true;
+						for(int i=0;i<15;i++){
+							if(_MeasureProject->m_vecVecUploadSuccessFlag[part-1][i]==false){
+								postFlag=false;
+								break;
+							}
+						}
+						if(postFlag==true){
+							m_vecbUploadConditionForEachPart[part-1]=true;
+							_MeasureProject->addDataToPostFinishedMessageThread(*it);
+						}*/
+						if(_MeasureProject->dataInPartFinishedUpload(*it)){
+							_MeasureProject->addDataToPostFinishedMessageThread(*it);
+						}
 					}
 				}
 				if ( _partQueue.size() == 0 ){
@@ -615,6 +627,74 @@ class UploadGpsOnlineThread : public OpenThreads::Thread{
 //===================================================================class UploadGpsOnlineThread 上传线程================================================================//
 //===================================================================class UploadGpsOnlineThread 上传线程================================================================//
 
+//===================================================================class PostFinishedMessageThread 上传线程================================================================//
+//===================================================================class PostFinishedMessageThread 上传线程================================================================//
+class PostFinishedMessageThread : public OpenThreads::Thread{
+	public:
+		PostFinishedMessageThread(){};
+		~PostFinishedMessageThread(){};
+
+		void run(){
+			while( !testCancel() ){
+				std::vector<int> tmpQueue;
+				{
+					OpenThreads::ScopedLock<OpenThreads::Mutex> lock(_mutex);
+					tmpQueue.swap( _partQueue );
+					//_partQueue.clear();
+				}
+				if ( tmpQueue.size() > 0 ){
+					//unsigned long startTime = GetTickCount();
+					for ( std::vector<int>::iterator it = tmpQueue.begin(); it != tmpQueue.end(); it++ ){
+						_MeasureProject->postEndMessage( *it );
+						//_MeasureProject->m_nFinishedPart = *it;
+					}
+				}
+				if ( _partQueue.size() == 0 ){
+					_block.reset();
+					_block.block();
+				}
+				if ( !testCancel() ){
+					continue;
+				}
+			}
+		};
+
+		int cancel(){
+			OpenThreads::Thread::cancel();
+			std::vector<int> tmpQueue;
+			{
+				OpenThreads::ScopedLock<OpenThreads::Mutex> lock(_mutex);
+				tmpQueue.swap( _partQueue );
+				//_partQueue.clear();
+			}
+
+			if ( isRunning() ){
+				_block.reset();
+				_block.release();
+				join();
+			}
+			return 0;
+		};
+
+		void addPart( int part ){
+			OpenThreads::ScopedLock<OpenThreads::Mutex> lock(_mutex);
+			_partQueue.push_back( part );
+
+			_block.reset();
+			_block.release();
+		};
+
+		//bool init(const char *dbsrc, const char *dbname, const char *user, const char *pass, std::string &projectName);
+	public:
+		OpenThreads::Mutex _mutex;
+		OpenThreads::Block _block;
+
+		MeasureProject* _MeasureProject;
+		std::vector<int> _partQueue;
+};
+//===================================================================class PostFinishedMessageThread 上传线程================================================================//
+//===================================================================class PostFinishedMessageThread 上传线程================================================================//
+
 
 //===================================================================class SaveDataThread 数据库用的================================================================//
 //===================================================================class SaveDataThread 数据库用的================================================================//
@@ -806,10 +886,11 @@ MeasureProject::MeasureProject(void)
 	m_vecUploadWheelCount.push_back(0);
 
 	m_vecVecUploadSuccessFlag.clear();
+	m_vecVecProcessFinishedFlag.clear();
 	
 	m_nInitOpr = 0;
 	m_nRoadPart = 1;
-	m_nFinishedPart = 1;
+	//m_nFinishedPart = 1;
 	ConfigureSet *cfg = RadarManager::Instance()->getConfigureSet();
 	m_nChannelCount = atoi( cfg->get("radar", "channelCount").c_str() );
 	m_nChannelCountForUpload = atoi( cfg->get("radar", "channelCountForUpload").c_str() );
@@ -840,6 +921,7 @@ MeasureProject::MeasureProject(void)
 		m_SGYWriter[i] = NULL;
 	}
 	_lpThreadSaveOnline=NULL;
+	_lpThreadPostFinishedMessage=NULL;
 	_lpThreadSaveOnlineForRepairment=NULL;
 	_lpThreadUploadGps=NULL;
 }
@@ -944,14 +1026,34 @@ MeasureProject::~MeasureProject(void){
 		m_vecUploadWheelCount.push_back(m_arrnRealTotalWheelCount[0]);
 		if(m_nUpload==1){
 			m_vecUploadWheelCount.push_back(m_arrnRealTotalWheelCount[0]);
-			std::vector<bool> vecTemp;//用来判断是否上传成功的
+			std::vector<bool> vecTempForSuccess;//用来判断是否上传成功的
 			for(int i=0;i<15;i++){//一共15项 txt cor csv rad*6 rd3*6
-				vecTemp.push_back(true);
+				vecTempForSuccess.push_back(true);
 			}
-			m_vecVecUploadSuccessFlag.push_back(vecTemp);
+			m_vecVecUploadSuccessFlag.push_back(vecTempForSuccess);
+			std::vector<bool> vecTempForProcess;//用来处理过程是否完成
+			for(int i=0;i<15;i++){//一共15项 txt cor csv rad*6 rd3*6
+				vecTempForProcess.push_back(false);
+			}
+			m_vecVecProcessFinishedFlag.push_back(vecTempForProcess);
+			m_vecbUploadConditionForEachPart.push_back(false);
 			((SaveOnlineThread*)_lpThreadSaveOnline)->addPart(m_nRoadPart);
-			while(m_nRoadPart!=m_nFinishedPart){//保证上传完成
+			bool bAllUploadSuccessFlag=false;
+			while(bAllUploadSuccessFlag==false){//保证上传完成
 				Sleep(5000);
+				bool bCheck=true;
+				for(int i=0;i<m_vecVecProcessFinishedFlag.size();i++){
+					for(int j=0;j<m_vecVecProcessFinishedFlag[i].size();j++){
+						if(m_vecVecProcessFinishedFlag[i][j]==false){
+							bCheck=false;
+							break;
+						}
+					}
+					if(bCheck==false){
+						break;
+					}
+				}
+				bAllUploadSuccessFlag=bCheck;
 			}
 		}else{
 			writeRadFileForPart(m_nRoadPart);
@@ -963,10 +1065,22 @@ MeasureProject::~MeasureProject(void){
 			_lpThreadSaveOnline = NULL;
 		}
 
+		if(_lpThreadPostFinishedMessage){
+			_lpThreadPostFinishedMessage->cancel();
+			delete _lpThreadPostFinishedMessage;
+			_lpThreadPostFinishedMessage = NULL;
+		}
+
 		if(_lpThreadSaveOnlineForRepairment){
 			_lpThreadSaveOnlineForRepairment->cancel();
 			delete _lpThreadSaveOnlineForRepairment;
 			_lpThreadSaveOnlineForRepairment = NULL;
+		}
+
+		if(_lpThreadUploadGps){
+			_lpThreadUploadGps->cancel();
+			delete _lpThreadUploadGps;
+			_lpThreadUploadGps = NULL;
 		}
 		
 		AfxMessageBox(L"上传数据完成。");
@@ -1081,6 +1195,11 @@ void MeasureProject::addData( RadarData *rd, int index ){
 			tempArr[i]=RadarManager::Instance()->int_Check_Channel[i];
 		}*/
 		//if (tempArr[index]==1){
+		if(m_nUpload==1){
+			if(index>=6){
+				return;
+			}
+		}
 		if (RadarManager::Instance()->int_Check_Channel[index]==1){
 			if ( index >= CHANNELCOUNT ){
 				return;
@@ -1115,11 +1234,17 @@ void MeasureProject::addData( RadarData *rd, int index ){
 					}
 					_tempWheelCount=_realTotalWheelCount;*/
 					m_vecUploadWheelCount.push_back(m_arrnRealTotalWheelCount[0]);
-					std::vector<bool> vecTemp;//用来判断是否上传成功的
+					std::vector<bool> vecTempForSuccess;//用来判断是否上传成功的
 					for(int i=0;i<15;i++){//一共15项 txt cor csv rad*6 rd3*6
-						vecTemp.push_back(true);
+						vecTempForSuccess.push_back(true);
 					}
-					m_vecVecUploadSuccessFlag.push_back(vecTemp);
+					m_vecVecUploadSuccessFlag.push_back(vecTempForSuccess);
+					std::vector<bool> vecTempForProcess;//用来处理过程是否完成
+					for(int i=0;i<15;i++){//一共15项 txt cor csv rad*6 rd3*6
+						vecTempForProcess.push_back(false);
+					}
+					m_vecVecProcessFinishedFlag.push_back(vecTempForProcess);
+					m_vecbUploadConditionForEachPart.push_back(false);
 					((SaveOnlineThread*)_lpThreadSaveOnline)->addPart(m_nRoadPart);
 					/*
 					if(m_nUpload==1){
@@ -1285,6 +1410,7 @@ void MeasureProject::setProjectRow( DBRow *lpRow )
 	m_vecUploadWheelCount.clear();
 	m_vecUploadWheelCount.push_back(0);
 	m_vecVecUploadSuccessFlag.clear();
+	m_vecVecProcessFinishedFlag.clear();
 }
 
 void MeasureProject::updateProjectInfo( float curLen )
@@ -1577,6 +1703,7 @@ void MeasureProject::SetSaveOracleOrFile( int iRadarWorkType,int isaveOracle,CSt
 
 					m_nLastSecond = clock();//记录开始时间 
 
+					//数据上传线程
 					if (_lpThreadSaveOnline){
 						delete _lpThreadSaveOnline;
 						_lpThreadSaveOnline = NULL;
@@ -1585,6 +1712,16 @@ void MeasureProject::SetSaveOracleOrFile( int iRadarWorkType,int isaveOracle,CSt
 					((SaveOnlineThread*)_lpThreadSaveOnline)->_MeasureProject = this;
 					_lpThreadSaveOnline->start();
 
+					//完成信息post线程
+					if (_lpThreadPostFinishedMessage){
+						delete _lpThreadPostFinishedMessage;
+						_lpThreadPostFinishedMessage = NULL;
+					}
+					_lpThreadPostFinishedMessage = new PostFinishedMessageThread;
+					((PostFinishedMessageThread*)_lpThreadPostFinishedMessage)->_MeasureProject = this;
+					_lpThreadPostFinishedMessage->start();
+
+					//重新上传线程
 					if (_lpThreadSaveOnlineForRepairment){
 						delete _lpThreadSaveOnlineForRepairment;
 						_lpThreadSaveOnlineForRepairment = NULL;
@@ -1593,6 +1730,7 @@ void MeasureProject::SetSaveOracleOrFile( int iRadarWorkType,int isaveOracle,CSt
 					((SaveOnlineForRepairmentThread*)_lpThreadSaveOnlineForRepairment)->_MeasureProject = this;
 					_lpThreadSaveOnlineForRepairment->start();
 
+					//gps即时上传线程
 					if (_lpThreadUploadGps){
 						delete _lpThreadUploadGps;
 						_lpThreadUploadGps = NULL;
@@ -3477,6 +3615,9 @@ void MeasureProject::uploadDataForPart(int part){
 				break;
 			}
 		}
+		if(m_vecVecUploadSuccessFlag[part-1][0]==true){
+			m_vecVecProcessFinishedFlag[part-1][0]=true;
+		}
 		//m_vecVecUploadSuccessFlag[part-1][0]=true;//得先弄个上传成功的判断
 	}else{
 		string strTemp="读取";
@@ -3515,6 +3656,9 @@ void MeasureProject::uploadDataForPart(int part){
 				break;
 			}
 		}
+		if(m_vecVecUploadSuccessFlag[part-1][1]==true){
+			m_vecVecProcessFinishedFlag[part-1][1]=true;
+		}
 		//m_vecVecUploadSuccessFlag[part-1][1]=true;
 	}else{
 		string strTemp="读取";
@@ -3551,6 +3695,9 @@ void MeasureProject::uploadDataForPart(int part){
 				m_vecVecUploadSuccessFlag[part-1][2]=false;
 				break;
 			}
+		}
+		if(m_vecVecUploadSuccessFlag[part-1][2]==true){
+			m_vecVecProcessFinishedFlag[part-1][2]=true;
 		}
 	}else{
 		string strTemp="读取";
@@ -3594,6 +3741,9 @@ void MeasureProject::uploadDataForPart(int part){
 					break;
 				}
 			}
+			if(m_vecVecUploadSuccessFlag[part-1][3+i]==true){
+				m_vecVecProcessFinishedFlag[part-1][3+i]=true;
+			}
 		}else{
 			string strTemp="读取";
 			strTemp+=vecStrRadarDataHeaderLocalPath[i];
@@ -3636,6 +3786,9 @@ void MeasureProject::uploadDataForPart(int part){
 					//AfxMessageBox(StringToCString(strTemp)); 
 					break;
 				}
+			}
+			if(m_vecVecUploadSuccessFlag[part-1][9+i]==true){
+				m_vecVecProcessFinishedFlag[part-1][9+i]=true;
 			}
 		}else{
 			string strTemp="读取";
@@ -3761,8 +3914,38 @@ void MeasureProject::uploadDataForPartForRepairment(std::string strLocalPath, st
 			RepairmentIndex=8+atoi(strLocalPath.substr(strLocalPath.length()-5,1).c_str());
 		}
 		m_vecVecUploadSuccessFlag[part-1][RepairmentIndex]=true;
-		postEndMessage(part);
+
+		/*bool postFlag=true;
+		for(int i=0;i<15;i++){
+			if(m_vecVecUploadSuccessFlag[part-1][i]==false){
+				postFlag=false;
+				break;
+			}
+		}
+		if(postFlag==true){
+			m_vecbUploadConditionForEachPart[part-1]=true;
+			addDataToPostFinishedMessageThread(part);
+		}*/
+		if(dataInPartFinishedUpload(part)){
+			addDataToPostFinishedMessageThread(part);
+		}
 	}
+	
+	//最后这个过程完了
+	int processIndex=0;
+	string fileType=strLocalPath.substr(strLocalPath.length()-3);
+	if(fileType=="txt"){
+		processIndex=0;
+	}else if(fileType=="cor"){
+		processIndex=1;
+	}else if(fileType=="csv"){
+		processIndex=2;
+	}else if(fileType=="rad"){
+		processIndex=2+atoi(strLocalPath.substr(strLocalPath.length()-5,1).c_str());
+	}else if(fileType=="rd3"){
+		processIndex=8+atoi(strLocalPath.substr(strLocalPath.length()-5,1).c_str());
+	}
+	m_vecVecProcessFinishedFlag[part-1][processIndex]=true;
 }
 
 void MeasureProject::uploadFileToFtp(std::string strLocalPath, std::string strOnlinePath, int part){
@@ -3842,13 +4025,23 @@ void MeasureProject::uploadFileToFtp(std::string strLocalPath, std::string strOn
 	
 	//你还没弄那个上传完成数组的验证!!!!!!//得上个互斥锁
 	if(uploadSuccessFlag){
-		postEndMessage(part);
+		bool postFlag=true;
+		for(int i=0;i<15;i++){
+			if(m_vecVecUploadSuccessFlag[part-1][i]==false){
+				postFlag=false;
+				break;
+			}
+		}
+		if(postFlag==true){
+			m_vecbUploadConditionForEachPart[part-1]=true;
+			addDataToPostFinishedMessageThread(part);
+		}
 	}
 }
 
 
 void MeasureProject::postEndMessage(int part){
-	bool postFlag=true;
+	/*bool postFlag=true;
 	for(int i=0;i<15;i++){
 		if(m_vecVecUploadSuccessFlag[part-1][i]==false){
 			postFlag=false;
@@ -3857,7 +4050,8 @@ void MeasureProject::postEndMessage(int part){
 	}
 	if(postFlag==false){
 		return;
-	}
+	}*/
+	//m_nFinishedPart = part;
 
 	int sta_socket;
 	struct sockaddr_in remote_ip;
@@ -3884,6 +4078,10 @@ void MeasureProject::postEndMessage(int part){
 	sprintf(completeSendBuff, POST_FORMAT, "/externalservice/completeUploadFile.ht", m_strPostServerIp.c_str(), m_nPostPort, intToString(nCompleteJsonBuffLen).c_str(), completeJsonBuff);
 	//发送
 	int sendLen=-1;
+	time_t sendTime = time(NULL);
+	string strSendTimeStamp = intToString(sendTime);
+	string strSendRecording="完成指令发送时间为:"+strSendTimeStamp+"\n";
+	fprintf(m_fpLog,strSendRecording.c_str() );
 	while(sendLen<0){
 		sendLen=send(sta_socket, completeSendBuff, (unsigned int)strlen(completeSendBuff)+1, 0);
 	}
@@ -3893,11 +4091,15 @@ void MeasureProject::postEndMessage(int part){
 	if(nCompleteRecieveBuffLen>0){
 		//根据回复参数进行操作
 		completeRecieveBuff[nCompleteRecieveBuffLen]='\0';
-		string strRecieve=string(completeRecieveBuff);
-		string strTemp="上传"+ m_vecStrTimeTab[part-1]+"完成指令发送成功。\n回复内容为：";
+		//string strRecieve=string(completeRecieveBuff);
+		string strRecieveRecording="上传"+ m_vecStrTimeTab[part-1]+"完成指令发送成功。\n回复内容为：";
 		string strTemp2=completeRecieveBuff;
-		strTemp=strTemp+strTemp2;
-		fprintf(m_fpLog,strTemp.c_str() );
+		strRecieveRecording=strRecieveRecording+strTemp2;
+		time_t recieveTime = time(NULL);
+		string strRecieveTimeStamp = intToString(recieveTime);
+		string strTemp3="接收时间为:"+strRecieveTimeStamp+"\n";
+		strRecieveRecording=strRecieveRecording+strTemp3;
+		fprintf(m_fpLog,strRecieveRecording.c_str() );
 	}else{
 		//没有收到回复参数
 		string strTemp="上传"+ m_vecStrTimeTab[part-1]+"完成指令发送成功。\n回复内容为空";
@@ -4231,4 +4433,22 @@ void MeasureProject::changeFtpFolderPath(){
 	InternetCloseHandle(hftp);
 	InternetCloseHandle(hint);
 }
+
+//向postFinishedMessage线程加东西
+void MeasureProject::addDataToPostFinishedMessageThread(int part){
+	((PostFinishedMessageThread*)_lpThreadPostFinishedMessage)->addPart(part);
+}
 	
+bool MeasureProject::dataInPartFinishedUpload(int part){
+	bool finishedFlag=true;
+	for(int i=0;i<15;i++){
+		if(m_vecVecUploadSuccessFlag[part-1][i]==false){
+			finishedFlag=false;
+			break;
+		}
+	}
+	if(finishedFlag==true){
+		m_vecbUploadConditionForEachPart[part-1]=true;
+	}
+	return finishedFlag;
+}
