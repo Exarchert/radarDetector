@@ -20,6 +20,7 @@ public:
 
 	void SetSampleCount( int count );
 	void SetSampleRatio( double value );
+	void SetDielectric( float value );
 
 	BOOL Create(const RECT& rect, CWnd* parent, UINT nID, LPCTSTR className = Radar3D_CLASSNAME,
 		DWORD dwStyle = WS_CHILD | WS_BORDER | WS_TABSTOP | WS_VISIBLE);
@@ -101,10 +102,23 @@ protected:
 	int m_dHorizontalSectionMaxY;
 
 	//距离刻度区域
-	int m_dScaleMinX;
-	int m_dScaleMaxX;
-	int m_dScaleMinY;
-	int m_dScaleMaxY;
+	int m_dDistanceScaleMinX;
+	int m_dDistanceScaleMaxX;
+	int m_dDistanceScaleMinY;
+	int m_dDistanceScaleMaxY;
+
+	//深度刻度区域
+	int m_dDepthScaleMinX;
+	int m_dDepthScaleMaxX;
+	int m_dDepthScaleMinY;
+	int m_dDepthScaleMaxY;
+
+	//时窗刻度区域
+	int m_dTimeWindowScaleMinX;
+	int m_dTimeWindowScaleMaxX;
+	int m_dTimeWindowScaleMinY;
+	int m_dTimeWindowScaleMaxY;
+
 
 	DWORD _maxTime;
 	DWORD _minTime;
@@ -115,6 +129,7 @@ protected:
 
 	int _sampleCount;
 	double _sampleRatio;
+	float m_fDielectric;
 
 	int m_dVecCorrection[12];
 

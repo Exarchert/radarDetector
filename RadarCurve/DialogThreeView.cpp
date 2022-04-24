@@ -189,10 +189,13 @@ BOOL CDialogThreeView::OnInitDialog()
 
 
 	ConfigureSet *lpSet = RadarManager::Instance()->getConfigureSet();
-	int iSmpNum = atoi ( lpSet->get("radar", "sample").c_str());
-	int iSampRate = atoi ( lpSet->get("radar", "sampleratio" ).c_str() );
-	m_3DWnd.SetSampleCount( RadarManager::Instance()->getSampCount( iSmpNum ) );
-	m_3DWnd.SetSampleRatio( RadarManager::Instance()->getSampRatio( iSampRate, 0 ) );
+	int dSmpNumIndex = atoi ( lpSet->get("radar", "sample").c_str());
+	int dSampRateIndex = atoi ( lpSet->get("radar", "sampleratio" ).c_str() );
+	int dDielectricIndex = atoi ( lpSet->get("radar", "dielectric" ).c_str() );
+	
+	m_3DWnd.SetSampleCount( RadarManager::Instance()->getSampCount( dSmpNumIndex ) );
+	m_3DWnd.SetSampleRatio( RadarManager::Instance()->getSampRatio( dSampRateIndex, 0 ) );
+	m_3DWnd.SetDielectric( RadarManager::Instance()->getDielectric( dDielectricIndex ) );
 	m_3DWnd.setChannelIndex(m_dChannelIndex-1);
 	m_3DWnd.setDepthIndex(m_dDepthIndex);
 

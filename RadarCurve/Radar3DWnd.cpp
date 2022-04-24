@@ -16,7 +16,7 @@ IMPLEMENT_DYNAMIC(Radar3DWnd, CWnd)
 
 #define SPACE_SIZE 10 //区域间的间隔大小
 #define INTERPOLATION_SIZE 56 //插值区域大小
-#define SCALE_HEIGHT 30 //距离刻度区域高度
+#define DISTANCE_SCALE_HEIGHT 30 //距离刻度区域高度
 
 #define STAFF_HEIGHT 30 //距离刻度区域高度
 #define GRID_SPACE 15
@@ -25,6 +25,8 @@ IMPLEMENT_DYNAMIC(Radar3DWnd, CWnd)
 #define DATA_BLOCK_WIDTH 20.0f
 
 #define TIME_STAFF_WIDTH 20 //时窗刻度区域宽度
+#define TIMEWINDOW_SCALE_WIDTH 20 //时窗刻度区域宽度
+#define DEPTH_SCALE_WIDTH 20 //深度刻度区域宽度
 
 #define CUR_STAFF_INTER_PERCENT 0.955
 
@@ -162,6 +164,10 @@ void Radar3DWnd::SetSampleRatio( double value )
 {
 	_sampleRatio = value;
 }
+void Radar3DWnd::SetDielectric( float value )
+{
+	m_fDielectric = value;
+}
 void Radar3DWnd::OnTimer(UINT_PTR nIDEvent)
 {
 	// TODO: 在此添加消息处理程序代码和/或调用默认值
@@ -240,28 +246,43 @@ void Radar3DWnd::resetXY()//绘制背景
 	GetClientRect(&rc);
 	
 	//正视图区域
-	m_dFrontViewSectionMinX = rc.Width() - INTERPOLATION_SIZE - SPACE_SIZE;
-	m_dFrontViewSectionMaxX = rc.Width() - SPACE_SIZE;
-	m_dFrontViewSectionMinY = SPACE_SIZE + SCALE_HEIGHT + SPACE_SIZE + INTERPOLATION_SIZE + SPACE_SIZE;
+	m_dFrontViewSectionMinX = rc.Width() - TIMEWINDOW_SCALE_WIDTH - SPACE_SIZE - INTERPOLATION_SIZE - SPACE_SIZE;
+	m_dFrontViewSectionMaxX = rc.Width() - SPACE_SIZE - TIMEWINDOW_SCALE_WIDTH - SPACE_SIZE;
+	m_dFrontViewSectionMinY = SPACE_SIZE + DISTANCE_SCALE_HEIGHT + SPACE_SIZE + INTERPOLATION_SIZE + SPACE_SIZE;
 	m_dFrontViewSectionMaxY = rc.Height() - SPACE_SIZE;
 
 	//纵切面区域
-	m_dVerticalSectionMinX = SPACE_SIZE;
-	m_dVerticalSectionMaxX = rc.Width() - SPACE_SIZE - INTERPOLATION_SIZE - SPACE_SIZE;
-	m_dVerticalSectionMinY = SPACE_SIZE + SCALE_HEIGHT + SPACE_SIZE + INTERPOLATION_SIZE + SPACE_SIZE;
+	m_dVerticalSectionMinX = SPACE_SIZE + DEPTH_SCALE_WIDTH + SPACE_SIZE;
+	m_dVerticalSectionMaxX = rc.Width() - SPACE_SIZE - INTERPOLATION_SIZE - SPACE_SIZE - TIMEWINDOW_SCALE_WIDTH - SPACE_SIZE;
+	m_dVerticalSectionMinY = SPACE_SIZE + DISTANCE_SCALE_HEIGHT + SPACE_SIZE + INTERPOLATION_SIZE + SPACE_SIZE;
 	m_dVerticalSectionMaxY = rc.Height() - SPACE_SIZE;
 
 	//横剖面区域
-	m_dHorizontalSectionMinX = SPACE_SIZE;
-	m_dHorizontalSectionMaxX = rc.Width() - SPACE_SIZE - INTERPOLATION_SIZE - SPACE_SIZE;
-	m_dHorizontalSectionMinY = SPACE_SIZE + SCALE_HEIGHT + SPACE_SIZE;
-	m_dHorizontalSectionMaxY = SPACE_SIZE + SCALE_HEIGHT + SPACE_SIZE + INTERPOLATION_SIZE;
+	m_dHorizontalSectionMinX = SPACE_SIZE + DEPTH_SCALE_WIDTH + SPACE_SIZE;
+	m_dHorizontalSectionMaxX = rc.Width() - SPACE_SIZE - INTERPOLATION_SIZE - SPACE_SIZE - TIMEWINDOW_SCALE_WIDTH - SPACE_SIZE;
+	m_dHorizontalSectionMinY = SPACE_SIZE + DISTANCE_SCALE_HEIGHT + SPACE_SIZE;
+	m_dHorizontalSectionMaxY = SPACE_SIZE + DISTANCE_SCALE_HEIGHT + SPACE_SIZE + INTERPOLATION_SIZE;
 
 	//距离刻度区域
-	m_dScaleMinX = SPACE_SIZE;
-	m_dScaleMaxX = rc.Width() - SPACE_SIZE - INTERPOLATION_SIZE - SPACE_SIZE;
-	m_dScaleMinY = SPACE_SIZE;
-	m_dScaleMaxY = SPACE_SIZE + SCALE_HEIGHT;
+	m_dDistanceScaleMinX = SPACE_SIZE + DEPTH_SCALE_WIDTH + SPACE_SIZE;
+	m_dDistanceScaleMaxX = rc.Width() - SPACE_SIZE - INTERPOLATION_SIZE - SPACE_SIZE - TIMEWINDOW_SCALE_WIDTH - SPACE_SIZE;
+	m_dDistanceScaleMinY = SPACE_SIZE;
+	m_dDistanceScaleMaxY = SPACE_SIZE + DISTANCE_SCALE_HEIGHT;
+
+	
+	//深度刻度区域
+	m_dDepthScaleMinX = SPACE_SIZE;
+	m_dDepthScaleMaxX = SPACE_SIZE + DEPTH_SCALE_WIDTH;
+	m_dDepthScaleMinY = SPACE_SIZE + DISTANCE_SCALE_HEIGHT + SPACE_SIZE + INTERPOLATION_SIZE + SPACE_SIZE;
+	m_dDepthScaleMaxY = rc.Height() - SPACE_SIZE;
+
+	//时窗刻度区域
+	m_dTimeWindowScaleMinX = rc.Width() - SPACE_SIZE - TIMEWINDOW_SCALE_WIDTH;
+	m_dTimeWindowScaleMaxX = rc.Width() - SPACE_SIZE;
+	m_dTimeWindowScaleMinY = SPACE_SIZE + DISTANCE_SCALE_HEIGHT + SPACE_SIZE + INTERPOLATION_SIZE + SPACE_SIZE;;
+	m_dTimeWindowScaleMaxY = rc.Height() - SPACE_SIZE;
+
+
 }
 
 void Radar3DWnd::DrawBk( CDC *lpDC )//绘制背景 
@@ -270,16 +291,17 @@ void Radar3DWnd::DrawBk( CDC *lpDC )//绘制背景
 	CRect rc;
 	GetClientRect(&rc);
 
-	//int width = GRID_WIDTH;//波形图宽度
-	////int height = rc.Height();
-	//int curvRectX1 = rc.Width() - GRID_WIDTH - TIME_STAFF_WIDTH;//波形图X1  TIME_STAFF_WIDTH时窗刻度区域宽度
-	//int curvRectX2 = curvRectX1 + GRID_WIDTH;//波形图X2
-	//int curvRectY1 = STAFF_HEIGHT;//STAFF_HEIGHT距离刻度区域高度
-	//int curvRectY2 = rc.Height();
-
 	CBrush blackBrush( RGB( 0, 0, 0 ) );//波谱背景黑色
 	CBrush greyBrush( RGB( 128, 128, 128 ) );//波谱背景黑色
 	CBrush whiteBrush( RGB( 255, 255, 255 ) );//波谱背景黑色
+
+	int dBorderWidth=2;
+	CRect blackR1(m_dFrontViewSectionMinX-dBorderWidth, m_dFrontViewSectionMinY-dBorderWidth, m_dFrontViewSectionMaxX+dBorderWidth, m_dFrontViewSectionMaxY+dBorderWidth);
+	lpDC->FillRect( blackR1, &blackBrush );
+	CRect blackR2(m_dVerticalSectionMinX-dBorderWidth, m_dVerticalSectionMinY-dBorderWidth, m_dVerticalSectionMaxX+dBorderWidth, m_dVerticalSectionMaxY+dBorderWidth);
+	lpDC->FillRect( blackR2, &blackBrush );
+	CRect blackR3(m_dHorizontalSectionMinX-dBorderWidth, m_dHorizontalSectionMinY-dBorderWidth, m_dHorizontalSectionMaxX+dBorderWidth, m_dHorizontalSectionMaxY+dBorderWidth);
+	lpDC->FillRect( blackR3, &blackBrush );
 
 	CRect r1(m_dFrontViewSectionMinX, m_dFrontViewSectionMinY, m_dFrontViewSectionMaxX, m_dFrontViewSectionMaxY);
 	lpDC->FillRect( r1, &greyBrush );
@@ -287,109 +309,116 @@ void Radar3DWnd::DrawBk( CDC *lpDC )//绘制背景
 	lpDC->FillRect( r2, &greyBrush );
 	CRect r3(m_dHorizontalSectionMinX, m_dHorizontalSectionMinY, m_dHorizontalSectionMaxX, m_dHorizontalSectionMaxY);
 	lpDC->FillRect( r3, &greyBrush );
-	CRect r4(m_dScaleMinX, m_dScaleMinY, m_dScaleMaxX, m_dScaleMaxY);
+	CRect r4(m_dDistanceScaleMinX, m_dDistanceScaleMinY, m_dDistanceScaleMaxX, m_dDistanceScaleMaxY);
 	lpDC->FillRect( r4, &greyBrush );
+	CRect r5(m_dDepthScaleMinX, m_dDepthScaleMinY, m_dDepthScaleMaxX, m_dDepthScaleMaxY);
+	lpDC->FillRect( r5, &greyBrush );
+	CRect r6(m_dTimeWindowScaleMinX, m_dTimeWindowScaleMinY, m_dTimeWindowScaleMaxX, m_dTimeWindowScaleMaxY);
+	lpDC->FillRect( r6, &greyBrush );
 
+	//右排刻度 时窗
+	{
+		int staffWidth = TIMEWINDOW_SCALE_WIDTH;//右排时窗刻度宽度
+		//刻度处的白底
+		lpDC->FillSolidRect(m_dTimeWindowScaleMinX, m_dTimeWindowScaleMinY, m_dTimeWindowScaleMaxX-m_dTimeWindowScaleMinX, m_dTimeWindowScaleMaxY-m_dTimeWindowScaleMinY, RGB( 240, 240, 240 ) );//(左上x、y,宽度，高度，颜色)
+		//参数
+		int dScaleLineLength = staffWidth / 3;
+		CString strMark;
+		CPen pen_staff_vline(PS_SOLID,1,RGB(0,0,0));
+		lpDC->SelectObject(pen_staff_vline);
+		int staffStartX = m_dTimeWindowScaleMinX;
+		//竖直黑线
+		lpDC->MoveTo(staffStartX,m_dTimeWindowScaleMinY);
+		lpDC->LineTo(staffStartX,m_dTimeWindowScaleMaxY);
+		//横黑线
+		int dScaleCount = int( 1 / _sampleRatio * _sampleCount + 0.5 );//横线数量
+		float staffYSpace = (m_dTimeWindowScaleMaxY - m_dTimeWindowScaleMinY) * 1.0f / dScaleCount;//间隔
+		CFont *lpOldFont = lpDC->SelectObject( &_textFont );
+		//纵向刻度尺中的线及数字
+		for(int i = 0;i <= dScaleCount;i ++ ){//<=最后一个数也要
+			if ( i % 10 == 0 ){//纵向刻度尺中的水平长线及数字
+				/*if ( i == dScaleCount ){//最后一根
+					lpDC->MoveTo(staffStartX, m_dTimeWindowScaleMinY + i*staffYSpace - 1);
+					lpDC->LineTo(staffStartX+dScaleLineLength, m_dTimeWindowScaleMinY + i*staffYSpace - 1);
+				}else{
+					lpDC->MoveTo(staffStartX, m_dTimeWindowScaleMinY + i*staffYSpace);
+					lpDC->LineTo(staffStartX + dScaleLineLength, m_dTimeWindowScaleMinY + i*staffYSpace);
+				}*/
+				lpDC->MoveTo(staffStartX, m_dTimeWindowScaleMinY + i*staffYSpace);
+				lpDC->LineTo(staffStartX + dScaleLineLength, m_dTimeWindowScaleMinY + i*staffYSpace);
+				strMark.Format(L"%d", i);	
+				if ( i == 0 ){
+					lpDC->TextOut(staffStartX + dScaleLineLength + 1, m_dTimeWindowScaleMinY + i * staffYSpace, strMark);
+				}else if ( i / 2 == dScaleCount / 2 ){
+					lpDC->TextOut(staffStartX + dScaleLineLength + 1, m_dTimeWindowScaleMinY + i * staffYSpace - 12, strMark);
+				}else{
+					lpDC->TextOut(staffStartX + dScaleLineLength + 1, m_dTimeWindowScaleMinY + i * staffYSpace - 6, strMark);
+				}
+			}else{//纵向刻度尺中的水平短线
+				/*if ( i == dScaleCount ){//最后一根
+					lpDC->MoveTo(staffStartX, m_dTimeWindowScaleMinY + i*staffYSpace - 1);
+					lpDC->LineTo(staffStartX+dScaleLineLength / 2, m_dTimeWindowScaleMinY + i*staffYSpace - 1);
+				}else{
+					lpDC->MoveTo(staffStartX, m_dTimeWindowScaleMinY + i*staffYSpace);
+					lpDC->LineTo(staffStartX+dScaleLineLength / 2, m_dTimeWindowScaleMinY + i*staffYSpace);
+				}*/
+				lpDC->MoveTo(staffStartX, m_dTimeWindowScaleMinY + i*staffYSpace);
+				lpDC->LineTo(staffStartX+dScaleLineLength / 2, m_dTimeWindowScaleMinY + i*staffYSpace);
+			}
+		}
+	}
 
-	///*-----------------------开始刻画波形图背景-----------------------*/
-	//CBrush brushCurvRect(RGB(75,75,75));//波形图背景浅黑色
-	//CRect rectCurvRect(curvRectX1,curvRectY1 ,curvRectX2,curvRectY2);
-	//lpDC->FillRect(rectCurvRect,&brushCurvRect);
-	////算多少条线
-	//int xLineCount = ( curvRectX2 - curvRectX1 ) / GRID_SPACE;
-	//int yLineCount = ( curvRectY2 - curvRectY1 ) / GRID_SPACE ;
-	//int curvRectInterP5 = xLineCount / 10.0 *3.0 ;
-
-	////bg-grid-vertical 背景网格中的绿竖线
-	//CPen pen_grid_vert(PS_DOT,1,RGB(105,255,105));//绿色竖线
-	//lpDC->SelectObject(pen_grid_vert);
-	//lpDC->SetBkMode(TRANSPARENT);
-	//for(int i=1;i<xLineCount;++i){
-	//	lpDC->MoveTo(curvRectX1 + i * GRID_SPACE, curvRectY1);
-	//	lpDC->LineTo(curvRectX1 + i * GRID_SPACE, curvRectY2);
-	//}
-
-	////bg-grid-mid 背景网格中的红中线
-	//CPen pen_grid_mid(PS_DOT,1,RGB(255,105,105));//红色中线
-	//lpDC->SelectObject(pen_grid_mid);
-	//lpDC->MoveTo(curvRectX1+GRID_SPACE/2.0*xLineCount,curvRectY1);
-	//lpDC->LineTo(curvRectX1+GRID_SPACE/2.0*xLineCount,curvRectY2);
-
-	////bg-grid-horizon 背景网格中的绿横线
-	//CPen pen_grid_hori(PS_DOT,1,RGB(105,255,105));//绿色横线
-	//lpDC->SelectObject(pen_grid_hori);
-	//lpDC->SetBkMode(TRANSPARENT);
-	//for(int i=1;i<=yLineCount;++i)
-	//{
-	//	lpDC->MoveTo(curvRectX1,curvRectY1+i * GRID_SPACE);
-	//	lpDC->LineTo(curvRectX2,curvRectY1+i * GRID_SPACE);
-	//}
-
-	////右排刻度 时窗
-	//int staffWidth = TIME_STAFF_WIDTH;//右排时窗刻度宽度
-	////刻度处的白底
-	////lpDC->FillSolidRect( curvRectX2, curvRectY1, TIME_STAFF_WIDTH, curvRectY2 - curvRectY1, RGB( 255, 255, 255 ) );//(左上x、y,宽度，高度，颜色)
-	//lpDC->FillSolidRect( curvRectX2, curvRectY1, TIME_STAFF_WIDTH, curvRectY2 - curvRectY1, RGB( 240, 240, 240 ) );//(左上x、y,宽度，高度，颜色)
-	////参数
-	//int curStaffCxLen = staffWidth / 3;
-	//CString strMark;
-	//CPen pen_staff_vline(PS_SOLID,1,RGB(0,0,0));
-	//lpDC->SelectObject(pen_staff_vline);
-	//int staffStartX = curvRectX2 + 2;
-	////竖直黑线
-	//lpDC->MoveTo(staffStartX,curvRectY1);
-	//lpDC->LineTo(staffStartX,curvRectY2);
-	////横黑线
-	//int count = int( 1 / _sampleRatio * _sampleCount + 0.5 );//横线数量
-	//float staffYSpace = (curvRectY2 - curvRectY1) * 1.0f / count;//间隔
-	//CFont *lpOldFont = lpDC->SelectObject( &_textFont );
-	//count += 1;
-	////纵向刻度尺中的线及数字
-	//for(int i = 0;i <= count;i ++ ){
-	//	if ( i % 10 == 0 ){//纵向刻度尺中的水平长线及数字
-	//		if ( i == count ){
-	//			lpDC->MoveTo(staffStartX, curvRectY1 + i*staffYSpace - 1);
-	//			lpDC->LineTo(staffStartX+curStaffCxLen, curvRectY1 + i*staffYSpace - 1);
-	//		}else{
-	//			lpDC->MoveTo(staffStartX, curvRectY1 + i*staffYSpace);
-	//			lpDC->LineTo(staffStartX + curStaffCxLen, curvRectY1 + i*staffYSpace);
-	//		}
-	//		strMark.Format(L"%d", i);	
-	//		if ( i == 0 ){
-	//			lpDC->TextOut(staffStartX + curStaffCxLen + 1, curvRectY1 + i * staffYSpace, strMark);
-	//		}else if ( i / 2 == count / 2 ){
-	//			lpDC->TextOut(staffStartX + curStaffCxLen + 1, curvRectY1 + i * staffYSpace - 12, strMark);
-	//		}else{
-	//			lpDC->TextOut(staffStartX + curStaffCxLen + 1, curvRectY1 + i * staffYSpace - 6, strMark);
-	//		}
-	//	}else{//纵向刻度尺中的水平短线
-	//		if ( i == count ){
-	//			lpDC->MoveTo(staffStartX, curvRectY1 + i*staffYSpace - 1);
-	//			lpDC->LineTo(staffStartX+curStaffCxLen / 2, curvRectY1 + i*staffYSpace - 1);
-	//		}else{
-	//			lpDC->MoveTo(staffStartX, curvRectY1 + i*staffYSpace);
-	//			lpDC->LineTo(staffStartX+curStaffCxLen / 2, curvRectY1 + i*staffYSpace);
-	//		}
-	//	}
-	//}
-	///*-----------------------结束波形图背景刻画-----------------------*/
-
-	//lpDC->SelectObject( lpOldFont );//？
-	
-
-	////波形图区域XY
-	//_curveMinX = curvRectX1;
-	//_curveMaxX = curvRectX2;
-	//_curveMinY = curvRectY1;
-	//_curveMaxY = curvRectY2;
-	////波谱图区域XY
-	//_sectionMinX = 0;
-	//_sectionMaxX = curvRectX1;
-	//_sectionMinY = curvRectY1;
-	//_sectionMaxY = curvRectY2;
-	////距离刻度区域Y(X与波普图一样)
-	//_staffMinY = 0;
-	//_staffMaxY = curvRectY1;
+	//左排刻度 深度
+	{
+		int staffWidth = DEPTH_SCALE_WIDTH;//右排时窗刻度宽度
+		//刻度处的白底
+		lpDC->FillSolidRect(m_dDepthScaleMinX, m_dDepthScaleMinY, m_dDepthScaleMaxX-m_dDepthScaleMinX, m_dDepthScaleMaxY-m_dDepthScaleMinY, RGB( 240, 240, 240 ) );//(左上x、y,宽度，高度，颜色)
+		//参数
+		int dScaleLineLength = staffWidth / 3;
+		CString strMark;
+		CPen pen_staff_vline(PS_SOLID,1,RGB(0,0,0));
+		lpDC->SelectObject(pen_staff_vline);
+		int staffStartX = m_dDepthScaleMaxX;
+		//竖直黑线
+		lpDC->MoveTo(staffStartX,m_dDepthScaleMinY);
+		lpDC->LineTo(staffStartX,m_dTimeWindowScaleMaxY);
+		//横黑线
+		int dScaleCount = int( 100 *(1 / _sampleRatio * _sampleCount / sqrt(m_fDielectric) * 0.15) + 0.5);//横线数量
+		float staffYSpace = (m_dTimeWindowScaleMaxY - m_dDepthScaleMinY) * 1.0f / dScaleCount;//间隔
+		CFont *lpOldFont = lpDC->SelectObject( &_textFont );
+		//纵向刻度尺中的线及数字
+		for(int i = 0;i <= dScaleCount;i ++ ){//<=最后一个数也要
+			if ( i % 100 == 0 ){//纵向刻度尺中的水平长线及数字
+				/*if ( i == dScaleCount ){//最后一根
+					lpDC->MoveTo(staffStartX, m_dDepthScaleMinY + i*staffYSpace - 1);
+					lpDC->LineTo(staffStartX+dScaleLineLength, m_dDepthScaleMinY + i*staffYSpace - 1);
+				}else{
+					lpDC->MoveTo(staffStartX, m_dDepthScaleMinY + i*staffYSpace);
+					lpDC->LineTo(staffStartX + dScaleLineLength, m_dDepthScaleMinY + i*staffYSpace);
+				}*/
+				lpDC->MoveTo(staffStartX, m_dDepthScaleMinY + i*staffYSpace);
+				lpDC->LineTo(staffStartX - dScaleLineLength, m_dDepthScaleMinY + i*staffYSpace);
+				strMark.Format(L"%d", i/100);	
+				if ( i == 0 ){//第一个刻度
+					lpDC->TextOut( m_dDepthScaleMinX, m_dDepthScaleMinY + i * staffYSpace, strMark);
+				}else if ( i / 2 == dScaleCount / 2 ){//最后一个刻度
+					lpDC->TextOut( m_dDepthScaleMinX, m_dDepthScaleMinY + i * staffYSpace - 12, strMark);
+				}else{
+					lpDC->TextOut( m_dDepthScaleMinX, m_dDepthScaleMinY + i * staffYSpace - 6, strMark);
+				}
+			}else if( i % 10 == 0){//纵向刻度尺中的水平短线
+				/*if ( i == dScaleCount ){//最后一根
+					lpDC->MoveTo(staffStartX, m_dDepthScaleMinY + i*staffYSpace - 1);
+					lpDC->LineTo(staffStartX+dScaleLineLength / 2, m_dDepthScaleMinY + i*staffYSpace - 1);
+				}else{
+					lpDC->MoveTo(staffStartX, m_dDepthScaleMinY + i*staffYSpace);
+					lpDC->LineTo(staffStartX+dScaleLineLength / 2, m_dDepthScaleMinY + i*staffYSpace);
+				}*/
+				lpDC->MoveTo(staffStartX, m_dDepthScaleMinY + i*staffYSpace);
+				lpDC->LineTo(staffStartX - dScaleLineLength / 2, m_dDepthScaleMinY + i*staffYSpace);
+			}
+		}
+	}
 }
 
 void Radar3DWnd::DrawScaleFlag( CDC *lpDC )
@@ -630,10 +659,10 @@ void Radar3DWnd::DrawSection( CDC *lpDC, int newData, int channelIndex, int dept
 
 	//上方刻度
 	CRect scaleRect;
-	scaleRect.left = m_dScaleMinX;
-	scaleRect.right = m_dScaleMaxX;
-	scaleRect.top = m_dScaleMinY;
-	scaleRect.bottom = m_dScaleMaxY;
+	scaleRect.left = m_dDistanceScaleMinX;
+	scaleRect.right = m_dDistanceScaleMaxX;
+	scaleRect.top = m_dDistanceScaleMinY;
+	scaleRect.bottom = m_dDistanceScaleMaxY;
 
 	lpDC->FillRect( scaleRect, &_staffBrush );//刻度白底
 
@@ -652,7 +681,7 @@ void Radar3DWnd::DrawSection( CDC *lpDC, int newData, int channelIndex, int dept
 	sectionRect.bottom = m_dVerticalSectionMaxY;
 
 
-	CBrush blackBruh( RGB( 0, 0, 0 ) );
+	CBrush blackBrush( RGB( 0, 0, 0 ) );
 	CBrush greyBrush(RGB(240,240,240));
 	if (!_bmpDCSource.isInit() || _needReinit){//_bmpDCSource是自己定义的CBmpDC类的对象，用于把dc存到bmp里的
 		_bmpDCSource.init( _lpDC, sectionRect );
@@ -669,9 +698,9 @@ void Radar3DWnd::DrawSection( CDC *lpDC, int newData, int channelIndex, int dept
 	//距离刻度横线
 	CPen *lpOldPen = lpDC->SelectObject( &_staffPen );
 	CFont *lpOldFont = lpDC->SelectObject( &_textFont );
-	int scaleBaseLineY = m_dScaleMaxY - 5;
-	lpDC->MoveTo( m_dScaleMinX, scaleBaseLineY );
-	lpDC->LineTo( m_dScaleMaxX, scaleBaseLineY );
+	int scaleBaseLineY = m_dDistanceScaleMaxY - 5;
+	lpDC->MoveTo( m_dDistanceScaleMinX, scaleBaseLineY );
+	lpDC->LineTo( m_dDistanceScaleMaxX, scaleBaseLineY );
 	
 	RadarData *rd = NULL;
 	//RadarDataVector::reverse_iterator it;//反向迭代器 rend()是第一个元素 rbegin是最后一个元素的下一个位置 指向位置下一位的值 [0,1,2,3]的rpos[1]=2
@@ -696,10 +725,10 @@ void Radar3DWnd::DrawSection( CDC *lpDC, int newData, int channelIndex, int dept
 		if ( x % 50 == 0 ){//隔50像素画一个
 			short r = rd->getPrec();
 			lpDC->MoveTo( x, scaleBaseLineY );
-			lpDC->LineTo( x, m_dScaleMinY  + SCALE_HEIGHT / 4.0f * 3 );
+			lpDC->LineTo( x, m_dDistanceScaleMinY  + DISTANCE_SCALE_HEIGHT / 4.0f * 3 );
 			CString str;
 			str.Format( L"%0.2f", rd->getPrecLen() );//获取要绘制的距离 "%0.2f"保留两位小数
-			CRect rtext( x - 25, m_dScaleMinY + 10, x + 25, m_dScaleMinY + SCALE_HEIGHT / 4.0f * 3 );//（left,button,right,top）
+			CRect rtext( x - 25, m_dDistanceScaleMinY + 10, x + 25, m_dDistanceScaleMinY + DISTANCE_SCALE_HEIGHT / 4.0f * 3 );//（left,button,right,top）
 			lpDC->DrawText( str, rtext, DT_CENTER | DT_BOTTOM );//绘制距离
 		}
 
@@ -863,11 +892,10 @@ void Radar3DWnd::DrawSection( CDC *lpDC, int newData, int channelIndex, int dept
 	lpDC->SelectObject( lpOldPen );
 	lpDC->SelectObject( lpOldFont );
 
-	/*
-	CRect r1(m_dScaleMinX,m_dScaleMaxY,m_dScaleMaxX,m_dHorizontalSectionMinY);
-	lpDC->FillRect( r1, &greyBrush );
-	*/
-	CRect r2(m_dScaleMinX,m_dHorizontalSectionMaxY,m_dScaleMaxX,m_dVerticalSectionMinY);
+	
+	CRect r1(m_dDistanceScaleMinX,m_dHorizontalSectionMaxY,m_dDistanceScaleMaxX,m_dVerticalSectionMinY);
+	lpDC->FillRect( r1, &blackBrush );
+	CRect r2(m_dDistanceScaleMinX,m_dHorizontalSectionMaxY+2,m_dDistanceScaleMaxX,m_dVerticalSectionMinY-2);
 	lpDC->FillRect( r2, &greyBrush );
 	
 
