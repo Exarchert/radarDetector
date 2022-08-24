@@ -16,8 +16,9 @@ IMPLEMENT_DYNAMIC(CDialogThreeView, CDialog)
 CDialogThreeView::CDialogThreeView( CWnd* pParent /*=NULL*/)
 	: CDialog(CDialogThreeView::IDD, pParent)
 {
-	m_dChannelIndex=1;
+	m_dChannelIndex=0;
 	m_dDepthIndex=0;
+	m_bAutoDisplay=false;
 	//_cfgGroupName = "curchannel";
 	//
 	
@@ -73,7 +74,10 @@ void CDialogThreeView::DoDataExchange(CDataExchange* pDX)
 	CDialog::DoDataExchange(pDX);
 	DDX_Control( pDX, IDC_3D, m_3DWnd);
 	DDX_Text(pDX, IDC_EDIT_CHANNEL, m_dChannelIndex );//纵剖面对应通道
+	DDX_Control(pDX, IDC_COMBO_CHANNEL, m_comboBoxChannel);//纵剖面对应通道
 	DDX_Text(pDX, IDC_EDIT_DEPTH, m_dDepthIndex );//横切面对应深度
+	DDX_Check(pDX, IDC_CHECK_AUTODISPLAY, m_bAutoDisplay);
+	DDX_Control( pDX, IDC_STATIC_CURRENTCHANNEL, m_csCurrentChannel);//hjl6.5 用于定时更新经纬度
 	/*
 	
 	DDX_Control( pDX, IDC_CURVE_01, _curveWnd[1]);
@@ -152,31 +156,65 @@ BEGIN_MESSAGE_MAP(CDialogThreeView, CDialog)
 //ON_EN_KILLFOCUS(IDC_EDIT_CHANNEL, &CDialogThreeView::OnEnKillfocusEditChannel)
 //ON_EN_KILLFOCUS(IDC_EDIT_DEPTH, &CDialogThreeView::OnEnKillfocusEditDepth)
 ON_BN_CLICKED(IDC_BUTTON_SWITCH, &CDialogThreeView::OnBnClickedButtonSwitch)
+ON_BN_CLICKED(IDC_CHECK_AUTODISPLAY, &CDialogThreeView::OnBnClickedCheckAutodisplay)
 END_MESSAGE_MAP()
 
 
+/*std::string intToString(int n){
+	std::stringstream ss;
+	ss<<n;
+	return ss.str();
+}*/
 // CDialogCurCurve 消息处理程序
 
 BOOL CDialogThreeView::OnInitDialog()
 {
 	CDialog::OnInitDialog();
 
-	//m_pMenu.LoadMenu(IDR_MENU_SHOW_CHANNEL);
+	ConfigureSet *lpSet = RadarManager::Instance()->getConfigureSet();
+	
+	m_dChannelIndex=atoi( lpSet->get("threeDWindow", "selectedChannelIndex").c_str());
+	m_dDepthIndex=atoi( lpSet->get("threeDWindow", "selectedDepth").c_str());
 
-	//std::vector<int> pChannelRemoved = RemoveChannels();
+	int nTotalChannelCountIndex = atoi(lpSet->get("radar", "channelCount").c_str());
+	int nSampleNumIndex = atoi ( lpSet->get("radar", "sample").c_str());
+	int nSampleRateIndex = atoi ( lpSet->get("radar", "sampleratio" ).c_str() );
+	int nDielectricIndex = atoi ( lpSet->get("radar", "dielectric" ).c_str() );
+	
+	m_3DWnd.SetChannelCount( RadarManager::Instance()->getChannelCount( nTotalChannelCountIndex ) );
+	m_3DWnd.SetSampleCount( RadarManager::Instance()->getSampCount( nSampleNumIndex ) );
+	m_3DWnd.SetSampleRatio( RadarManager::Instance()->getSampRatio( nSampleRateIndex, 0 ) );
+	m_3DWnd.SetDielectric( RadarManager::Instance()->getDielectric( nDielectricIndex ) );
+	m_3DWnd.setChannelIndex(m_dChannelIndex);
+	m_3DWnd.setDepthIndex(m_dDepthIndex);
 
-	//for (int i = pChannelRemoved.size()-1; i > -1; i--){//删了之后总index也变了 所以从最小删到最大会出错 需从最大删到最小
-	//	//int转string
-	//	std::stringstream ss;
-	//	ss<<pChannelRemoved[i];
-	//	int menuIndex;
-	//	ss>>menuIndex;
-	//	//去除菜单
-	//	BOOL removeResult = m_pMenu.GetSubMenu(0)->RemoveMenu(menuIndex,MF_BYPOSITION);
-	//	if(!removeResult){::AfxMessageBox(L"通道控制失效！" );}
-	//}
-
-	// TODO:  在此添加额外的初始化
+	std::string vecStrTemp[28]={"01","02","03","04","05","06","07","08","09","10","11","12","13","14","15","16","17","18","19","20","21","22","23","24","25","26","27","28"};
+	int nChannelCount=RadarManager::Instance()->getChannelCount( nTotalChannelCountIndex );
+	if(nChannelCount==16){
+		for (int i=0;i<28;i++){
+			CString cstrTemp;
+			cstrTemp=vecStrTemp[i].c_str();
+			m_comboBoxChannel.AddString(cstrTemp);
+		}
+	}else{
+		for (int i=0;i<nChannelCount;i++){
+			CString cstrTemp;
+			cstrTemp=vecStrTemp[i].c_str();
+			m_comboBoxChannel.AddString(cstrTemp);
+		}
+	}
+	if(m_dChannelIndex<nChannelCount){
+		m_comboBoxChannel.SetCurSel ( m_dChannelIndex );
+	}else{//上一次用16这次用了6 所选通道数大于本次使用最大通道数的时候
+		m_dChannelIndex=0;
+		{
+			std::stringstream ss;
+			ss << m_dDepthIndex;
+			lpSet->set("threeDWindow", "selectedChannelIndex", ss.str());
+		}
+		lpSet->write();
+		m_comboBoxChannel.SetCurSel ( m_dChannelIndex );
+	}
 	
 	int nScreenWidth, nScreenHeight;  
 	nScreenWidth = GetSystemMetrics(SM_CXSCREEN);  
@@ -187,30 +225,24 @@ BOOL CDialogThreeView::OnInitDialog()
 	}
 	MoveWindow( 0, nScreenHeight*2 + 50, nScreenWidth/2, nScreenHeight*2 );
 
-
-	ConfigureSet *lpSet = RadarManager::Instance()->getConfigureSet();
-	int dSmpNumIndex = atoi ( lpSet->get("radar", "sample").c_str());
-	int dSampRateIndex = atoi ( lpSet->get("radar", "sampleratio" ).c_str() );
-	int dDielectricIndex = atoi ( lpSet->get("radar", "dielectric" ).c_str() );
-	
-	m_3DWnd.SetSampleCount( RadarManager::Instance()->getSampCount( dSmpNumIndex ) );
-	m_3DWnd.SetSampleRatio( RadarManager::Instance()->getSampRatio( dSampRateIndex, 0 ) );
-	m_3DWnd.SetDielectric( RadarManager::Instance()->getDielectric( dDielectricIndex ) );
-	m_3DWnd.setChannelIndex(m_dChannelIndex-1);
-	m_3DWnd.setDepthIndex(m_dDepthIndex);
-
-	for(int i=0;i<12;i++){
+	for(int i=0;i<16;i++){
 		std::stringstream ss;
 		ss << i;
 		m_3DWnd.setCorrection( atoi( lpSet->get("correction", ss.str()).c_str() ), i );
 	}
 
+	time_t mytime = time(NULL);
+	m_3DWnd.setStartTime(mytime);
+	m_3DWnd.setAutoDisplayFlag(false);
+
 	m_3DWnd.StartDraw();
 	m_3DWnd.ShowWindow( SW_SHOW );
 
 	resizeChannelWnd();
+	m_cstrCurrentChannel.Format(L"当前通道：%d",m_dChannelIndex+1);	
+	m_csCurrentChannel.SetWindowText( m_cstrCurrentChannel );
 
-	//UpdateData( FALSE );
+	UpdateData( FALSE );
 
 	return TRUE;  // return TRUE unless you set the focus to a control
 	// 异常: OCX 属性页应返回 FALSE
@@ -248,46 +280,25 @@ void CDialogThreeView::resizeChannelWnd(){
 	m_3DWnd.MoveWindow( 0, 25, fullRect.Width(), fullRect.Height()-25 );
 }
 
-//void CDialogThreeView::OnEnKillfocusEditChannel(){
-//	UpdateData( FALSE );
-//	if(m_dChannelIndex>12){
-//		m_dChannelIndex=12;
-//	}
-//	if(m_dChannelIndex<1){
-//		m_dChannelIndex=1;
-//	}
-//	m_3DWnd.setChannelIndex(m_dChannelIndex-1);
-//	UpdateData( FALSE );
-//}
-
-//void CDialogThreeView::OnEnKillfocusEditDepth(){
-//	UpdateData( FALSE );
-//	ConfigureSet *lpSet = RadarManager::Instance()->getConfigureSet();
-//	int iSmpNum = atoi ( lpSet->get("radar", "sample").c_str());
-//	if(m_dDepthIndex>iSmpNum-5){
-//		m_dDepthIndex=iSmpNum-5;
-//	}
-//	if(m_dDepthIndex<0){
-//		m_dDepthIndex=0;
-//	}
-//	m_3DWnd.setDepthIndex(m_dDepthIndex);
-//	UpdateData( FALSE );
-//}
-
 
 void CDialogThreeView::OnBnClickedButtonSwitch()
 {
-	// TODO: 在此添加控件通知处理程序代码
+	ConfigureSet *cfgSet = RadarManager::Instance()->getConfigureSet();
+
 	UpdateData( TRUE );
-	if(m_dChannelIndex>12){
-		m_dChannelIndex=12;
+	m_bAutoDisplay=false;
+	m_3DWnd.setAutoDisplayFlag(m_bAutoDisplay);
+	m_dChannelIndex=m_comboBoxChannel.GetCurSel();
+	m_3DWnd.setArtificialFlag(false);
+	if(m_dChannelIndex>=12){
+		m_3DWnd.setArtificialFlag(true);
 	}
-	if(m_dChannelIndex<1){
-		m_dChannelIndex=1;
-	}
-	m_3DWnd.setChannelIndex(m_dChannelIndex-1);
-	ConfigureSet *lpSet = RadarManager::Instance()->getConfigureSet();
-	int iSmpNum = RadarManager::Instance()->getSampCount( atoi ( lpSet->get("radar", "sample").c_str()) );
+	/*if(m_dChannelIndex>=16){
+		m_dChannelIndex=m_dChannelIndex-16;
+	}*/
+	m_3DWnd.setChannelIndex(m_dChannelIndex);
+	
+	int iSmpNum = RadarManager::Instance()->getSampCount( atoi ( cfgSet->get("radar", "sample").c_str()) );
 	if(m_dDepthIndex>iSmpNum-5){
 		m_dDepthIndex=iSmpNum-5;
 	}
@@ -296,4 +307,33 @@ void CDialogThreeView::OnBnClickedButtonSwitch()
 	}
 	m_3DWnd.setDepthIndex(m_dDepthIndex);
 	UpdateData( FALSE );
+
+	//储存通道跟深度的选择
+	{
+		std::stringstream ss;
+		ss << m_dChannelIndex;
+		cfgSet->set("threeDWindow", "selectedChannelIndex", ss.str());
+	}
+	{
+		std::stringstream ss;
+		ss << m_dDepthIndex;
+		cfgSet->set("threeDWindow", "selectedDepth", ss.str());
+	}
+	cfgSet->write();
+
+	//显示当前显示的通道index
+	setCurrentIndexDisplay(m_dChannelIndex);
+}
+
+void CDialogThreeView::OnBnClickedCheckAutodisplay()
+{
+	UpdateData( TRUE );
+	m_3DWnd.setAutoDisplayFlag(m_bAutoDisplay);
+	UpdateData( FALSE );
+}
+
+void CDialogThreeView::setCurrentIndexDisplay( int currentChannelIndex )
+{
+	m_cstrCurrentChannel.Format(L"当前通道：%d",currentChannelIndex+1);	
+	m_csCurrentChannel.SetWindowText( m_cstrCurrentChannel );
 }

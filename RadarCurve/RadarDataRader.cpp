@@ -515,7 +515,7 @@ void RadarDataRader::parseHeadData( char *buff, int len )
 			if ((index*2+1)!= 15){
 				lpManager->setChannelName( name, RadarManager::Instance()->originalIndexToRecordIndex(RadarManager::Instance()->getArtificalChannelIndexFromOriginalIndex(index*2+1)));//16通道里一个表示两个
 			}*/
-
+			/*
 			if (index<6){
 				lpManager->setChannelName( name, index*2 );//16通道里一个表示两个
 				lpManager->setChannelName( name, index*2+1 );//16通道里一个表示两个
@@ -524,6 +524,12 @@ void RadarDataRader::parseHeadData( char *buff, int len )
 			}else{
 				lpManager->setChannelName( name, index*2+12 );//16通道里一个表示两个
 				lpManager->setChannelName( name, index*2+13 );//16通道里一个表示两个
+			}*/
+			lpManager->setChannelName( name, index*2 );//16通道里一个表示两个
+			lpManager->setChannelName( name, index*2+1 );//16通道里一个表示两个
+			if(index<6){
+				lpManager->setChannelName( name, index*2+16 );//16通道里一个表示两个
+				lpManager->setChannelName( name, index*2+17 );//16通道里一个表示两个
 			}
 
 			std::string strRatio;
@@ -767,12 +773,17 @@ void RadarDataRader::parseData()
 		}
 		
 		if(addFlag){
-			if(index<12){
+			/*if(index<12){
 				RadarManager::Instance()->addRadarDataToProject( rd.get(), index );
 				RadarManager::Instance()->addRadarDataToDisplay( rd.get(), index+12 );
 				RadarManager::Instance()->addRadarDataToThreeViewDialog( rd.get(), index );
 			}else{
 				RadarManager::Instance()->addRadarDataToProject( rd.get(), index+12 );
+			}*/
+			RadarManager::Instance()->addRadarDataToProject( rd.get(), index );
+			RadarManager::Instance()->addRadarDataToThreeViewDialog( rd.get(), index );
+			if(index<12){
+				RadarManager::Instance()->addRadarDataToDisplay( rd.get(), index+16 );
 			}
 		}
 		//if(index!=15){
@@ -1906,6 +1917,8 @@ void RadarDataRader::MarkOne()
 }
 */
 
+//待修改
+/*
 void RadarDataRader::Mark(int numberOne, int numberTwo)
 {
 	//unsigned char *lpDataBuff = _dataBuf.getData();
@@ -1954,11 +1967,10 @@ void RadarDataRader::Mark(int numberOne, int numberTwo)
 		break;
 	case RADAR_WORK_TYPE_EIGHT:
 		{
-			/*
-			int tempArr[MAX_CHANNEL];
-			for (int i=0;i<MAX_CHANNEL;i++){
-				tempArr[i]=RadarManager::Instance()->int_Check_Channel[i];
-			}*/
+			//int tempArr[MAX_CHANNEL];
+			//for (int i=0;i<MAX_CHANNEL;i++){
+			//	tempArr[i]=RadarManager::Instance()->int_Check_Channel[i];
+			//}
 
 			//={RadarManager::Instance()->int_Check_Channel1,RadarManager::Instance()->int_Check_Channel2,RadarManager::Instance()->int_Check_Channel3,RadarManager::Instance()->int_Check_Channel4,RadarManager::Instance()->int_Check_Channel5,RadarManager::Instance()->int_Check_Channel6,RadarManager::Instance()->int_Check_Channel7,RadarManager::Instance()->int_Check_Channel8};
 			for (int index=0;index<16;index++){//13-24是由1-12复制的 所以在标记的时候不用管13-24
@@ -1978,7 +1990,93 @@ void RadarDataRader::Mark(int numberOne, int numberTwo)
 	}
 	delete[] temp;
 }
+*/
 
+void RadarDataRader::Mark(int markValue){
+	//开始的8个字节的数据为数据头里的信息 测量轮、电压之类的
+	short *temp = new short[_sampleCount];
+	for ( int i=0;i<4;i++){
+		temp[i]=0;
+	}
+	//剩下的数据为雷达数据
+	for ( int i=4;i<_sampleCount;i++){
+		temp[i]=markValue;
+	}
+
+	unsigned char *lpDataBuff = (unsigned char *)temp;
+
+	osg::ref_ptr<RadarData> rd = new RadarData;
+	rd->SetBufLength(_sampleCount*2);
+	rd->setSampleCount( _sampleCount );//采样点数
+	rd->setSampleRatio( _sampleRatio );//采样率
+
+	rd->AddDataToEnd(&lpDataBuff[ 0 ],_sampleCount*2);
+
+	switch (RadarManager::Instance()->GetRadarWorkType()){
+		case RADAR_WORK_TYPE_ONE_USB:
+			RadarManager::Instance()->addRadarDataToProject( rd.get(), 0 );
+			break;
+		case RADAR_WORK_TYPE_DOUBLE_USB:
+			RadarManager::Instance()->addRadarDataToProject( rd.get(), 0 );
+			RadarManager::Instance()->addRadarDataToProject( rd.get(), 1 );
+			break;
+		case RADAR_WORK_TYPE_DOUBLE_USB_OLD:
+			RadarManager::Instance()->addRadarDataToProject( rd.get(), 0 );
+			RadarManager::Instance()->addRadarDataToProject( rd.get(), 1 );
+			break;
+		case RADAR_WORK_TYPE_FOUR_USB:
+			RadarManager::Instance()->addRadarDataToProject( rd.get(), 0 );
+			RadarManager::Instance()->addRadarDataToProject( rd.get(), 1 );
+			RadarManager::Instance()->addRadarDataToProject( rd.get(), 2 );
+			RadarManager::Instance()->addRadarDataToProject( rd.get(), 3 );
+			break;
+		case RADAR_WORK_TYPE_EIGHT:
+			{//用于解决initialization of "cfg" is skipped by 'default' label
+				ConfigureSet *cfg = RadarManager::Instance()->getConfigureSet();
+				int dSaveFileType = atoi( cfg->get("radar", "saveFileType").c_str() );
+				if(dSaveFileType==0){
+					for (int i=0;i<8;i++){
+						if (RadarManager::Instance()->int_Check_Channel[i]==1){
+							RadarManager::Instance()->addRadarDataToProject( rd.get(), i );
+						}
+					}
+				}else if(dSaveFileType==1){
+					for (int index=0;index<16;index++){//13-24是由1-12复制的 所以在标记的时候不用管13-24
+						RadarManager::Instance()->addRadarDataToProject( rd.get(), index );
+						if(index<12){
+							RadarManager::Instance()->addRadarDataToDisplay( rd.get(), index+16 );
+						}
+						/*if (RadarManager::Instance()->int_Check_Channel[index]==1){
+							//if (index<12){
+							//	RadarManager::Instance()->addRadarDataToDisplay( rd.get(), index);
+							//}else{
+							//	RadarManager::Instance()->addRadarDataToProject( rd.get(), index+16 );
+							//}
+							RadarManager::Instance()->addRadarDataToProject( rd.get(), index );
+							if(index<12){
+								RadarManager::Instance()->addRadarDataToDisplay( rd.get(), index+16 );
+							}
+						}*/
+					}
+				}
+			}
+			/*
+			int tempArr[MAX_CHANNEL];
+			for (int i=0;i<MAX_CHANNEL;i++){
+				tempArr[i]=RadarManager::Instance()->int_Check_Channel[i];
+			}*/
+
+			//={RadarManager::Instance()->int_Check_Channel1,RadarManager::Instance()->int_Check_Channel2,RadarManager::Instance()->int_Check_Channel3,RadarManager::Instance()->int_Check_Channel4,RadarManager::Instance()->int_Check_Channel5,RadarManager::Instance()->int_Check_Channel6,RadarManager::Instance()->int_Check_Channel7,RadarManager::Instance()->int_Check_Channel8};
+			
+			
+			break;
+		default:
+			break;
+	}
+	delete[] temp;
+}
+
+/*
 short getFirstValueFromRadarDataValue(int markValue){//第一个数必须是正数 否则-1=255 -2=254
 	if(markValue>=0){
 		if (markValue<256){
@@ -2009,6 +2107,7 @@ short getSecondValueFromRadarDataValue(int markValue){
 		return -markValue/(-256);
 	}
 }
+*/
 
 /*
 void RadarDataRader::artificializeRadarData(int originalIndex)

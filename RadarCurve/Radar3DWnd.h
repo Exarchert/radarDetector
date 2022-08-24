@@ -18,6 +18,7 @@ public:
 	Radar3DWnd();
 	virtual ~Radar3DWnd();
 
+	void SetChannelCount( int count );
 	void SetSampleCount( int count );
 	void SetSampleRatio( double value );
 	void SetDielectric( float value );
@@ -31,6 +32,9 @@ public:
 	void setCorrection( int value, int index );
 	void setChannelIndex( int value );
 	void setDepthIndex( int value );
+	void setStartTime( int value );
+	void setArtificialFlag( bool value );
+	void setAutoDisplayFlag( bool value );
 
 	void StartDraw();
 	void EndDraw();
@@ -122,16 +126,21 @@ protected:
 
 	DWORD _maxTime;
 	DWORD _minTime;
-
+	
+	int m_nStartTime;
 
 	int _startPos;
 	int _scaleRatio;
 
+	int m_nChannelCount;
 	int _sampleCount;
 	double _sampleRatio;
 	float m_fDielectric;
 
-	int m_dVecCorrection[12];
+	int m_dVecCorrection[16];
+
+	bool m_bArtificialFlag;
+	bool m_bAutoDisplayFlag;
 
 	int m_dChannelIndex;
 	int m_dDepthIndex;

@@ -234,7 +234,8 @@ GD_VideoShow::GD_VideoShow(CWnd* pParent /*=NULL*/)
 	::GetModuleFileName(AfxGetInstanceHandle(), szAppPath, MAX_PATH);
 	::PathRemoveFileSpec(szAppPath);
 	CString strIni = szAppPath;
-	strIni += L"\\ProjectData\\sysconfig.ini";
+	//strIni += L"\\ProjectData\\sysconfig.ini";
+	strIni += L"\\Radar\\RadarConfig.ini";
 	TCHAR szKeyVal[256];
 	::GetPrivateProfileString(_T("VIDEOSOURCE"),_T("IMAGEPATH"),_T(""), szKeyVal, MAX_PATH, strIni);
 	m_cPatrFile = szAppPath;

@@ -51,7 +51,8 @@ CString  g_strShowDataName;
 	 ::PathRemoveFileSpec(szAppPath);
 
 	 CString strIni = szAppPath;
-	 strIni += L"\\ProjectData\\sysconfig.ini";
+	 //strIni += L"\\ProjectData\\sysconfig.ini";
+	 strIni += L"\\Radar\\RadarConfig.ini";
 	 TCHAR szKeyVal[256];
 	 ZeroMemory(szKeyVal,256*sizeof(TCHAR));
 	 ::GetPrivateProfileString(_T("WINEXEC"),_T("DISPOSEDATAPATH"),_T(""), szKeyVal, MAX_PATH, strIni);

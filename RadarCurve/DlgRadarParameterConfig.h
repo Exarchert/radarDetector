@@ -27,7 +27,8 @@ private:
 	CString m_cstrFtpAccount;
 	CString m_cstrFtpPassword;
 
-	CString m_id;
+	//CString m_id;
+	CComboBox m_ComboBoxChannelCount;
 	CComboBox m_dielectricComboBox;
 	CComboBox m_sampleComboBox;
 	CComboBox m_sampleRatioComboBox;
@@ -38,12 +39,18 @@ private:
 	//CSliderCtrl m_delaySlider;
 	//CEdit m_delayValue;
 	int m_delayValue;
-	CComboBox m_addCountComboBox;
+	//CComboBox m_addCountComboBox;
 	CComboBox m_testTypeComboBox;
-	short m_channelCount;
+	//short m_channelCount;
 	int m_precision;
 	float m_precLen;
-	int m_precRatio;
+	//int m_precRatio;
+	CComboBox m_ComboBoxUploadType;
+	//CComboBox m_ComboBoxAutoSeperate;
+	CComboBox m_ComboBoxSeperateType;
+	int m_dTimeInterval;
+	int m_dWheelCountInterval;
+	CComboBox m_ComboBoxSaveFileType;
 
 	//CComboBox m_precIndex;
 
@@ -59,6 +66,7 @@ private:
 	CComboBox m_parityBit;//校验位
 	int m_dataBit;//数据位
 	CComboBox m_stopBit;//停止位
+	short m_sGpsFrequency;//gps频率
 
 	//因变量参数
 	float m_timeWindow;
@@ -69,7 +77,11 @@ private:
 	int m_markValue;//自定义标记值
 	
 	//抽道显示
-	int m_diplayExtract;//m_diplayExtract道中抽一道显示
+	int m_displayExtract;//m_displayExtract道中抽一道显示
+
+	//波形过小警告
+	int m_dWarningInterval;//监测间隔
+	int m_dWarningThreshold;//阈值
 
 	ConfigureSet* m_pConfigureSet;
 	OpenThreads::Mutex _lock;
@@ -127,5 +139,17 @@ public:
 	void resizeChannelWnd();//hjl 20210418参数设置波形显示
 	void AddRadarData( RadarData *lpData , int index );//hjl 20210418参数设置波形显示
 
-
+	void refreshControlCondition();//更新控件取值及可修改的状态
+public:
+	afx_msg void OnCbnSelchangeCombo1();
+public:
+	afx_msg void OnCbnEditchangeComboUploadType();
+public:
+	afx_msg void OnCbnSelchangeComboUploadType();
+public:
+	afx_msg void OnCbnCloseupComboUploadType();
+public:
+	afx_msg void OnCbnEditupdateComboUploadType();
+public:
+	afx_msg void OnCbnKillfocusComboUploadType();
 };

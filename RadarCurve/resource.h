@@ -210,6 +210,7 @@
 #define IDC_SPECTRUM1                   1087
 #define IDC_CHECK1                      1089
 #define IDC_CHECK_CHANNEL1              1089
+#define IDC_CHECK_AUTODISPLAY           1089
 #define IDC_CHECK2                      1090
 #define IDC_CHECK_CHANNEL2              1090
 #define IDC_CHECK3                      1091
@@ -368,6 +369,22 @@
 #define IDC_STATIC_CHANNEL              1182
 #define IDC_STATIC_DEPTH                1183
 #define IDC_BUTTON_SWITCH               1184
+#define IDC_COMBO_CHANNEL               1185
+#define IDC_STATIC_CURRENTCHANNEL       1186
+#define IDC_COMBO2                      1187
+#define IDC_COMBO_SAVE_FILE_TYPE        1187
+#define IDC_COMBO_UPLOAD_TYPE           1188
+#define IDC_EDIT_WARNING_INTERVAL       1189
+#define IDC_EDIT26                      1190
+#define IDC_EDIT_WARNING_THRESHOLD      1190
+#define IDC_EDIT_TIME_THRESHOLD         1191
+#define IDC_EDIT_WHEEL_COUNT_THRESHOLD  1192
+#define IDC_COMBO_                      1193
+#define IDC_COMBO_AUTO_SEPERATE         1193
+#define IDC_COMBO_SEPERATE_TYPE         1194
+#define IDC_COMBO_CHANNELCOUNT          1196
+#define IDC_EDIT25                      1197
+#define IDC_EDIT_GPS_FREQUENCY          1197
 #define ID_SHOW_CHANNEL_00              32780
 #define ID_SHOW_CHANNEL_01              32781
 #define ID_SHOW_CHANNEL_02              32782
@@ -437,7 +454,7 @@
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NEXT_RESOURCE_VALUE        1021
 #define _APS_NEXT_COMMAND_VALUE         32834
-#define _APS_NEXT_CONTROL_VALUE         1185
+#define _APS_NEXT_CONTROL_VALUE         1198
 #define _APS_NEXT_SYMED_VALUE           1070
 #endif
 #endif

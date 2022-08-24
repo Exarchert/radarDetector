@@ -12,15 +12,10 @@ RadarData::RadarData(void)
 	_receiveTime = GetTickCount();
 
 	_realWheelCount = 0;
-
 	_sampleCount = 0;
-
 	_sampleRatio = 0;
-
 	_precLen = 0.0;
-
 	_mark = false;
-
 	_len = 0.0f;
 }
 
@@ -31,80 +26,98 @@ RadarData::~RadarData(void)
 	//int a = 0;
 	//a++;
 }
+
+//ÉèÖÃ¾­Î³¶ÈÖµ
 void RadarData::setPosition( osg::Vec3d const pos )
 {
 	_position = pos;
 	//_receiveTime = GetTickCount();
 }
+
+//ÉèÖÃ¾­Î³¶ÈÖµ
 osg::Vec3d RadarData::getPosition()const
 {
 	return _position;
 }
 
+//ÉèÖÃGPGGA
 void RadarData::setGPGGA( std::vector< std::string > vecStrGPGGA )
 {
 	//m_vecStrGPGGA = strGPGGA;
 	//_receiveTime = GetTickCount();
 	m_vecStrGPGGA.assign( vecStrGPGGA.begin(), vecStrGPGGA.end() );
 }
+
+//»ñÈ¡GPGGA
 std::vector< std::string > RadarData::getGPGGA()const
 {
 	return m_vecStrGPGGA;
 }
 
+//ÉèÖÃ½ÓÊÕÊ±¼ä
 void RadarData::setTime( DWORD value )
 {
 	_receiveTime = value;
 }
 
+//»ñÈ¡½ÓÊÕÊ±¼ä
 DWORD RadarData::getTime()const
 {
 	return _receiveTime;
 }
 
+//ÉèÖÃÀ×´ïÊı¾İ
 void RadarData::setData( unsigned char *buff,  int len )
 {
 	_dataBuff.clear();
 	_dataBuff.addData( buff, len );
 }
 
-unsigned char *RadarData::getData( int &len )const//»ñÈ¡Êı¾İ¼°³¤¶È
+//»ñÈ¡Êı¾İ¼°³¤¶È
+unsigned char *RadarData::getData( int &len )const
 {
 	len = _dataBuff.getDataLen();
 	return _dataBuff.getData();
 }
 
+//ÉèÖÃ²ÉÑùµãÊı
 void RadarData::setSampleCount( int value )
 {
 	_sampleCount = value;
 }
 
+//»ñÈ¡²ÉÑùµãÊı
 int RadarData::getSampleCount()const
 {
 	return _sampleCount;
 }
 
+//ÉèÖÃ²ÉÑùÂÊ
 void RadarData::setSampleRatio( float value )
 {
 	_sampleRatio = value;
 }
 
+//»ñÈ¡²ÉÑùÂÊ
 float RadarData::getSampleRatio()const
 {
 	return _sampleRatio;
 }
 
+//ÉèÖÃgps³¤¶È
 void RadarData::setLen( float value )
 {
 	_len = value;
 }
 
+//»ñÈ¡gps³¤¶È
 float RadarData::getLen()const
 {
 	return _len;
 }
 
-short RadarData::getIndexData( int index, float *t )//°´indexÈ¡Êı¾İ(ÒÑÈ¥µô8×Ö½ÚµÀÍ·£©
+//°´indexÈ¡Êı¾İ(ÒÑÈ¥µô8×Ö½ÚµÀÍ·£©
+short RadarData::getIndexData( int index, float *t )
 {
 	short value = 0;
 	if(_dataBuff.getData()==NULL){
@@ -130,11 +143,13 @@ short RadarData::getIndexData( int index, float *t )//°´indexÈ¡Êı¾İ(ÒÑÈ¥µô8×Ö½Úµ
 	return value;
 }
 
+//»ñÈ¡²ÉÑùµãÊı-2µÄÖµ
 int RadarData::getDataCount()const
 {
 	return ( _sampleCount * 2 - DATA_START ) / 2;
 }
 
+//»ñÈ¡Í¨µÀĞòÊı
 int RadarData::getChannelIndex()const
 {
 	short value = 0;
@@ -147,6 +162,7 @@ int RadarData::getChannelIndex()const
 	return 0;
 }
 
+//»ñÈ¡Êı¾İÖĞµÄ²âÁ¿ÂÖµÀÊı
 int RadarData::getPrec()const
 {
 	if ( _dataBuff.getDataLen() <= DATA_START )
@@ -157,23 +173,30 @@ int RadarData::getPrec()const
 	return data[6] + data[7] * 256;
 }
 
+//»ñÈ¡Êµ¼Ê²âÁ¿ÂÖµÀÊı
 int RadarData::getRealWheelCount()const
 {
 	return _realWheelCount;
 }
 
+//ÉèÖÃÊı¾İÖĞµÄ²âÁ¿ÂÖµÀÊı
 void RadarData::setPrec( int value ){
+	/*
 	int NumOne=value%256;
 	int NumTwo=value/256;
 	unsigned char *data = (unsigned char*)( _dataBuff.getData() );
 	data[6] = NumOne; 
 	data[7] = NumTwo;
+	*/
+	unsigned short *data = (unsigned short*)( _dataBuff.getData() );
 }
 
+//ÉèÖÃÊµ¼Ê²âÁ¿ÂÖµÀÊı
 void RadarData::setRealWheelCount( int value ){
 	_realWheelCount = value;
 }
 
+//ÉèÖÃµçÑ¹
 unsigned short RadarData::getDCValue()const
 {
 	unsigned short  value = 0;
@@ -188,21 +211,25 @@ unsigned short RadarData::getDCValue()const
 	return value;
 }
 
+//ÉèÖÃ²âÁ¿ÂÖ¾àÀë
 void RadarData::setPrecLen( double vaule )
 {
 	_precLen = vaule;
 }
 
+//»ñÈ¡²âÁ¿ÂÖ¾àÀë
 double RadarData::getPrecLen()const
 {
 	return _precLen;
 }
 
+//ÉèÖÃÊÇ·ñ×÷Îª±ê¼Ç
 void RadarData::setMark( bool value )
 {
 	_mark = value;
 }
 
+//»ñÈ¡ÊÇ·ñ×÷Îª±ê¼Ç
 bool RadarData::getMark()const
 {
 	return _mark;

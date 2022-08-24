@@ -214,11 +214,11 @@ void LineCmd::DoAction()
 			_lineGemotry->getOrCreateStateSet()->setAttributeAndModes( lw, osg::StateAttribute::ON );//设线宽
 		}
 
-		if ( posArray->size() == 0 ){//如果数组为0则添加第一个元素 地心
+		if ( posArray->size() == 0 ){//如果数组为0则添加第一个元素 （0,0）
 			osg::Matrixd localToWorld;
 			osgAPEx::ComputeLocalToWorldTransformFromLongLatHeight( _newPos.x(), _newPos.y(), _newPos.z(), localToWorld );
 			_node->setMatrix( localToWorld );
-			posArray->push_back( osg::Vec3d( 0.0, 0.0, 0.0 ) );//hjl？
+			posArray->push_back( osg::Vec3d( 0.0, 0.0, 0.0 ) );
 
 		}else{
 			osg::Vec3d xyz;
@@ -309,10 +309,11 @@ RadarManager::RadarManager(void)
 
 	m_configureSet = new ConfigureSet;
 
-	_radarChannelCount = 8;
+	m_nChannelCount = 8;
 
 	_dbOpen = false;
 
+	_curveDisplay = false;
 	_showGps = false;
 	_exportGps = false;
 	_exportKml = false;
@@ -522,8 +523,10 @@ void RadarManager::init()
 	std::string strCfgFile = W2A(m_strRadarPath);
 	strCfgFile += "\\radar.cfg";
 	m_configureSet->read(strCfgFile);
-	setRadarChannelCount( atoi ( m_configureSet->get("radar", "count").c_str() ) );
+	//setRadarChannelCount( atoi ( m_configureSet->get("radar", "channelCount").c_str() ) );
+	m_nChannelCount = getChannelCount(atoi(m_configureSet->get("radar", "channelCount").c_str()));
 	m_nUpload = atoi( m_configureSet->get("radar", "uploadFlag").c_str() );
+	m_dTwelveFlag=atoi( m_configureSet->get("radar", "twelveFlag").c_str() );
 // 	if ( m_configureSet->get("db", "use" ) == "true")
 // 	{
 // 		if ( !getDBHelp()->Open( m_configureSet->get("db","dbsource").c_str()
@@ -1094,8 +1097,7 @@ bool RadarManager::exportProject(CString strPath,CString strPROJECTCREATETIME ,b
 }
 
 
-bool RadarManager::exportProjectEEEX(CString strPath,CString strPROJECTCREATETIME ,bool bCmdExport /*=false*/,bool bShowOverDlg /*= true*/)
-{
+bool RadarManager::exportProjectEEEX(CString strPath,CString strPROJECTCREATETIME ,bool bCmdExport /*=false*/,bool bShowOverDlg /*= true*/){
 	//CDialogProjectExport dlg;
 	AFX_MANAGE_STATE(AfxGetStaticModuleState());
 
@@ -1272,6 +1274,7 @@ bool RadarManager::exportProjectEEEX(CString strPath,CString strPROJECTCREATETIM
 	return true;
 }
 
+//数据库模式相关
 bool RadarManager::exportSqlVideoIni(std::string strTime,std::string strFileName,std::string strFilePath)
 {
 	VideoTemplateTab tab;
@@ -1330,13 +1333,14 @@ bool RadarManager::exportAnyCountProject()
 	return TRUE;
 }
 
+//gps设置中的校验位设置
 char getParityBit(int index){
 	string tempArr="NOEMS";
 	return tempArr[index];
 }
 
-bool RadarManager::startNewWork()
-{
+//开始新工作
+bool RadarManager::startNewWork(){
 	AFX_MANAGE_STATE(AfxGetStaticModuleState());
 
 	if ( _working ){
@@ -1523,8 +1527,8 @@ bool RadarManager::startNewWork()
 					_gpsReader.close();
 					//------------
 				}*/
-				int connectGpsFailCount=0;
-				while ( !_gpsReader.open( 
+				int connectGpsFailCount=0;//偶尔出现连接不上的情况 可用多次连接来解决 所以自动连接10次
+				while ( !_gpsReader.open(//gps硬件连接
 					atoi(m_configureSet->get("com","port").c_str())
 					,atoi(m_configureSet->get("com","baud").c_str())
 					,m_configureSet->get("com","parity").length() > 0 ? getParityBit(atoi(m_configureSet->get("com","parity").c_str())) : 'N'
@@ -1552,7 +1556,7 @@ bool RadarManager::startNewWork()
 					return false;
 				}*/
 				int connectRadarFailCount=0;
-				while ( !_radarReader.open(
+				while ( !_radarReader.open(//雷达连接
 					m_configureSet->get("net","addr")
 					,atoi(m_configureSet->get("net","port").c_str())
 					) )
@@ -1585,7 +1589,7 @@ bool RadarManager::startNewWork()
 	}
 	addGpsModel();
 	CmdNewLine();
-	if(m_nUpload==0){
+	if(m_nUpload==0){//不上传模式才显示波形图
 		showCurCurve(A2W(projectName.c_str()));
 	}
 	_working = true;
@@ -1621,6 +1625,7 @@ string to_String(int n)
     return ss;
 }
 
+//不设置项目名称直接开始采集
 bool RadarManager::startNewWorkWithoutProjectName()
 {
 	AFX_MANAGE_STATE(AfxGetStaticModuleState());
@@ -1841,19 +1846,6 @@ bool RadarManager::startNewWorkWithoutProjectName()
 		case RADAR_WORK_TYPE_EIGHT:
 			//if ( m_configureSet->get("com", "use") == "true"){
 			if (RadarManager::Instance()->getShowGpsPos()){
-				/*if ( !_gpsReader.open( 
-					atoi(m_configureSet->get("com","port").c_str())
-					,atoi(m_configureSet->get("com","baud").c_str())
-					,m_configureSet->get("com","parity").length() > 0 ? getParityBit(atoi(m_configureSet->get("com","parity").c_str())) : 'N'
-					,atoi(m_configureSet->get("com","databits").c_str())
-					,atoi(m_configureSet->get("com","stopbits").c_str())
-					) )
-				{
-					//正规是下面两行------------
-					::AfxMessageBox(L"连接GPS串口失败!" );
-					_gpsReader.close();
-					//------------
-				}*/
 				int connectGpsFailCount=0;
 				while ( !_gpsReader.open( 
 					atoi(m_configureSet->get("com","port").c_str())
@@ -1873,15 +1865,6 @@ bool RadarManager::startNewWorkWithoutProjectName()
 				}
 			}
 			if ( m_configureSet->get("net", "use") == "true"){
-				/*if ( !_radarReader.open(
-					m_configureSet->get("net","addr")
-					,atoi(m_configureSet->get("net","port").c_str())
-					) )
-				{
-					::AfxMessageBox(L"连接雷达设备失败，请检查设备是否正常连接或重启设备" );
-					_gpsReader.close();
-					return false;
-				}*/
 				int connectRadarFailCount=0;
 				while ( !_radarReader.open(
 					m_configureSet->get("net","addr")
@@ -1926,6 +1909,7 @@ bool RadarManager::startNewWorkWithoutProjectName()
 	return true;
 }
 
+//参数设置界面用于查看当前设置下波形情况
 bool RadarManager::startNewTest()
 {
 	stopTest();
@@ -1997,10 +1981,9 @@ bool RadarManager::startNewTest()
 	return true;
 }
 
-bool RadarManager::stopWork()
-{
- 	if ( !_working )
- 	{
+//停止采集
+bool RadarManager::stopWork(){
+ 	if ( !_working ){
  		return true;
  	}
 
@@ -2010,28 +1993,22 @@ bool RadarManager::stopWork()
 	AFX_MANAGE_STATE(AfxGetStaticModuleState());
 
 	//if ( m_configureSet->get("com", "use") == "true")
-	if ( RadarManager::Instance()->getShowGpsPos())
-	{
+	if ( RadarManager::Instance()->getShowGpsPos()){
 		_gpsReader.close();
 	}
-	if ( m_configureSet->get("net", "use") == "true")
-	{
+	if ( m_configureSet->get("net", "use") == "true"){
 		_radarReader.close();
 	}
 
-	if (0 != m_iSaveOracle)
-	{
-		if (m_strLastProjectCreatTime.size() > 0)
-		{
-			if (dbOpen())
-			{
+	if (0 != m_iSaveOracle){
+		if (m_strLastProjectCreatTime.size() > 0){
+			if (dbOpen()){
 				DataCountTab countTab;
 				DataTemplateTab tabDTemp;
 				tabDTemp.setProjectName( m_strLastProjectCreatTime);
 				countTab.setTabName( tabDTemp.getProjectName()  );
 				int count = countTab.getTabDataCount( &_dbHelp, countTab.getSelectSql());
-				if (0 == count)
-				{
+				if (0 == count){
 					::AfxMessageBox(_T("雷达数据一道也没有保存到数据库中!!!"));
 				}
 			}
@@ -2069,6 +2046,7 @@ bool RadarManager::stopWork()
 
 }
 
+//停止展示波形
 bool RadarManager::stopTest()
 {
  	if ( !_testing )
@@ -2154,157 +2132,251 @@ void RadarManager::removeGpsModel()
 	EMObj::CmdDelObj( GPS_OBJ_ID );
 }
 
-void RadarManager::clear()
-{
-	if ( _dbOpen )
-	{
+//数据库模式清台
+void RadarManager::clear(){
+	if ( _dbOpen ){
 		_dbHelp.Close();
-
 		_dbOpen = false;
 	}
-	
 	_projectList.clear();
 }
 
-GpsReader *RadarManager::getGpsReader()
-{
+//获取gpsReader对象
+GpsReader *RadarManager::getGpsReader(){
 	return &_gpsReader;
 }
-RadarDataRader *RadarManager::getRadarDataRader()
-{
+
+//获取RadarReader对象
+RadarDataRader *RadarManager::getRadarDataRader(){
 	return &_radarReader;
 }
 
-void RadarManager::showCurCurve(LPCWSTR pszPath/* = NULL*/)
-{
+//展示实时曲线（波形图）
+void RadarManager::showCurCurve(LPCWSTR pszPath/* = NULL*/){
 	AFX_MANAGE_STATE(AfxGetStaticModuleState());
-
-	if ( !g_CurCurveFirstDlg ){
-		g_CurCurveFirstDlg = new CDialogCurCurve(CDialogCurCurve::screenFirst);
-		g_CurCurveFirstDlg->Create( CDialogCurCurve::IDD );	
-	}
-	std::string strFirstChannels = m_configureSet->get("screen","first");
-	if (strFirstChannels.compare("")==0){
-		g_CurCurveFirstDlg->ShowWindow(SW_HIDE);
-	}else {
-		g_CurCurveFirstDlg->ShowWindow(SW_SHOW);
-	}
-	if (!g_CurCurveSecondDlg ){
-		g_CurCurveSecondDlg = new CDialogCurCurve(CDialogCurCurve::screenSecond);
-		g_CurCurveSecondDlg->Create( CDialogCurCurve::IDD );
-	}
-	std::string strSecondChannels = m_configureSet->get("screen","second");
-	if (strSecondChannels.compare("")==0){
-		g_CurCurveSecondDlg->ShowWindow(SW_HIDE);
-	}else {
-		g_CurCurveSecondDlg->ShowWindow(SW_SHOW);
-	}
-	if (!g_CurCurveThirdDlg ){
-		g_CurCurveThirdDlg = new CDialogCurCurve(CDialogCurCurve::screenThird);
-		g_CurCurveThirdDlg->Create( CDialogCurCurve::IDD );
-	}
-	std::string strThirdChannels = m_configureSet->get("screen","third");
-	if (strThirdChannels.compare("")==0){
-		g_CurCurveThirdDlg->ShowWindow(SW_HIDE);
-	}else {
-		g_CurCurveThirdDlg->ShowWindow(SW_SHOW);
-	}
-	if (!g_CurCurveFourthDlg ){
-		g_CurCurveFourthDlg = new CDialogCurCurve(CDialogCurCurve::screenFourth);
-		g_CurCurveFourthDlg->Create( CDialogCurCurve::IDD );
-	}
-	std::string strFourthChannels = m_configureSet->get("screen","fourth");
-	if (strFourthChannels.compare("")==0){
-		g_CurCurveFourthDlg->ShowWindow(SW_HIDE);
-	}else {
-		g_CurCurveFourthDlg->ShowWindow(SW_SHOW);
-	}
-	//20210628hjl 三视图
-	if(m_nUpload==0){
-		if ( !g_ThreeViewDlg ){
-			g_ThreeViewDlg = new CDialogThreeView;
-			g_ThreeViewDlg->Create( CDialogThreeView::IDD );
+	ConfigureSet *cfg = getConfigureSet();
+	int dSaveFileType = atoi( cfg->get("radar", "saveFileType").c_str() );
+	if(dSaveFileType==0){
+		if ( !g_CurCurveFirstDlg ){
+			g_CurCurveFirstDlg = new CDialogCurCurve(CDialogCurCurve::screenFirst);
+			g_CurCurveFirstDlg->Create( CDialogCurCurve::IDD );	
 		}
-		g_ThreeViewDlg->ShowWindow(SW_SHOW);
-	}
-	CString strName = _T("实时曲线");
-	if (NULL != pszPath){
-		strName += _T("：");
-		strName += pszPath;
-	}
-	CString strNameIndex[4];
-	strNameIndex[0]=strName+_T("一号窗口");
-	strNameIndex[1]=strName+_T("二号窗口");
-	strNameIndex[2]=strName+_T("三号窗口");
-	strNameIndex[3]=strName+_T("四号窗口");
-	g_CurCurveFirstDlg->SetWindowText(strNameIndex[0]);
-	g_CurCurveSecondDlg->SetWindowText(strNameIndex[1]);
-	g_CurCurveThirdDlg->SetWindowText(strNameIndex[2]);
-	g_CurCurveFourthDlg->SetWindowText(strNameIndex[3]);
+		std::string strFirstChannels = m_configureSet->get("screen","first");
+		if (strFirstChannels.compare("")==0){
+			g_CurCurveFirstDlg->ShowWindow(SW_HIDE);
+		}else{
+			g_CurCurveFirstDlg->ShowWindow(SW_SHOW);
+		}
+		if (!g_CurCurveSecondDlg ){
+			g_CurCurveSecondDlg = new CDialogCurCurve(CDialogCurCurve::screenSecond);
+			g_CurCurveSecondDlg->Create( CDialogCurCurve::IDD );
+		}
+		std::string strSecondChannels = m_configureSet->get("screen","second");
+		if (strSecondChannels.compare("")==0){
+			g_CurCurveSecondDlg->ShowWindow(SW_HIDE);
+		}else{
+			g_CurCurveSecondDlg->ShowWindow(SW_SHOW);
+		}
+		if (!g_CurCurveThirdDlg ){
+			g_CurCurveThirdDlg = new CDialogCurCurve(CDialogCurCurve::screenThird);
+			g_CurCurveThirdDlg->Create( CDialogCurCurve::IDD );
+		}
+		std::string strThirdChannels = m_configureSet->get("screen","third");
+		if (strThirdChannels.compare("")==0){
+			g_CurCurveThirdDlg->ShowWindow(SW_HIDE);
+		}else{
+			g_CurCurveThirdDlg->ShowWindow(SW_SHOW);
+		}
+		if (!g_CurCurveFourthDlg ){
+			g_CurCurveFourthDlg = new CDialogCurCurve(CDialogCurCurve::screenFourth);
+			g_CurCurveFourthDlg->Create( CDialogCurCurve::IDD );
+		}
+		std::string strFourthChannels = m_configureSet->get("screen","fourth");
+		if (strFourthChannels.compare("")==0){
+			g_CurCurveFourthDlg->ShowWindow(SW_HIDE);
+		}else{
+			g_CurCurveFourthDlg->ShowWindow(SW_SHOW);
+		}
+		
+		CString strName = _T("实时曲线");
+		if (NULL != pszPath){
+			strName += _T("：");
+			strName += pszPath;
+		}
+		CString strNameIndex[4];
+		strNameIndex[0]=strName+_T("一号窗口");
+		strNameIndex[1]=strName+_T("二号窗口");
+		strNameIndex[2]=strName+_T("三号窗口");
+		strNameIndex[3]=strName+_T("四号窗口");
+		g_CurCurveFirstDlg->SetWindowText(strNameIndex[0]);
+		g_CurCurveSecondDlg->SetWindowText(strNameIndex[1]);
+		g_CurCurveThirdDlg->SetWindowText(strNameIndex[2]);
+		g_CurCurveFourthDlg->SetWindowText(strNameIndex[3]);
+		
+		if (g_CurCurveFirstDlg->IsWindowVisible()){
+			g_CurCurveFirstDlg->ShowWindow( SW_SHOW );
+		}
+		if (m_rtCurCurveDelPos.right > 0 && m_rtCurCurveDelPos.bottom > 0 ){
+			g_CurCurveFirstDlg->SetWindowPos(NULL,m_rtCurCurveDelPos.left,m_rtCurCurveDelPos.top,m_rtCurCurveDelPos.right,m_rtCurCurveDelPos.bottom,   SWP_FRAMECHANGED | SWP_NOZORDER	);
+		}
+
+		if (g_CurCurveSecondDlg->IsWindowVisible()){
+			g_CurCurveSecondDlg->ShowWindow( SW_SHOW );
+		}
+		if (m_rtCurCurveDelPos.right > 0 && m_rtCurCurveDelPos.bottom > 0 ){
+			g_CurCurveSecondDlg->SetWindowPos(NULL,m_rtCurCurveDelPos.left,m_rtCurCurveDelPos.top,m_rtCurCurveDelPos.right,m_rtCurCurveDelPos.bottom,   SWP_FRAMECHANGED | SWP_NOZORDER	);
+		}
+
+		if (g_CurCurveThirdDlg->IsWindowVisible()){
+			g_CurCurveThirdDlg->ShowWindow( SW_SHOW );
+		}
+		if (m_rtCurCurveDelPos.right > 0 && m_rtCurCurveDelPos.bottom > 0 ){
+			g_CurCurveThirdDlg->SetWindowPos(NULL,m_rtCurCurveDelPos.left,m_rtCurCurveDelPos.top,m_rtCurCurveDelPos.right,m_rtCurCurveDelPos.bottom,   SWP_FRAMECHANGED | SWP_NOZORDER	);
+		}
+
+		if (g_CurCurveFourthDlg->IsWindowVisible()){
+			g_CurCurveFourthDlg->ShowWindow( SW_SHOW );
+		}
+		if (m_rtCurCurveDelPos.right > 0 && m_rtCurCurveDelPos.bottom > 0 ){
+			g_CurCurveFourthDlg->SetWindowPos(NULL,m_rtCurCurveDelPos.left,m_rtCurCurveDelPos.top,m_rtCurCurveDelPos.right,m_rtCurCurveDelPos.bottom,   SWP_FRAMECHANGED | SWP_NOZORDER	);
+		}
+
+		//g_CurCurveLeftDlg->resizeChannelWnd();
+		//g_CurCurveLeftDlg->UpdateData();
+		g_CurCurveFirstDlg->SendMessage(WM_SIZE,0,0);
+		g_CurCurveFirstDlg->UpdateWindow();
+		g_CurCurveFirstDlg->UpdateData();
+
+		g_CurCurveSecondDlg->SendMessage(WM_SIZE,0,0);
+		g_CurCurveSecondDlg->UpdateWindow();
+		g_CurCurveSecondDlg->UpdateData();
+
+		g_CurCurveThirdDlg->SendMessage(WM_SIZE,0,0);
+		g_CurCurveThirdDlg->UpdateWindow();
+		g_CurCurveThirdDlg->UpdateData();
+
+		g_CurCurveFourthDlg->SendMessage(WM_SIZE,0,0);
+		g_CurCurveFourthDlg->UpdateWindow();
+		g_CurCurveFourthDlg->UpdateData();
+	}else if(dSaveFileType==1){
+		//20210628hjl 三视图
+		if(m_nUpload==0){
+			if ( !g_ThreeViewDlg ){
+				g_ThreeViewDlg = new CDialogThreeView;
+				g_ThreeViewDlg->Create( CDialogThreeView::IDD );
+			}
+			g_ThreeViewDlg->ShowWindow(SW_SHOW);
+			g_ThreeViewDlg->SendMessage(WM_SIZE,0,0);
+			g_ThreeViewDlg->UpdateWindow();
+			g_ThreeViewDlg->UpdateData();
+		}
+		if(m_nUpload==0&&!RadarManager::Instance()->getCurveDisplay()){//不上传模式下没设置显示波形的话也只显示三视图
+			return;
+		}
+		if ( !g_CurCurveFirstDlg ){
+			g_CurCurveFirstDlg = new CDialogCurCurve(CDialogCurCurve::screenFirst);
+			g_CurCurveFirstDlg->Create( CDialogCurCurve::IDD );	
+		}
+		std::string strFirstChannels = m_configureSet->get("screen","first");
+		if (strFirstChannels.compare("")==0){
+			g_CurCurveFirstDlg->ShowWindow(SW_HIDE);
+		}else{
+			g_CurCurveFirstDlg->ShowWindow(SW_SHOW);
+		}
+		if (!g_CurCurveSecondDlg ){
+			g_CurCurveSecondDlg = new CDialogCurCurve(CDialogCurCurve::screenSecond);
+			g_CurCurveSecondDlg->Create( CDialogCurCurve::IDD );
+		}
+		std::string strSecondChannels = m_configureSet->get("screen","second");
+		if (strSecondChannels.compare("")==0){
+			g_CurCurveSecondDlg->ShowWindow(SW_HIDE);
+		}else{
+			g_CurCurveSecondDlg->ShowWindow(SW_SHOW);
+		}
+		if (!g_CurCurveThirdDlg ){
+			g_CurCurveThirdDlg = new CDialogCurCurve(CDialogCurCurve::screenThird);
+			g_CurCurveThirdDlg->Create( CDialogCurCurve::IDD );
+		}
+		std::string strThirdChannels = m_configureSet->get("screen","third");
+		if (strThirdChannels.compare("")==0){
+			g_CurCurveThirdDlg->ShowWindow(SW_HIDE);
+		}else{
+			g_CurCurveThirdDlg->ShowWindow(SW_SHOW);
+		}
+		if (!g_CurCurveFourthDlg ){
+			g_CurCurveFourthDlg = new CDialogCurCurve(CDialogCurCurve::screenFourth);
+			g_CurCurveFourthDlg->Create( CDialogCurCurve::IDD );
+		}
+		std::string strFourthChannels = m_configureSet->get("screen","fourth");
+		if (strFourthChannels.compare("")==0){
+			g_CurCurveFourthDlg->ShowWindow(SW_HIDE);
+		}else{
+			g_CurCurveFourthDlg->ShowWindow(SW_SHOW);
+		}
+		
+		CString strName = _T("实时曲线");
+		if (NULL != pszPath){
+			strName += _T("：");
+			strName += pszPath;
+		}
+		CString strNameIndex[4];
+		strNameIndex[0]=strName+_T("一号窗口");
+		strNameIndex[1]=strName+_T("二号窗口");
+		strNameIndex[2]=strName+_T("三号窗口");
+		strNameIndex[3]=strName+_T("四号窗口");
+		g_CurCurveFirstDlg->SetWindowText(strNameIndex[0]);
+		g_CurCurveSecondDlg->SetWindowText(strNameIndex[1]);
+		g_CurCurveThirdDlg->SetWindowText(strNameIndex[2]);
+		g_CurCurveFourthDlg->SetWindowText(strNameIndex[3]);
+		
+		if (g_CurCurveFirstDlg->IsWindowVisible()){
+			g_CurCurveFirstDlg->ShowWindow( SW_SHOW );
+		}
+		if (m_rtCurCurveDelPos.right > 0 && m_rtCurCurveDelPos.bottom > 0 ){
+			g_CurCurveFirstDlg->SetWindowPos(NULL,m_rtCurCurveDelPos.left,m_rtCurCurveDelPos.top,m_rtCurCurveDelPos.right,m_rtCurCurveDelPos.bottom,   SWP_FRAMECHANGED | SWP_NOZORDER	);
+		}
+
+		if (g_CurCurveSecondDlg->IsWindowVisible()){
+			g_CurCurveSecondDlg->ShowWindow( SW_SHOW );
+		}
+		if (m_rtCurCurveDelPos.right > 0 && m_rtCurCurveDelPos.bottom > 0 ){
+			g_CurCurveSecondDlg->SetWindowPos(NULL,m_rtCurCurveDelPos.left,m_rtCurCurveDelPos.top,m_rtCurCurveDelPos.right,m_rtCurCurveDelPos.bottom,   SWP_FRAMECHANGED | SWP_NOZORDER	);
+		}
+
+		if (g_CurCurveThirdDlg->IsWindowVisible()){
+			g_CurCurveThirdDlg->ShowWindow( SW_SHOW );
+		}
+		if (m_rtCurCurveDelPos.right > 0 && m_rtCurCurveDelPos.bottom > 0 ){
+			g_CurCurveThirdDlg->SetWindowPos(NULL,m_rtCurCurveDelPos.left,m_rtCurCurveDelPos.top,m_rtCurCurveDelPos.right,m_rtCurCurveDelPos.bottom,   SWP_FRAMECHANGED | SWP_NOZORDER	);
+		}
+
+		if (g_CurCurveFourthDlg->IsWindowVisible()){
+			g_CurCurveFourthDlg->ShowWindow( SW_SHOW );
+		}
+		if (m_rtCurCurveDelPos.right > 0 && m_rtCurCurveDelPos.bottom > 0 ){
+			g_CurCurveFourthDlg->SetWindowPos(NULL,m_rtCurCurveDelPos.left,m_rtCurCurveDelPos.top,m_rtCurCurveDelPos.right,m_rtCurCurveDelPos.bottom,   SWP_FRAMECHANGED | SWP_NOZORDER	);
+		}
+
+		//g_CurCurveLeftDlg->resizeChannelWnd();
+		//g_CurCurveLeftDlg->UpdateData();
+		g_CurCurveFirstDlg->SendMessage(WM_SIZE,0,0);
+		g_CurCurveFirstDlg->UpdateWindow();
+		g_CurCurveFirstDlg->UpdateData();
+
+		g_CurCurveSecondDlg->SendMessage(WM_SIZE,0,0);
+		g_CurCurveSecondDlg->UpdateWindow();
+		g_CurCurveSecondDlg->UpdateData();
+
+		g_CurCurveThirdDlg->SendMessage(WM_SIZE,0,0);
+		g_CurCurveThirdDlg->UpdateWindow();
+		g_CurCurveThirdDlg->UpdateData();
+
+		g_CurCurveFourthDlg->SendMessage(WM_SIZE,0,0);
+		g_CurCurveFourthDlg->UpdateWindow();
+		g_CurCurveFourthDlg->UpdateData();
 	
-	if (g_CurCurveFirstDlg->IsWindowVisible()){
-		g_CurCurveFirstDlg->ShowWindow( SW_SHOW );
 	}
-	if (m_rtCurCurveDelPos.right > 0 && m_rtCurCurveDelPos.bottom > 0 ){
-		g_CurCurveFirstDlg->SetWindowPos(NULL,m_rtCurCurveDelPos.left,m_rtCurCurveDelPos.top,m_rtCurCurveDelPos.right,m_rtCurCurveDelPos.bottom,   SWP_FRAMECHANGED | SWP_NOZORDER	);
-	}
-
-	if (g_CurCurveSecondDlg->IsWindowVisible()){
-		g_CurCurveSecondDlg->ShowWindow( SW_SHOW );
-	}
-	if (m_rtCurCurveDelPos.right > 0 && m_rtCurCurveDelPos.bottom > 0 ){
-		g_CurCurveSecondDlg->SetWindowPos(NULL,m_rtCurCurveDelPos.left,m_rtCurCurveDelPos.top,m_rtCurCurveDelPos.right,m_rtCurCurveDelPos.bottom,   SWP_FRAMECHANGED | SWP_NOZORDER	);
-	}
-
-	if (g_CurCurveThirdDlg->IsWindowVisible()){
-		g_CurCurveThirdDlg->ShowWindow( SW_SHOW );
-	}
-	if (m_rtCurCurveDelPos.right > 0 && m_rtCurCurveDelPos.bottom > 0 ){
-		g_CurCurveThirdDlg->SetWindowPos(NULL,m_rtCurCurveDelPos.left,m_rtCurCurveDelPos.top,m_rtCurCurveDelPos.right,m_rtCurCurveDelPos.bottom,   SWP_FRAMECHANGED | SWP_NOZORDER	);
-	}
-
-	if (g_CurCurveFourthDlg->IsWindowVisible()){
-		g_CurCurveFourthDlg->ShowWindow( SW_SHOW );
-	}
-	if (m_rtCurCurveDelPos.right > 0 && m_rtCurCurveDelPos.bottom > 0 ){
-		g_CurCurveFourthDlg->SetWindowPos(NULL,m_rtCurCurveDelPos.left,m_rtCurCurveDelPos.top,m_rtCurCurveDelPos.right,m_rtCurCurveDelPos.bottom,   SWP_FRAMECHANGED | SWP_NOZORDER	);
-	}
-
-	if(m_nUpload==0){
-		/*
-		if (g_ThreeViewDlg->IsWindowVisible()){
-			g_ThreeViewDlg->ShowWindow( SW_SHOW );
-		}
-		if (m_rtCurCurveDelPos.right > 0 && m_rtCurCurveDelPos.bottom > 0 ){//?
-			g_ThreeViewDlg->SetWindowPos(NULL,m_rtCurCurveDelPos.left,m_rtCurCurveDelPos.top,m_rtCurCurveDelPos.right,m_rtCurCurveDelPos.bottom,   SWP_FRAMECHANGED | SWP_NOZORDER	);
-		}
-		*/
-	}
-
-	//g_CurCurveLeftDlg->resizeChannelWnd();
-	//g_CurCurveLeftDlg->UpdateData();
-	g_CurCurveFirstDlg->SendMessage(WM_SIZE,0,0);
-	g_CurCurveFirstDlg->UpdateWindow();
-	g_CurCurveFirstDlg->UpdateData();
-
-	g_CurCurveSecondDlg->SendMessage(WM_SIZE,0,0);
-	g_CurCurveSecondDlg->UpdateWindow();
-	g_CurCurveSecondDlg->UpdateData();
-
-	g_CurCurveThirdDlg->SendMessage(WM_SIZE,0,0);
-	g_CurCurveThirdDlg->UpdateWindow();
-	g_CurCurveThirdDlg->UpdateData();
-
-	g_CurCurveFourthDlg->SendMessage(WM_SIZE,0,0);
-	g_CurCurveFourthDlg->UpdateWindow();
-	g_CurCurveFourthDlg->UpdateData();
 	
-	//20210628 hjl 
-	if(m_nUpload==0){
-		g_ThreeViewDlg->SendMessage(WM_SIZE,0,0);
-		g_ThreeViewDlg->UpdateWindow();
-		g_ThreeViewDlg->UpdateData();
-	}
 }
 
 
@@ -2516,13 +2588,13 @@ void RadarManager::showParamDialog()
 	{
 		return;
 	}
-
 		
 	OpenThreads::ScopedLock<OpenThreads::Mutex> lock(_lock);
 	getRadarDataRader()->setInit( false );
 
 }
 
+//历史曲线
 void RadarManager::showHistCurve()
 {
 	AFX_MANAGE_STATE(AfxGetStaticModuleState());
@@ -2535,6 +2607,7 @@ void RadarManager::showHistCurve()
 	g_HistoryProjectDlg->ShowWindow(SW_SHOW);
 	COM::WRITE_TO_LOG_PTR->WriteToLog(COM::LEVEL_COMMON,"showHistCurve","显示历史数据对话框");	
 }
+
 MeasureProject *RadarManager::getCurProject()
 {
 	OpenThreads::ScopedLock<OpenThreads::Mutex> lock(_lock);
@@ -2553,6 +2626,7 @@ void RadarManager::addRadarDataToParameterConfig( RadarData *d, int index ){
 	g_RadarParameterConfig->AddRadarData( d, index );
 }
 
+//仅展示
 void RadarManager::addRadarDataToDisplay( RadarData *d, int index ){
 	/*
 	{
@@ -2563,16 +2637,17 @@ void RadarManager::addRadarDataToDisplay( RadarData *d, int index ){
 	}*/
 	//往一号显示窗口添加数据
 	if ( g_CurCurveFirstDlg ){
-		if(index<12){
+		if(index<16){
 			g_CurCurveFirstDlg->AddRadarData( d, index );
 		}
 	}
 	//往二号显示窗口添加数据
 	if ( g_CurCurveSecondDlg ){
-		if(index>11&&index<24){
+		if(index>15&&index<28){
 			g_CurCurveSecondDlg->AddRadarData( d, index );
 		}
 	}
+	/*
 	//往三号显示窗口添加数据
 	if ( g_CurCurveThirdDlg ){
 		if(index>23){
@@ -2582,7 +2657,7 @@ void RadarManager::addRadarDataToDisplay( RadarData *d, int index ){
 	//往四号显示窗口添加数据
 	if ( g_CurCurveFourthDlg ){
 		//g_CurCurveFourthDlg->AddRadarData( d, index );
-	}
+	}*/
 }
 
 //往第index道数据添加最新的雷达数据
@@ -2613,22 +2688,23 @@ void RadarManager::addRadarDataToProject( RadarData *d, int index ){
 	
 	//往一号显示窗口添加数据
 	if ( g_CurCurveFirstDlg ){
-		if(index<12){
+		if(index<16){
 			g_CurCurveFirstDlg->AddRadarData( d, index );
 		}
 	}
 	//往二号显示窗口添加数据
 	if ( g_CurCurveSecondDlg ){
-		if(index>11&&index<24){
+		if(index>15&&index<28){
 			g_CurCurveSecondDlg->AddRadarData( d, index );
 		}
 	}
 	//往三号显示窗口添加数据
+	/*
 	if ( g_CurCurveThirdDlg ){
 		if(index>23){
 			g_CurCurveThirdDlg->AddRadarData( d, index );
 		}
-	}
+	}*/
 	//往四号显示窗口添加数据
 	/*
 	if ( g_CurCurveFourthDlg ){
@@ -2641,13 +2717,15 @@ void RadarManager::addRadarDataToProject( RadarData *d, int index ){
 		//g_ThreeViewDlg->AddRadarData( d, index );
 	}*/
 }
+
+//把数据加入三视图中
 void RadarManager::addRadarDataToThreeViewDialog( RadarData *d, int index ){
 	if ( g_ThreeViewDlg ){
 		//g_ThreeViewDlg->AddRadarData( d, index );
 		
 		m_vec3DRadarDataGroup.push_back(d);
-		if(index==11){
-			if(m_vec3DRadarDataGroup.size()>11){
+		if(index==m_nChannelCount-1){
+			if(m_vec3DRadarDataGroup.size()>m_nChannelCount-1){
 				g_ThreeViewDlg->addGroupRadarData( m_vec3DRadarDataGroup );	
 			}
 			m_vec3DRadarDataGroup.clear();
@@ -2693,19 +2771,7 @@ void RadarManager::deleteRadarDataFromProject( int index ){
 		if (_lpCurProject.valid()){
 			_lpCurProject->deleteData(index);
 		}
-	}/*
-	if ( g_CurCurveFirstDlg ){
-		g_CurCurveFirstDlg->DeleteRadarData( index );
 	}
-	if ( g_CurCurveSecondDlg ){
-		g_CurCurveSecondDlg->DeleteRadarData( index );
-	}
-	if ( g_CurCurveThirdDlg ){
-		g_CurCurveThirdDlg->DeleteRadarData( index );
-	}
-	if ( g_CurCurveFourthDlg ){
-		g_CurCurveFourthDlg->DeleteRadarData( index );
-	}*/
 }
 
 void RadarManager::loadAllProject()
@@ -2737,38 +2803,48 @@ CDBConnectHelp *RadarManager::getDBHelp()
 {
 	return &_dbHelp;
 }
-void RadarManager::setRadarChannelCount( int value )
-{
-	_radarChannelCount = value;
+
+//通道数量
+void RadarManager::setRadarChannelCount( int value ){
+	m_nChannelCount = value;
 }
-int RadarManager::getRadarChannelCount()const
-{
-	return _radarChannelCount;
+int RadarManager::getRadarChannelCount()const{
+	return m_nChannelCount;
 }
 
-ConfigureSet *RadarManager::getConfigureSet()
-{
+//获取cfg
+ConfigureSet *RadarManager::getConfigureSet(){
 	return m_configureSet.get();
 }
-bool RadarManager::dbOpen()const
-{
+
+//数据库使用情况
+bool RadarManager::dbOpen()const{
 	return _dbOpen;
 }
-
 void RadarManager::setdbOpen(bool value)
 {
 	_dbOpen = value;
 }
 
-bool RadarManager::testing()const//hjl20210418
-{
+//参数设置界面使用情况
+bool RadarManager::testing()const{//hjl20210418
 	return _testing;
 }
 
-bool RadarManager::working()const
-{
+//采集工作情况
+bool RadarManager::working()const{
 	return _working;
 }
+
+//数据窗口展示情况
+void RadarManager::setCurveDisplay( bool value ){
+	_curveDisplay = value;
+}
+bool RadarManager::getCurveDisplay()const{
+	return _curveDisplay;
+}
+
+//gps使用情况
 void RadarManager::setShowGpsPos( bool value )
 {
 	_showGps = value;
@@ -2777,12 +2853,16 @@ bool RadarManager::getShowGpsPos()const
 {
 	return _showGps;
 }
+
+//输出gps的csv
 void RadarManager::setExportGpsPos( bool value ){
 	_exportGps = value;
 }
 bool RadarManager::getExportGpsPos()const{
 	return _exportGps;
 }
+
+//输出kml
 void RadarManager::setExportKml( bool value ){
 	_exportKml = value;
 }
@@ -2790,20 +2870,13 @@ bool RadarManager::getExportKml()const{
 	return _exportKml;
 }
 
-
-
-void RadarManager::savePicPath( std::string const& picPath, int num )
-{
-	if ( !_working )
-	{
+void RadarManager::savePicPath( std::string const& picPath, int num ){
+	if ( !_working ){
 		return;
 	}
-
-	if ( !_lpCurProject.valid() )
-	{
+	if ( !_lpCurProject.valid() ){
 		return;
 	}
-
 	osg::ref_ptr<VideoTemplateTab::VideoRow> vr = new VideoTemplateTab::VideoRow;
 	vr->_recvTime = time(NULL);
 	vr->_filePath = picPath;
@@ -2812,366 +2885,362 @@ void RadarManager::savePicPath( std::string const& picPath, int num )
 	lpCmd->_lpRow = vr;
 
 	_lpCurProject->addSaveCmd( lpCmd.get() );
-	
 }
 
-CWnd *RadarManager::getVideoWnd()
-{
+CWnd *RadarManager::getVideoWnd(){
 	return _lpVideo;
 }
 
-void RadarManager::setPicPath( std::string const& picPath )
-{
+void RadarManager::setPicPath( std::string const& picPath ){
 	m_strImagePath = picPath;
 }
 std::string RadarManager::getPicPath()const
 {
 	return m_strImagePath;
 }
-void RadarManager::setChannelName( std::string const& name, int index )
-{
-	if ( name.length() == 0 )
-	{
+
+//通道名称
+void RadarManager::setChannelName( std::string const& name, int index ){
+	if ( name.length() == 0 ){
 		return;
 	}
-
 	std::stringstream ss;
 	ss << index;
 	m_configureSet->set( "channelname", ss.str(), name );
 	m_configureSet->write();
-
 }
-std::string RadarManager::getChannelName( int index )const
-{
+std::string RadarManager::getChannelName( int index )const{
 	std::stringstream ss;
 	ss << index;
 	std::string channelName = m_configureSet->get( "channelname", ss.str() );
-
 	return channelName;
 }
 
-void RadarManager::setDeviceCode( std::string const& code )
-{
-	if ( code.length() > 0 )
-	{
+//设备编号
+void RadarManager::setDeviceCode( std::string const& code ){
+	if ( code.length() > 0 ){
 		_deviceCode = code;
 	}
 
 }
-std::string RadarManager::getDeviceCode( int iTrackNo )const
-{
+std::string RadarManager::getDeviceCode( int iTrackNo )const{
 	std::stringstream ss;
 	ss << iTrackNo;
 	std::string channelName = m_configureSet->get( "channelname", ss.str() );
-	if ( channelName.length() )
-	{
+	if ( channelName.length() ){
 		return channelName;
 	}
-
-
-	if ( _deviceCode.length() == 0 )
-	{
+	if ( _deviceCode.length() == 0 ){
 		return "MC8";
 	}
 	return _deviceCode;
 }
 
-void RadarManager::setChannelRatioPrect( int index, float value )
-{
+//各通道采样率的调整
+void RadarManager::setChannelRatioPrect( int index, float value ){
 	std::stringstream ss;
 	ss << index;
-
 	std::stringstream ss2;
 	ss2 << value;
-
 	m_configureSet->set( "channelratio", ss.str(), ss2.str() );
 	m_configureSet->write();
 }
-
-float RadarManager::getChannelRatioPrect( int index )const
-{
+float RadarManager::getChannelRatioPrect( int index )const{
 	std::stringstream ss;
 	ss << index;
-
 	float ratio = atof( m_configureSet->get( "channelratio", ss.str()).c_str());
-
-	if ( ratio <= 0.0f )
-	{
+	if ( ratio <= 0.0f ){
 		ratio = 1.0f;
 	}
-
 	return ratio;
 }
 
-float RadarManager::getDielectric( int index )
-{
-	switch ( index )
-	{
-	case 0:
-		return 1;
-		break;
-	case 1:
-		return 1.9;
-		break;
-	case 2:
-		return 2;
-		break;
-	case 3:
-		return 2.5;
-		break;
-	case 4:
-		return 2.8;
-		break;
-	case 5:
-		return 2.8;
-		break;
-	case 6:
-		return 3.2;
-		break;
-	case 7:
-		return 4;
-		break;
-	case 8:
-		return 4;
-		break;
-	case 9:
-		return 4.1;
-		break;
-	case 10:
-		return 5;
-		break;
-	case 11:
-		return 5;
-		break;
-	case 12:
-		return 6;
-		break;
-	case 13:
-		return 6.4;
-		break;
-	case 14:
-		return 7;
-		break;
-	case 15:
-		return 7;
-		break;
-	case 16:
-		return 7;
-		break;
-	case 17:
-		return 8;
-		break;
-	case 18:
-		return 8;
-		break;
-	case 19:
-		return 12;
-		break;
-	case 20:
-		return 15;
-		break;
-	case 21:
-		return 16;
-		break;
-	case 22:
-		return 30;
-		break;
-	case 23:
-		return 30;
-		break;
-	case 24:
-		return 81;
-		break;
+//通过索引获取通道数
+int RadarManager::getChannelCount( int index ){
+	std::stringstream ss;
+	ss<<index;
+	std::string strTag="channelCount"+ss.str();
+	return atoi(m_configureSet->get("comboBox", strTag).c_str());
+	/*switch ( index ){
+		case 0:
+			return 6;
+			break;
+		case 1:
+			return 12;
+			break;
+		case 2:
+			return 16;
+			break;
+	}
+	return 16;*/
+}
+
+//通过索引获取介电常数
+float RadarManager::getDielectric( int index ){
+	switch ( index ){
+		case 0:
+			return 1;
+			break;
+		case 1:
+			return 1.9;
+			break;
+		case 2:
+			return 2;
+			break;
+		case 3:
+			return 2.5;
+			break;
+		case 4:
+			return 2.8;
+			break;
+		case 5:
+			return 2.8;
+			break;
+		case 6:
+			return 3.2;
+			break;
+		case 7:
+			return 4;
+			break;
+		case 8:
+			return 4;
+			break;
+		case 9:
+			return 4.1;
+			break;
+		case 10:
+			return 5;
+			break;
+		case 11:
+			return 5;
+			break;
+		case 12:
+			return 6;
+			break;
+		case 13:
+			return 6.4;
+			break;
+		case 14:
+			return 7;
+			break;
+		case 15:
+			return 7;
+			break;
+		case 16:
+			return 7;
+			break;
+		case 17:
+			return 8;
+			break;
+		case 18:
+			return 8;
+			break;
+		case 19:
+			return 12;
+			break;
+		case 20:
+			return 15;
+			break;
+		case 21:
+			return 16;
+			break;
+		case 22:
+			return 30;
+			break;
+		case 23:
+			return 30;
+			break;
+		case 24:
+			return 81;
+			break;
 	}
 	return 6.4;
 }
 
-int RadarManager::getSampCount( int index )
-{
-
-
-	switch ( index )
-	{
-	case 0:
-		return 256;
-		break;
-	case 1:
-		return 512;
-		break;
-	case 2:
-		return 1024;
-		break;
-	case 3:
-		return 2048;
-		break;
+//通过索引获取采样点数
+int RadarManager::getSampCount( int index ){
+	std::stringstream ss;
+	ss<<index;
+	std::string strTag="sampleNum"+ss.str();
+	return atoi(m_configureSet->get("comboBox", strTag).c_str());
+	/*switch ( index ){
+		case 0:
+			return 256;
+			break;
+		case 1:
+			return 512;
+			break;
+		case 2:
+			return 1024;
+			break;
+		case 3:
+			return 2048;
+			break;
 	}
-
-	return 256;
+	return 256;*/
 }
-float RadarManager::getSampRatio( int index, int trackNo )
-{
-	float fSampRate = 51.2f;
 
-	switch (RadarManager::Instance()->GetRadarWorkType())
-	{
-	case RADAR_WORK_TYPE_ONE_USB:
-		switch (  index )
-		{
-		case 0:
-			fSampRate = 25.6;
-			break ;
-		case 1:
-			fSampRate = 12.8;
+/*
+//通过目前的工作模式以及索引获取采样率
+float RadarManager::getSampRatio( int index, int trackNo ){
+	float fSampRate = 51.2f;
+	switch (RadarManager::Instance()->GetRadarWorkType()){
+		case RADAR_WORK_TYPE_ONE_USB:
+			switch ( index ){
+				case 0:
+					fSampRate = 25.6;
+					break ;
+				case 1:
+					fSampRate = 12.8;
+					break;
+				case 2:
+					fSampRate = 6.4;
+					break;
+				case 3:
+					fSampRate = 3.2;
+					break;
+				case 4:
+					fSampRate = 32;
+					break;
+				case 5:
+					fSampRate = 16;
+					break;
+				case 6:
+					fSampRate = 8;
+					break;
+				case 7:
+					fSampRate = 4;
+					break;
+				default:
+					fSampRate = 6.4;
+			}
 			break;
-		case 2:
-			fSampRate = 6.4;
+		case RADAR_WORK_TYPE_DOUBLE_USB:
+			switch ( index ){
+				case 0:
+					fSampRate = 25.6;
+					break ;
+				case 1:
+					fSampRate = 12.8;
+					break;
+				case 2:
+					fSampRate = 6.4;
+					break;
+				case 3:
+					fSampRate = 3.2;
+					break;
+				case 4:
+					fSampRate = 32;
+					break;
+				case 5:
+					fSampRate = 16;
+					break;
+				case 6:
+					fSampRate = 8;
+					break;
+				case 7:
+					fSampRate = 4;
+					break;
+				default:
+					fSampRate = 6.4;
+			}
 			break;
-		case 3:
-			fSampRate = 3.2;
+		case RADAR_WORK_TYPE_DOUBLE_USB_OLD:
+			switch ( index ){
+				case 0:
+					fSampRate = 25.6;
+					break ;
+				case 1:
+					fSampRate = 12.8;
+					break;
+				case 2:
+					fSampRate = 6.4;
+					break;
+				case 3:
+					fSampRate = 3.2;
+					break;
+				case 4:
+					fSampRate = 32;
+					break;
+				case 5:
+					fSampRate = 16;
+					break;
+				case 6:
+					fSampRate = 8;
+					break;
+				case 7:
+					fSampRate = 4;
+					break;
+				default:
+					fSampRate = 6.4;
+			}
 			break;
-		case 4:
-			fSampRate = 32;
+		case RADAR_WORK_TYPE_FOUR_USB:
+			switch ( index ){
+				case 0:
+					fSampRate = 25.6;
+					break ;
+				case 1:
+					fSampRate = 12.8;
+					break;
+				case 2:
+					fSampRate = 6.4;
+					break;
+				case 3:
+					fSampRate = 3.2;
+					break;
+				case 4:
+					fSampRate = 32;
+					break;
+				case 5:
+					fSampRate = 16;
+					break;
+				case 6:
+					fSampRate = 8;
+					break;
+				case 7:
+					fSampRate = 4;
+					break;
+				default:
+					fSampRate = 6.4;
+			}
 			break;
-		case 5:
-			fSampRate = 16;
+		case RADAR_WORK_TYPE_EIGHT:
+			switch ( index ){
+				case 0:
+					fSampRate = 20.48;
+					break ;
+				case 1:
+					fSampRate = 10.24;
+					break;
+				case 2:
+					fSampRate = 5.12;
+					break;
+				case 3:
+					fSampRate = 2.56;
+					break;
+				default:
+					fSampRate = 5.12;
+			}
+			{
+				fSampRate /= getChannelRatioPrect( trackNo );
+			}
 			break;
-		case 6:
-			fSampRate = 8;
-			break;
-		case 7:
-			fSampRate = 4;
-			break;
-		}
-		break;
-	case RADAR_WORK_TYPE_DOUBLE_USB:
-		switch (  index )
-		{
-		case 0:
-			fSampRate = 25.6;
-			break ;
-		case 1:
-			fSampRate = 12.8;
-			break;
-		case 2:
-			fSampRate = 6.4;
-			break;
-		case 3:
-			fSampRate = 3.2;
-			break;
-		case 4:
-			fSampRate = 32;
-			break;
-		case 5:
-			fSampRate = 16;
-			break;
-		case 6:
-			fSampRate = 8;
-			break;
-		case 7:
-			fSampRate = 4;
-			break;
-		}
-		break;
-	case RADAR_WORK_TYPE_DOUBLE_USB_OLD:
-		switch (  index )
-		{
-		case 0:
-			fSampRate = 25.6;
-			break ;
-		case 1:
-			fSampRate = 12.8;
-			break;
-		case 2:
-			fSampRate = 6.4;
-			break;
-		case 3:
-			fSampRate = 3.2;
-			break;
-		case 4:
-			fSampRate = 32;
-			break;
-		case 5:
-			fSampRate = 16;
-			break;
-		case 6:
-			fSampRate = 8;
-			break;
-		case 7:
-			fSampRate = 4;
-			break;
-		}
-		break;
-	case RADAR_WORK_TYPE_FOUR_USB:
-		switch (  index )
-		{
-		/*case 0:
-			fSampRate = 16.0;
-			break ;
-		case 1:
-			fSampRate = 8.0;
-			break;
-		case 2:
-			fSampRate = 4.0;
-			break;*/
-		case 0:
-			fSampRate = 25.6;
-			break ;
-		case 1:
-			fSampRate = 12.8;
-			break;
-		case 2:
-			fSampRate = 6.4;
-			break;
-		case 3:
-			fSampRate = 3.2;
-			break;
-		case 4:
-			fSampRate = 32;
-			break;
-		case 5:
-			fSampRate = 16;
-			break;
-		case 6:
-			fSampRate = 8;
-			break;
-		case 7:
-			fSampRate = 4;
-			break;
-		}
-		break;
-	case RADAR_WORK_TYPE_EIGHT:
-		switch (  index )
-		{
-		/*case 0:
-			fSampRate = 51.2;
-			break ;
-		case 1:
-			fSampRate = 25.6;
-			break;
-		case 2:
-			fSampRate = 12.8;
-			break;
-		case 3:
-			fSampRate = 6.4;
-			break;*/
-		case 0:
-			fSampRate = 20.48;
-			break ;
-		case 1:
-			fSampRate = 10.24;
-			break;
-		case 2:
+		default:
 			fSampRate = 5.12;
-			break;
-		case 3:
-			fSampRate = 2.56;
-			break;
-		}
-		{
-			fSampRate /= getChannelRatioPrect( trackNo );
-		}
-		break;
 	}
+	return fSampRate;
+}
+*/
+
+//通过目前的工作模式以及索引获取采样率
+float RadarManager::getSampRatio( int index, int trackNo ){
+	std::stringstream ss;
+	ss<<index;
+	std::string strTag="sampleRate"+ss.str();
+	std::string strTemp=m_configureSet->get("comboBox", strTag);
+	float fSampRate = atof(strTemp.substr(0,strTemp.length()-1).c_str());
+	fSampRate /= getChannelRatioPrect( trackNo );
 	return fSampRate;
 }
 
@@ -3290,6 +3359,7 @@ bool RadarManager::CheckRadarProject()
 	return true;
 }
 
+//输出gpr文件
 bool RadarManager::ExportGprFile(void *_lpProjectRow/*std::string strProName*/,int _channelIndex/*,std::string strXML*/,std::string & strFilePath ,CWnd* pParent /*= NULL*/)
 {
 	AFX_MANAGE_STATE(AfxGetStaticModuleState());
@@ -3442,28 +3512,26 @@ bool RadarManager::ExportGprFile(void *_lpProjectRow/*std::string strProName*/,i
 	return floatPrec;
 }*/
 
-int RadarManager::GetTrueCmdIndexFromPreclenAndAccuracy(float fCLen,float fAccuracy)
-{
+//获取值：测量轮多少格一记录（一周720格）
+int RadarManager::GetTrueCmdIndexFromPreclenAndAccuracy(float fCLen,float fAccuracy){
 	int iCount = fAccuracy / (fCLen/720.0)+1;//设置精度/（测量轮周长/720）
-	if (0 < iCount)
-	{
+	if (0 < iCount){
 		iCount--;
 	}
 	return iCount;
 }
 
-float RadarManager::GetPrecratioFromPreclenAndAccuracy(float fCLen,float fAccuracy)
-{
+//获取比值：720/几转一记录
+float RadarManager::GetPrecratioFromPreclenAndAccuracy(float fCLen,float fAccuracy){
 	float iCount = 720 /(float)( GetTrueCmdIndexFromPreclenAndAccuracy(fCLen,fAccuracy)+1);
 	return iCount;
 }
 
-float RadarManager::GetTrueAccuracyFromPreclenAndPrecindex(float fCLen,float fAccuracy)
-{
+//获取真实精度
+float RadarManager::GetTrueAccuracyFromPreclenAndPrecindex(float fCLen,float fAccuracy){
 	float fPre = GetPrecratioFromPreclenAndAccuracy( fCLen, fAccuracy);
 	float fNum = fCLen / fPre;
 	return fNum;
-
 }
 
 bool RadarManager::Workdetection()
@@ -3487,6 +3555,7 @@ bool RadarManager::Workdetection()
 
 	return true;
 }
+
 #include "DlgProjectManager.h"
 void RadarManager::RoadDetectionProjectManager()
 {
@@ -3576,7 +3645,7 @@ void RadarManager::RoadDetectionProjectManager()
 // }
 
 //雷达参数配置
-void RadarManager::RadarParameterconFiguration()
+void RadarManager::RadarParameterConfiguration()
 {
 	AFX_MANAGE_STATE(AfxGetStaticModuleState());
 	DlgRadarParameterConfig* pDlgRadarParameterConfig = new DlgRadarParameterConfig;
@@ -3587,6 +3656,7 @@ void RadarManager::RadarParameterconFiguration()
 	}
 	pDlgRadarParameterConfig->ShowWindow(SW_NORMAL);
 }
+
 //工作方式配置
 void RadarManager::WorkTypeConfiguration()
 {
@@ -3600,44 +3670,43 @@ void RadarManager::WorkTypeConfiguration()
 	pDlgWorkTypeConfiguration->ShowWindow(SW_NORMAL);
 }
 
-void RadarManager::setRadarWorkType(int value)
-{
+//设置工作模式
+void RadarManager::setRadarWorkType(int value){
 	m_iRadarWorkType = value;
 }
 
-void RadarManager::setRadarDataSaveType(int value)
-{
+//设置数据保存模式
+void RadarManager::setRadarDataSaveType(int value){
 	m_iSaveOracle = value;
 }
 
-void RadarManager::setRadarDataSavePath(CString strSavePath)
-{
+//设置数据保存路径
+void RadarManager::setRadarDataSavePath(CString strSavePath){
 	m_strSavePath = strSavePath;
 }
 
-CString RadarManager::getRadarDataSavePath()
-{
+//获取数据保存路径
+CString RadarManager::getRadarDataSavePath(){
 	return m_strSavePath;
 }
 
-
-void RadarManager::setPicSavePath(CString strImagePath)
-{
+//获取图像保存路径
+void RadarManager::setPicSavePath(CString strImagePath){
 	USES_CONVERSION;
 	m_strImagePath = W2A(strImagePath);
 }
 
-std::string RadarManager::getPicSavePath()
-{
+//设置图像保存路径
+std::string RadarManager::getPicSavePath(){
 	return m_strImagePath;
 }
 
-
-CString RadarManager::GetRadarWorkPath()
-{
+//
+CString RadarManager::GetRadarWorkPath(){
 	return m_strRadarPath;
 }
 
+//读取ini文件
 void RadarManager::ReadRadarIni()//从ini读入设置
 {
 	TCHAR szAppPath[MAX_PATH];
@@ -3817,7 +3886,7 @@ void RadarManager::ReadRadarIni()//从ini读入设置
 	m_strImagePath = W2A(m_strSavePath + L"imageData\\");
 }
 
-//更新radar模块的配置文件
+//更新ini文件
 void RadarManager::WriteRadarIni(){
 	USES_CONVERSION;
 	CString szKeyVal;
@@ -3920,8 +3989,8 @@ void RadarManager::WriteRadarIni(){
 	m_configureSet->write();
 }
 
-void RadarManager::DataExport(CWnd* wnd)
-{
+//数据库模式下的导出数据
+void RadarManager::DataExport(CWnd* wnd){
 	AFX_MANAGE_STATE(AfxGetStaticModuleState());
 	//DlgDataExport* pDlgDataExport = new DlgDataExport(wnd);
 	//if(!pDlgDataExport->GetSafeHwnd())
@@ -3931,38 +4000,41 @@ void RadarManager::DataExport(CWnd* wnd)
 	//pDlgDataExport->ShowWindow(SW_NORMAL);
 	DlgDataExport dlg(wnd);
 	//dlg.SetMyWndText(CString(_T("导出工程")));
-	if ( dlg.DoModal() != IDOK )
-	{
+	if ( dlg.DoModal() != IDOK ){
 		return ;
 	}
 }
 
-string Int_to_String(int n)
-{
+string Int_to_String(int n){
 	ostringstream stream;
 	stream<<n; //n为int类型
 	return stream.str();
 }
 
-
-void RadarManager::DataMarkOne()
-{
+//一类标记
+void RadarManager::DataMarkOne(){
 	//_radarReader.MarkOne();
-	_radarReader.Mark(1,-1);
+	//_radarReader.Mark(1,-1);
+	_radarReader.Mark(-254);
 }
 
+//二类标记
 void RadarManager::DataMarkTwo()
 {
 	//_radarReader.MarkOne();
-	_radarReader.Mark(1,-2);
+	//_radarReader.Mark(1,-2);
+	_radarReader.Mark(-511);
 }
 
+//三类标记
 void RadarManager::DataMarkThree()
 {
 	//_radarReader.MarkOne();
-	_radarReader.Mark(1,-3);
+	//_radarReader.Mark(1,-3);
+	_radarReader.Mark(-767);
 }
 
+/*
 int getSecondValueFromMarkValue(int markValue){
 	//int i=0;
 	if (markValue>=0){
@@ -3992,20 +4064,21 @@ int getFirstValueFromMarkValue(int markValue){//第一个数必须是正数 否则-1=255 -2
 		}
 		return markValue%(-256)+256;//+256为了修正成正数，负数不能正确表示-1=255 -2=254
 	}
-}
+}*/
 
-void RadarManager::DataMarkCustomize()
-{
+//自定义标记值 待修改
+void RadarManager::DataMarkCustomize(){
 	//_radarReader.MarkOne();	
-	_radarReader.Mark(getFirstValueFromMarkValue(atoi(RadarManager::Instance()->getConfigureSet()->get("mark", "markValue").c_str())),getSecondValueFromMarkValue(atoi(RadarManager::Instance()->getConfigureSet()->get("mark", "markValue").c_str())));
+	//_radarReader.Mark(getFirstValueFromMarkValue(atoi(RadarManager::Instance()->getConfigureSet()->get("mark", "markValue").c_str())),getSecondValueFromMarkValue(atoi(RadarManager::Instance()->getConfigureSet()->get("mark", "markValue").c_str())));
+	_radarReader.Mark(atoi(RadarManager::Instance()->getConfigureSet()->get("mark", "markValue").c_str()));
 }
 
-int RadarManager::originalIndexToRecordIndex(int originalIndex)
-{
+/*
+int RadarManager::originalIndexToRecordIndex(int originalIndex){
 	//int indexArray[]={0,2,4,6,8,10,12,14,16,18,20,22,23,25,27,1,3,5,7,9,11,13,15,17,19,21,24,26};
 	int indexArray[]={0,1,2,3,4,5,6,7,8,9,10,11,24,25,26,27,12,13,14,15,16,17,18,19,20,21,22,23};
 	return indexArray[originalIndex];
-}
+}*/
 
 /*
 int RadarManager::originalIndexToArtificialIndex(int originalIndex)
@@ -4033,3 +4106,12 @@ int RadarManager::getArtificalChannelIndexFromOriginalIndex(int originalIndex)
 	return indexArray[originalIndex];
 }
 */
+//std::locale loc = std::locale::global(std::locale(""));//中文路径
+void RadarManager::StartElectromagneticExe(){
+	//WinExec("C:\\Users\\msi-pc\\Desktop\\electromagnetic\\USEP21地质超前预报采集系统.exe",SW_SHOWNORMAL);
+	//WinExec("C:\\Users\\msi-pc\\Desktop\\electromagnetic.bat",SW_HIDE);
+	//system("C:\\Users\\msi-pc\\Desktop\\electromagnetic.bat");
+	//WinExec("C:\\Users\\msi-pc\\Desktop\\electromagnetic.bat",SW_HIDE);
+	WinExec(m_configureSet->get("electromagnetic", "batPath").c_str(),SW_HIDE);
+	
+}

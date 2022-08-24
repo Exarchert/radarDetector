@@ -15,7 +15,7 @@
 IMPLEMENT_DYNAMIC(RadarCurveWnd, CWnd)
 
 #define STAFF_HEIGHT 30 //距离刻度区域高度
-#define GRID_SPACE 15
+#define GRID_SPACE 15//网格中的线段间隔距离
 #define POINT_SPACE 10
 #define DATA_BLOCK_HEIGHT 40.0f
 #define DATA_BLOCK_WIDTH 20.0f
@@ -67,7 +67,7 @@ RadarCurveWnd::RadarCurveWnd()
 	_needReinit = false;
 	_dataAvailabled = false;
 
-	_dCorrection=0;
+	m_dCorrection=0;
 }
 
 RadarCurveWnd::~RadarCurveWnd()
@@ -133,26 +133,22 @@ BOOL RadarCurveWnd::Create(const RECT& rect, CWnd* parent, UINT nID, LPCTSTR cla
 }
 
 
-
-// RadarCurveWnd 消息处理程序
-
-void RadarCurveWnd::SetSampleCount( int count )
-{
+//设置采样点数
+void RadarCurveWnd::SetSampleCount( int count ){
 	_sampleCount = count;
 }
-void RadarCurveWnd::SetSampleRatio( double value )
-{
+//设置采样率
+void RadarCurveWnd::SetSampleRatio( double value ){
 	_sampleRatio = value;
 }
+
 void RadarCurveWnd::OnTimer(UINT_PTR nIDEvent)
 {
-	// TODO: 在此添加消息处理程序代码和/或调用默认值
-
 	CWnd::OnTimer(nIDEvent);
-
 	Invalidate();
 }
 
+//每次绘制的过程 _drawing===true时会绘制出图像
 void RadarCurveWnd::OnPaint()
 {
 	//CPaintDC dc(this); // device context for painting
@@ -167,33 +163,27 @@ void RadarCurveWnd::OnPaint()
 	//int end = 0;
 	////////////////////////////////////////////////////////////////////////////
 
-	if (!_lpDC)
-	{
+	if (!_lpDC){
 		_lpDC = new CPaintDC(this);
 	}
+
 	CRect rc;
 	GetClientRect(&rc);
 
 	PAINTSTRUCT pat;
 	pat.hdc = _lpDC->GetSafeHdc();
 	pat.fErase = true;
-	
 	pat.rcPaint = rc;
-	
 	BeginPaint( &pat );
 	
 	CDC *pDC = _lpDC;
-
-
-
 	CDC dcMem;
-	
 	CBitmap bmp; 
 	dcMem.CreateCompatibleDC(pDC); 
 	bmp.CreateCompatibleBitmap(pDC,rc.Width(),rc.Height());
 	CBitmap *pOldBit=dcMem.SelectObject(&bmp);
 	dcMem.FillSolidRect(rc,RGB(240,240,240));
-	DrawBk(&dcMem);
+	DrawBk(&dcMem);//背景
 
 	int newData = 0;
 	{
@@ -203,21 +193,19 @@ void RadarCurveWnd::OnPaint()
 		_newData = 0;
 	}
 
-	if ( _drawing )
-	{
-		//DrawCurveNew(&dcMem);//波形图
+	if ( _drawing ){
 		DrawCurve(&dcMem);//波形图
-		//DrawSection( &dcMem, newData );//波普图
+		//DrawSection( &dcMem, newData );//波谱图
 	}
-	//DrawScaleFlag( &dcMem );//20210803hjl
+	//DrawScaleFlag( &dcMem );//线性增益所需控制
 	pDC->BitBlt(0,0,rc.Width(),rc.Height(),&dcMem,0,0,SRCCOPY);//20210803hjl
 	dcMem.DeleteDC();   
 	bmp.DeleteObject(); 
 	EndPaint( &pat );
 }
 
-
-void RadarCurveWnd::DrawBk( CDC *lpDC )//绘制背景   黑底红绿线
+//绘制背景   黑底红绿线
+void RadarCurveWnd::DrawBk( CDC *lpDC )
 {
 	CRect rc;
 	GetClientRect(&rc);
@@ -290,7 +278,7 @@ void RadarCurveWnd::DrawBk( CDC *lpDC )//绘制背景   黑底红绿线
 	lpDC->LineTo(staffStartX,curvRectY2);
 	//横黑线
 	int count = int( 1 / _sampleRatio * _sampleCount + 0.5 );//横线数量
-	float staffYSpace = (curvRectY2 - curvRectY1) * 1.0f / count;//间隔
+	float staffYSpace = (curvRectY2 - curvRectY1) * 1.0f / count;//
 	CFont *lpOldFont = lpDC->SelectObject( &_textFont );
 	count += 1;
 	//纵向刻度尺中的线及数字
@@ -339,6 +327,7 @@ void RadarCurveWnd::DrawBk( CDC *lpDC )//绘制背景   黑底红绿线
 	_staffMaxY = curvRectY1;
 }
 
+//绘制线性增益控件
 void RadarCurveWnd::DrawScaleFlag( CDC *lpDC )
 {
 	int radius = 10;
@@ -358,6 +347,7 @@ void RadarCurveWnd::DrawScaleFlag( CDC *lpDC )
 	lpDC->Ellipse( downEllipse);//黄色增益线下端的球
 }
 
+//线性增益计算所需
 CRect RadarCurveWnd::GetUpEllipse()
 {
 	int radius = RADIUS;
@@ -376,8 +366,8 @@ CRect RadarCurveWnd::GetUpEllipse()
 	return upEllipse;
 }
 
-CRect RadarCurveWnd::GetDownEllipse()
-{
+//线性增益计算所需
+CRect RadarCurveWnd::GetDownEllipse(){
 	int radius = RADIUS;
 	CRect downEllipse;
 	{
@@ -395,42 +385,17 @@ CRect RadarCurveWnd::GetDownEllipse()
 	return downEllipse;
 }
 
-int RadarCurveWnd::mapRadarValueToXValue( float radarValue, float temp)
+//根据雷达数据值radarValue，及雷达数据值序号与采样点数比值indexRatio计算波形图X值
+int RadarCurveWnd::mapRadarValueToXValue( float radarValue, float indexRatio)
 {
-	//radarValue = _startPos + radarValue;
-
-	//float ratio = radarValue / SHRT_MAX;
-	//ratio += 1;
-	//ratio /= 2;
-	//if ( ratio > 1 )
-	//{
-	//	ratio = 1;
-	//}
-	//if ( ratio < 0 )
-	//{
-	//	ratio = 0;
-	//}
-	//ratio = _scaleRatio * ratio;
-
-	//float result = ( ratio * ( _curveMaxX - _curveMinX ) + _curveMinX );
-	//if ( result > _curveMaxX )
-	//{
-	//	result = _curveMaxX;
-	//}
-
-	//return result;
-	////return /*_maxX - */( ratio * ( _curveMaxX - _curveMinX ) + _curveMinX );
-
-	radarValue = _startPos + radarValue;
-
 	float ratio = radarValue / SHRT_MAX;
-	
+	//计算线性增益后的雷达数据值占short范围的比值
+	radarValue = _startPos + radarValue;
 	if(_scaleRatio>_startPos){
-		ratio = ratio * (1.0 + (float)(_scaleRatio-_startPos-1) * temp);
+		ratio = ratio * (1.0 + (float)(_scaleRatio-_startPos-1) * indexRatio);
 	}else{
-		ratio = ratio * (1.0 + (float)(_startPos-_scaleRatio-1) * (1-temp));
+		ratio = ratio * (1.0 + (float)(_startPos-_scaleRatio-1) * (1-indexRatio));
 	}
-
 	ratio += 1;
 	ratio /= 2;
 	if ( ratio > 1 ){
@@ -439,69 +404,63 @@ int RadarCurveWnd::mapRadarValueToXValue( float radarValue, float temp)
 	if ( ratio < 0 ){
 		ratio = 0;
 	}
-
-	//ratio = _scaleRatio * ratio;
-
+	
+	//利用雷达数据值与short范围的比值计算出在波形图中的x值
 	float result = ( ratio * ( _curveMaxX - _curveMinX ) + _curveMinX );
-	if ( result > _curveMaxX )
-	{
+	if ( result > _curveMaxX ){
 		result = _curveMaxX;
 	}
 
 	return result;
 }
 
-int RadarCurveWnd::mapTimeToYValue( float t )
-{
-	float st = ( _maxTime - t ) /*/ 1000.0f*/;
 
-	float y = st * POINT_SPACE;
-	if ( y > _curveMaxY )
-	{
-		return -1;
-	}
-	return _curveMaxY - y;
-}
+//int RadarCurveWnd::mapTimeToYValue( float t )
+//{
+//	float st = ( _maxTime - t ) /*/ 1000.0f*/;
+//
+//	float y = st * POINT_SPACE;
+//	if ( y > _curveMaxY )
+//	{
+//		return -1;
+//	}
+//	return _curveMaxY - y;
+//}
 
-int RadarCurveWnd::mapIndexToCurveYValue( int index, int dataCount )
-{
+//根据雷达数据的序数index及采样点数sampleCount计算出绘制波形的y值
+int RadarCurveWnd::mapIndexToCurveYValue( int index, int sampleCount ){
 	//float st = index * DATA_BLOCK_HEIGHT / dataCount;
-	float st = index * 1.0f * ( _curveMaxY - _curveMinY ) / dataCount + _curveMinY;
-	float y = st ;
-	if ( y > _curveMaxY )
-	{
+	float y = index * 1.0f * ( _curveMaxY - _curveMinY ) / sampleCount + _curveMinY;//按比例：y/Y=index/sampleCount
+	if ( y > _curveMaxY ){//保险起见 
 		return -1;
 	}
 	return int(y);
 }
 
-int RadarCurveWnd::mapIndexToSectionYValue( int index, int dataCount )
-{
-	float st = index * 1.0f * ( _sectionMaxY - _sectionMinY ) / dataCount/* + _sectionMinY*/;//波谱图是先存进另一份画布的，所以不用+_sectionMinY
-	return st;
+//根据雷达数据的序数计算出绘制波谱的y值
+int RadarCurveWnd::mapIndexToSectionYValue( int index, int sampleCount ){
+	float y = index * 1.0f * ( _sectionMaxY - _sectionMinY ) / sampleCount/* + _sectionMinY*/;//波谱图是先存进另一份画布的，所以不用+_sectionMinY
+	return y;
 }
 
-void RadarCurveWnd::StartDraw()
-{
+//开始绘制
+void RadarCurveWnd::StartDraw(){
 	_drawing = true;
 	this->SetTimer(1, 35, NULL );
 }
 
-void RadarCurveWnd::EndDraw()
-{
+//停止绘制
+void RadarCurveWnd::EndDraw(){
 	_drawing = false;
 	this->KillTimer(1 );
 }
 
-void RadarCurveWnd::DrawCurve( CDC *lpDC )//绘制波形图
-{
-	if ( !_drawing )
-	{
+//绘制波形图
+void RadarCurveWnd::DrawCurve( CDC *lpDC ){
+	if ( !_drawing ){
 		return;
 	}
-
-	if ( _tmpDataVector.size() == 0 )
-	{
+	if ( _tmpDataVector.size() == 0 ){
 		return;
 	}
 
@@ -512,50 +471,81 @@ void RadarCurveWnd::DrawCurve( CDC *lpDC )//绘制波形图
 	lpDC->SelectObject(pen_grid_vert);
 
 	RadarData *rd = NULL;
-	RadarDataVector::reverse_iterator it;
+	RadarDataVector::reverse_iterator it;//反向迭代器
 
-	bool moveTo = false;
-	bool curveToBreak = false;
+	bool bFirstFlag = false;
+	//bool curveToBreak = false;
 
+	/*
 	ConfigureSet *cs = RadarManager::Instance()->getConfigureSet();
 	std::string strPrec = cs->get("radar", "prec");
-
 	int iprec = atoi( strPrec.c_str() );
+	*/
 
-	int iDataCount;
-	for (it = _tmpDataVector.rbegin(); it != _tmpDataVector.rend(); it++)
-	{
-		rd = ((*it).get());
-		if ( !rd ){
-			continue;
-		}
-		iDataCount = rd->getDataCount();
-		for ( int i = 0; i < iDataCount; i ++ ){
-			float t;
-			//short v = rd->getIndexData( i, &t ) ;
-			short v = rd->getIndexData( i + _dCorrection, &t );{
-			// curve line
-				int y = mapIndexToCurveYValue( i, iDataCount );
-				//int x = mapRadarValueToXValue( v );
-				int x = mapRadarValueToXValue( v,(float)(i+1)/(float)iDataCount );
+	int dSampleCount;
+	//for (it = _tmpDataVector.rbegin(); it != _tmpDataVector.rend(); it++){//从数组末位(新的)向前(旧的)读
+	//	rd = ((*it).get());
+	//	if ( !rd ){
+	//		continue;
+	//	}
+	//	dSampleCount = rd->getDataCount();
+	//	for ( int i = 0; i < dSampleCount; i ++ ){
+	//		float t;
+	//		//short v = rd->getIndexData( i, &t ) ;
+	//		short v = rd->getIndexData( i + m_dCorrection, &t );//按修正后的序号取数据值 
+	//		{
+	//		// curve line
+	//			int y = mapIndexToCurveYValue( i, dSampleCount );//计算y
+	//			//int x = mapRadarValueToXValue( v );
+	//			int x = mapRadarValueToXValue( v,(float)(i+1)/(float)dSampleCount );//计算x
 
-				if ( y > _curveMinY && y <= _curveMaxY){
-					if ( !moveTo ){
-						lpDC->MoveTo(x, y);
-						moveTo = true;
-					}else{
-						lpDC->LineTo( x, y );
-					}
-				}
-				if ( y > _curveMaxY ){
-					break;
+	//			if ( y > _curveMinY && y <= _curveMaxY){//用判断来修正使其在范围内
+	//				if ( !bFirstFlag ){//第一次用moveTo 之后用LineTo
+	//					lpDC->MoveTo(x, y);
+	//					bFirstFlag = true;
+	//				}else{
+	//					lpDC->LineTo( x, y );
+	//				}
+	//			}
+	//			if ( y > _curveMaxY ){
+	//				break;
+	//			}
+	//		}
+	//	}
+	//	break;
+	//}
+	it = _tmpDataVector.rbegin();//雷达数据数据数组中最新的数据
+	rd = ((*it).get());
+	if ( !rd ){
+		return;
+	}
+	dSampleCount = rd->getDataCount();//采样点数
+	for ( int i = 0; i < dSampleCount; i ++ ){
+		float t;
+		//short v = rd->getIndexData( i, &t ) ;
+		short v = rd->getIndexData( i + m_dCorrection, &t );//按修正后的序号取数据值 
+		{
+		// curve line
+			int y = mapIndexToCurveYValue( i, dSampleCount );//计算y
+			//int x = mapRadarValueToXValue( v );
+			int x = mapRadarValueToXValue( v,(float)(i+1)/(float)dSampleCount );//计算x
+
+			if ( y > _curveMinY && y <= _curveMaxY){//用判断来修正使其在范围内
+				if ( !bFirstFlag ){//第一次用moveTo 之后用LineTo
+					lpDC->MoveTo(x, y);
+					bFirstFlag = true;
+				}else{
+					lpDC->LineTo( x, y );
 				}
 			}
+			if ( y > _curveMaxY ){
+				break;
+			}
 		}
-		break;
 	}
 }
 
+/*
 void RadarCurveWnd::DrawCurveNew( CDC *lpDC )//绘制波形图
 {
 	if ( !_drawing ){
@@ -564,9 +554,9 @@ void RadarCurveWnd::DrawCurveNew( CDC *lpDC )//绘制波形图
 	if ( !_dataAvailabled ){
 		return;
 	}
-	/*if ( _currentRadarData == NULL ){
-		return;
-	}*/
+	//if ( _currentRadarData == NULL ){
+	//	return;
+	//}
 
 	CPen pen_grid_vert(PS_SOLID,1,RGB(200,255,105));//线用黄色
 	lpDC->SelectObject(pen_grid_vert);
@@ -583,7 +573,7 @@ void RadarCurveWnd::DrawCurveNew( CDC *lpDC )//绘制波形图
 	int iDataCount = _currentRadarData->getDataCount();
 	for ( int i = 0; i < iDataCount; i ++ ){
 		float t;
-		short value = _currentRadarData->getIndexData( i + _dCorrection, &t );//取雷达数据第i个点的值
+		short value = _currentRadarData->getIndexData( i + m_dCorrection, &t );//取雷达数据第i个点的值
 		// curve line
 		{
 			int y = mapIndexToCurveYValue( i, iDataCount );
@@ -603,27 +593,25 @@ void RadarCurveWnd::DrawCurveNew( CDC *lpDC )//绘制波形图
 			}
 		}
 	}
-}
+}*/
 
-
-void RadarCurveWnd::DrawSection( CDC *lpDC, int newData )//绘制波普数据
+//绘制波谱数据
+void RadarCurveWnd::DrawSection( CDC *lpDC, int newData )
 {
-	if ( !_drawing )
-	{
+	if ( !_drawing ){
+		return;
+	}
+	if (_tmpDataVector.size() == 0){
 		return;
 	}
 
-	if (_tmpDataVector.size() == 0)
-	{
-		return;
-	}
-	//上方刻度
+	//上方刻度区域
 	CRect staffRect;
 	staffRect.left = _sectionMinX;
 	staffRect.right = _sectionMaxX;
 	staffRect.top = _staffMinY;
 	staffRect.bottom = _staffMaxY;
-	//波普区域
+	//波谱区域
 	CRect sectionRect;
 	sectionRect.left = _sectionMinX;
 	sectionRect.right = _sectionMaxX;
@@ -633,20 +621,17 @@ void RadarCurveWnd::DrawSection( CDC *lpDC, int newData )//绘制波普数据
 	lpDC->FillRect( staffRect, &_staffBrush );//刻度白底
 
 	CBrush blackBruh( RGB( 0, 0, 0 ) );
-	if (!_bmpDCSource.isInit() || _needReinit)//_bmpDCSource是自己定义的CBmpDC类的对象，用于把dc存到bmp里的
-	{
+	//创建_bmpDCSource及_bmpDCTmp
+	if (!_bmpDCSource.isInit() || _needReinit){//_bmpDCSource是自己定义的CBmpDC类的对象，用于把dc存到bmp里的
 		_bmpDCSource.init( _lpDC, sectionRect );
 		//_bmpDCSource.drawRect(&blackBruh);
 	}
-	if ( !_bmpDCTmp.isInit() || _needReinit)
-	{
+	if ( !_bmpDCTmp.isInit() || _needReinit){
 		_bmpDCTmp.init(_lpDC, sectionRect);
 		//_bmpDCTmp.drawRect(&blackBruh);
 	}
-
 	//BitBlt一个计算机函数 该函数对指定的源设备环境区域中的像素进行位块转换，以传送到目标设备环境
 	_bmpDCTmp.getDC()->BitBlt(0, 0, sectionRect.Width() - newData, sectionRect.Height(), _bmpDCSource.getDC(), newData, 0, SRCCOPY );
-
 
 	CPen *lpOldPen = lpDC->SelectObject( &_staffPen );
 	//距离刻度横线
@@ -657,35 +642,31 @@ void RadarCurveWnd::DrawSection( CDC *lpDC, int newData )//绘制波普数据
 	CFont *lpOldFont = lpDC->SelectObject( &_textFont );
 
 	RadarData *rd = NULL;
-	RadarDataVector::reverse_iterator it;//反向迭代器 rend()是第一个元素 rbegin是最后一个元素的下一个位置 指向位置下一位的值 [0,1,2,3]的rpos[1]=2
+	RadarDataVector::reverse_iterator it;//反向迭代器 rend()是第一个元素 rbegin()是最后一个元素  [0,1,2,3]的rpos[1]=2
 
 	bool moveTo = false;
 	bool curveToBreak = false;
 	bool sectionToBreak = false;
 	int row = 0;
 
-	int dataNum = newData;//newdata为传进来的参数
-	if ( _needReinit )
-	{
+	int dataNum = newData;//newdata为新数据数据数量
+	if ( _needReinit ){//第一次
 		dataNum = _tmpDataVector.size();
 	}
-	for (it = _tmpDataVector.rbegin(); it != _tmpDataVector.rend(); it++, row++)
-	{
+	for (it = _tmpDataVector.rbegin(); it != _tmpDataVector.rend(); it++, row++){
 		rd = ((*it).get());
-		if ( !rd )
-		{
+		if ( !rd ){
 			continue;
 		}
-		int x = ( _sectionMaxX - _sectionMinX )- row;//横向区域范围，x用以指代当前循环处理的区域
+		int x = ( _sectionMaxX - _sectionMinX ) - row;//横向区域范围，x用以指代循环中当前处理的那一列 循环内row会逐渐变大，x逐渐变小，成图顺序是从新至旧的
 		//int x = ( _sectionMaxX - _sectionMinX )- row + _sectionMinX;//旧的
 		//仅绘制当前屏幕能放下的最新的数据
-		if ( x < 0 )
-		{
+		if ( x < 0 ){
 			sectionToBreak = true;
 		}
 
-		if ( x % 50 == 0 )//隔50像素画一个
-		{
+		//绘制上方距离刻度值
+		if ( x % 50 == 0 ){//隔50像素画一个
 			short r = rd->getPrec();
 			lpDC->MoveTo( x, staffBaseLineY );
 			lpDC->LineTo( x, _staffMinY  + STAFF_HEIGHT / 4.0f * 3);
@@ -695,58 +676,49 @@ void RadarCurveWnd::DrawSection( CDC *lpDC, int newData )//绘制波普数据
 			lpDC->DrawText( str, rtext, DT_CENTER | DT_BOTTOM);//绘制距离
 		}
 
-		if ( dataNum >= 0 )
-		{
+		if ( dataNum >= 0 ){
 			int sectionX = x - _sectionMinX;
-			if ( rd->getMark() )
-			{
-				int iDataCount = rd->getDataCount();
+			if ( rd->getMark() ){//如果作为标记存在则该道可直接绘制成一条竖直白线
+				int dSampleCount = rd->getDataCount();//数值上等于采样点数-2
 				CPen *lpOldPen = _bmpDCTmp.getDC()->SelectObject( &_markPen );
 				//_bmpDCTmp.getDC()->MoveTo( sectionX, _sectionMaxY );//旧的
 				//_bmpDCTmp.getDC()->LineTo( sectionX, _sectionMinY );//旧的
 				_bmpDCTmp.getDC()->MoveTo( sectionX, 10 );
-				_bmpDCTmp.getDC()->LineTo( sectionX, iDataCount * 2 - 20 );
+				_bmpDCTmp.getDC()->LineTo( sectionX, dSampleCount * 2 - 20 );
 				_bmpDCTmp.getDC()->SelectObject( lpOldPen );
-			}else
-			{
- 				int iDataCount = rd->getDataCount();
-				int iSectionHight = sectionRect.Height();
-				if (iDataCount < iSectionHight && iDataCount > 0)//需要补充
-				{
-					float fBeishu = ((float)iSectionHight) / ((float)iDataCount);//每个数据能占的高度
+			}else{//需要绘制
+ 				int dSampleCount = rd->getDataCount();
+				int dSectionHeight = sectionRect.Height();
+				if (dSampleCount < dSectionHeight && dSampleCount > 0){//数据高度少于绘制区域高度需要补充
+					float fBeishu = ((float)dSectionHeight) / ((float)dSampleCount);//每个数据能占的高度
 
-					int iInsertCount = iSectionHight - iDataCount; //需要补全来增加的数量
-					int iInsertPost = iDataCount /  iInsertCount; //用以确定插值的位置
+					int dInsertCount = dSectionHeight - dSampleCount; //需要补全来增加的数量
+					int dInsertPost = dSampleCount / dInsertCount; //用以确定插值的位置 隔几个插一个
 
-					float vOld = 0.;//上一数据的值
-					float vNew = 0.;//当前数据的值
+					float fOldValue = 0.;//上一数据的值
+					float fNewValue = 0.;//当前数据的值
 					int y = 0;
 
-					if (fBeishu >= 2.0)//最多翻一倍
-					{
-						iInsertPost = 1;
+					if (fBeishu >= 2.0){//最多翻一倍
+						dInsertPost = 1;
 					}
 
-					for ( int i = 0; i < iDataCount; i ++ )//横坐标x的这条线上的不同y的值
-					{
-						vNew = (float)rd->getIndexData( i + _dCorrection, NULL ) * (1.0 + (float)_scaleRatio * (float)(i+1)/(float)iDataCount);
-						if ( !sectionToBreak )
-						{
+					for ( int i = 0; i < dSampleCount; i ++ ){//横坐标x的这条线上的不同y的值
+						fNewValue = (float)rd->getIndexData( i + m_dCorrection, NULL ) * (1.0 + (float)_scaleRatio * (float)(i+1)/(float)dSampleCount);
+						if ( !sectionToBreak ){
 							COLORREF c ,cHalf;
-							if ( rd->getMark() )
-							{
+							/*if ( rd->getMark() ){
 								c = RGB( 255, 255, 255 );
 								cHalf = RGB( 255, 255, 255 );
-							}else
-							{
-								c = getColor(vNew);//根据当前值定颜色
-								cHalf = getColor((vOld + vNew) / 2.0);//前后两个之间的颜色
-							}
+							}else{
+								c = getColor(fNewValue);//根据当前值定颜色
+								cHalf = getColor((fOldValue + fNewValue) / 2.0);//前后两个之间的颜色
+							}*/
+							c = getColor(fNewValue);//根据当前值定颜色
+							cHalf = getColor((fOldValue + fNewValue) / 2.0);//与上一个值插值出的颜色
 
-							if ( x > 0 && x <= _sectionMaxX )
-							{
-								if (i > 0 && (i%iInsertPost == 0))
-								{
+							if ( x > 0 && x <= _sectionMaxX ){//在波谱绘制区域范围内
+								if (i > 0 && (i%dInsertPost == 0)){
 									_bmpDCTmp.getDC()->SetPixelV( ( sectionX ), y, cHalf );
 									++y;
 								}
@@ -754,29 +726,23 @@ void RadarCurveWnd::DrawSection( CDC *lpDC, int newData )//绘制波普数据
 								++y;
 							}
 						}
-						vOld = vNew;
+						fOldValue = fNewValue;
 					}
-				}else//数据数量大于高度,需要压缩，即抽值显示，mapIndexToSectionYValue利用比例关系 i/i总数量 = y/y总数量 来求得i对应的
-				{
-					for ( int i = 0; i < iDataCount; i ++ )
-					{
-						//short v = (float)rd->getIndexData( i, NULL ) * (1.0 + (float)_scaleRatio * (float)(i+1)/(float)iDataCount);//旧版用short会出现显示错误
-						float v = (float)rd->getIndexData( i + _dCorrection, NULL ) * (1.0 + (float)_scaleRatio * (float)(i+1)/(float)iDataCount);
-						if ( !sectionToBreak )
-						{
-							int y = mapIndexToSectionYValue( i, rd->getDataCount() );
+				}else{//数据数量大于高度,需要压缩，即抽值显示
+					for ( int i = 0; i < dSampleCount; i ++ ){
+						//short v = (float)rd->getIndexData( i, NULL ) * (1.0 + (float)_scaleRatio * (float)(i+1)/(float)dSampleCount);//旧版用short会出现显示错误
+						float v = (float)rd->getIndexData( i + m_dCorrection, NULL ) * (1.0 + (float)_scaleRatio * (float)(i+1)/(float)dSampleCount);
+						if ( !sectionToBreak ){
+							int y = mapIndexToSectionYValue( i, rd->getDataCount() );//mapIndexToSectionYValue利用比例关系 i/i总数量 = y/y总数量 来求得i对应的y
 							//int y = mapIndexToSectionYValue( i, rd->getDataCount() ) + _sectionMinY;//旧的
 							COLORREF c;
-							if ( rd->getMark() )
-							{
+							if ( rd->getMark() ){
 								c = RGB( 255, 255, 255 );
-							}else
-							{
+							}else{
 								c = getColor(v);
 							}
 
-							if ( x > 0 && x <= _sectionMaxX )
-							{
+							if ( x > 0 && x <= _sectionMaxX ){//处于范围内
 								_bmpDCTmp.getDC()->SetPixelV( ( sectionX ), y, c );
 							}
 						}
@@ -786,9 +752,7 @@ void RadarCurveWnd::DrawSection( CDC *lpDC, int newData )//绘制波普数据
 			dataNum --;
 		}
 
-
-		if ( sectionToBreak )
-		{
+		if ( sectionToBreak ){
 			break;
 		}
 	}
@@ -805,25 +769,23 @@ void RadarCurveWnd::DrawSection( CDC *lpDC, int newData )//绘制波普数据
 	
 }
 
-COLORREF RadarCurveWnd::getColor( float radarValue )
-{
+//获取雷达数据值对应rgb
+COLORREF RadarCurveWnd::getColor( float radarValue ){
 	float ratio = radarValue / SHRT_MAX;
 	ratio += 1;
 	ratio /= 2;
-	if ( ratio > 1 )
-	{
+	if ( ratio > 1 ){
 		ratio = 1;
 	}
-	if ( ratio < 0 )
-	{
+	if ( ratio < 0 ){
 		ratio = 0;
 	}
-	COLORREF col = RGB( int(ratio * 255), int(ratio * 255), int(ratio * 255 ) );
-	return col;
+	COLORREF color = RGB( int(ratio * 255), int(ratio * 255), int(ratio * 255 ) );
+	return color;
 }
 
-void RadarCurveWnd::addData( RadarData *lpData )
-{
+//给数组添加数据
+void RadarCurveWnd::addData( RadarData *lpData ){
 	/*
 	{
 		OpenThreads::ScopedLock<OpenThreads::Mutex> lock( _mutex );
@@ -852,8 +814,8 @@ void RadarCurveWnd::addData( RadarData *lpData )
 	}
 }
 
-void RadarCurveWnd::setData( RadarData *lpData )
-{
+//设置当前数据
+void RadarCurveWnd::setData( RadarData *lpData ){
 	_dataAvailabled=true;
 	{
 		OpenThreads::ScopedLock<OpenThreads::Mutex> lock( _mutex );
@@ -880,11 +842,12 @@ void RadarCurveWnd::deleteData( )
 	}
 }*/
 
-void RadarCurveWnd::clearData()
-{
+//清空数组
+void RadarCurveWnd::clearData(){
 	_radarDataVector.clear();
 }
 
+//线性增益控制的相关代码
 void RadarCurveWnd::OnLButtonDown(UINT nFlags, CPoint point){
 	// TODO: 在此添加消息处理程序代码和/或调用默认值
 	CRect rectUp = GetUpEllipse();
@@ -921,23 +884,20 @@ void RadarCurveWnd::OnLButtonUp(UINT nFlags, CPoint point)
 	CWnd::OnLButtonUp(nFlags, point);
 }
 
+//线性增益控制的相关代码
 void RadarCurveWnd::OnMouseMove(UINT nFlags, CPoint point)
 {
 	// TODO: 在此添加消息处理程序代码和/或调用默认值
 	int curX = point.x - RADIUS / 2;
-	if ( _clickUp )
-	{
+	if ( _clickUp ){
 		_startPos = int ( ( curX - _curveMinX ) * 1.0f / ( _curveMaxX - _curveMinX ) * 100);
-		if ( _startPos < 0 )
-		{
+		if ( _startPos < 0 ){
 			_startPos = 0;
 		}
 		Invalidate();
-	}else if ( _clickDown )
-	{
+	}else if ( _clickDown ){
 		_scaleRatio = int ( ( curX - _curveMinX ) * 1.0f / ( _curveMaxX - _curveMinX ) * 100);
-		if ( _scaleRatio < 1 )
-		{
+		if ( _scaleRatio < 1 ){
 			_scaleRatio = 1;
 		}
 		Invalidate();
@@ -982,7 +942,8 @@ void RadarCurveWnd::OnSize(UINT nType, int cx, int cy)
 	_needReinit = true;
 }
 
+//设置当前通道的延迟微调值
 void RadarCurveWnd::setCorrection( int value )
 {
-	_dCorrection = value;
+	m_dCorrection = value;
 }

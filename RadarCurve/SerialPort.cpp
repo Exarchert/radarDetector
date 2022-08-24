@@ -4,6 +4,8 @@
 #include <assert.h>
 #include <RadarCurve/GpsReader.h>
 
+#include <RadarCurve/RadarManager.h>
+#include <RadarCurve/ConfigureSet.h>
 
 
 class ComThread : public OpenThreads::Thread
@@ -64,6 +66,8 @@ CSerialPort::CSerialPort()
 	_gpsReader = NULL;
 	_lpThread = NULL;
 
+	m_nScanInterval=100;
+	
 }
 
 //
@@ -223,6 +227,9 @@ BOOL CSerialPort::InitPort(CWnd* pPortOwner,	// the owner (CWnd) of the port (re
 
 	//LeaveCriticalSection(&m_csCommunicationSync);
 
+	ConfigureSet *cfg = RadarManager::Instance()->getConfigureSet();
+	m_nScanInterval = 1000/atoi( cfg->get("com", "frequency").c_str() );
+
 	return TRUE;
 }
 
@@ -307,7 +314,11 @@ UINT CSerialPort::CommThread(LPVOID pParam)
 
 		} // end switch
 
-		Sleep( 20 );
+		/*for(int i=0;i<m_nScanIntervalCount;i++){
+			Sleep( 100 );
+		}*/
+
+		Sleep(port->m_nScanInterval);
 
 	} // close forever loop
 

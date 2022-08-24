@@ -108,7 +108,7 @@ protected:
 
 	bool _needReinit;
 
-	int _dCorrection;
+	int m_dCorrection;
 
 public:
 	afx_msg void OnTimer(UINT_PTR nIDEvent);

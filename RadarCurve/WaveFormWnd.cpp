@@ -66,7 +66,7 @@ WaveFormWnd::WaveFormWnd()
 	_newData = 0;
 	_needReinit = false;
 
-	_dCorrection=0;
+	m_dCorrection=0;
 }
 
 WaveFormWnd::~WaveFormWnd()
@@ -519,7 +519,7 @@ void WaveFormWnd::DrawCurve( CDC *lpDC )//绘制波形图
 		for ( int i = 0; i < iDataCount; i ++ )
 		{
 			float t;
-			short v = rd->getIndexData( i + _dCorrection, &t );
+			short v = rd->getIndexData( i + m_dCorrection, &t );
 			// curve line
 			{
 				int y = mapIndexToCurveYValue( i , rd->getDataCount() );
@@ -657,21 +657,21 @@ void WaveFormWnd::DrawSection( CDC *lpDC, int newData )//绘制波普数据
 				{
 					float fBeishu = ((float)iSectionHight) / ((float)iDataCount);//每个数据能占的高度
 
-					int iInsertCount = iSectionHight - iDataCount; //需要补全来增加的数量
-					int iInsertPost = iDataCount /  iInsertCount; //用以确定插值的位置
+					int dInsertCount = iSectionHight - iDataCount; //需要补全来增加的数量
+					int dInsertPost = iDataCount /  dInsertCount; //用以确定插值的位置
 
-					float vOld = 0.;//上一数据的值
-					float vNew = 0.;//当前数据的值
+					float fOldValue = 0.;//上一数据的值
+					float fNewValue = 0.;//当前数据的值
 					int y = 0;
 
 					if (fBeishu >= 2.0)//最多翻一倍
 					{
-						iInsertPost = 1;
+						dInsertPost = 1;
 					}
 
 					for ( int i = 0; i < iDataCount; i ++ )//横坐标x的这条线上的不同y的值
 					{
-						vNew = (float)rd->getIndexData( i, NULL ) * (1.0 + (float)_scaleRatio * (float)(i+1)/(float)iDataCount);
+						fNewValue = (float)rd->getIndexData( i, NULL ) * (1.0 + (float)_scaleRatio * (float)(i+1)/(float)iDataCount);
 						if ( !sectionToBreak )
 						{
 							COLORREF c ,cHalf;
@@ -682,13 +682,13 @@ void WaveFormWnd::DrawSection( CDC *lpDC, int newData )//绘制波普数据
 							}
 							else
 							{
-								c = getColor(vNew);//根据当前值定颜色
-								cHalf = getColor((vOld + vNew) / 2.0);//前后两个之间的颜色
+								c = getColor(fNewValue);//根据当前值定颜色
+								cHalf = getColor((fOldValue + fNewValue) / 2.0);//前后两个之间的颜色
 							}
 
 							if ( x > 0 && x <= _sectionMaxX )
 							{
-								if (i > 0 && (i%iInsertPost == 0))
+								if (i > 0 && (i%dInsertPost == 0))
 								{
 									_bmpDCTmp.getDC()->SetPixelV( ( sectionX ), y, cHalf );
 									++y;
@@ -697,7 +697,7 @@ void WaveFormWnd::DrawSection( CDC *lpDC, int newData )//绘制波普数据
 								++y;
 							}
 						}
-						vOld = vNew;
+						fOldValue = fNewValue;
 					}
 				}
 				else//数据数量大于高度,需要压缩，即抽值显示，mapIndexToSectionYValue利用比例关系 i/i总数量 = y/y总数量 来求得i对应的
@@ -894,5 +894,5 @@ void WaveFormWnd::OnSize(UINT nType, int cx, int cy)
 
 void WaveFormWnd::setCorrection( int value )
 {
-	_dCorrection = value;
+	m_dCorrection = value;
 }

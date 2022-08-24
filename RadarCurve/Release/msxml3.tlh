@@ -1,9 +1,9 @@
-﻿// Created by Microsoft (R) C/C++ Compiler Version 14.00.50727.42 (6eeb8dca).
+﻿// Created by Microsoft (R) C/C++ Compiler Version 14.00.50727.762 (6eeb8dca).
 //
 // e:\radardetector16\radarcurve\release\msxml3.tlh
 //
 // C++ source equivalent of Win32 type library msxml3.dll
-// compiler-generated file created 04/13/22 at 11:33:39 - DO NOT EDIT!
+// compiler-generated file created 08/11/22 at 15:17:14 - DO NOT EDIT!
 
 #pragma once
 #pragma pack(push, 8)

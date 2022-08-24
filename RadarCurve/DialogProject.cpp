@@ -1,6 +1,4 @@
 // DialogProject.cpp : 实现文件
-//
-
 #include "stdafx.h"
 #include "RadarCurve.h"
 #include "DialogProject.h"
@@ -759,18 +757,18 @@ void CDialogProject::initForNoProjectName()
 {	
 	int index = 0;
 	time_t t = time(NULL);
-	CString str;
+	CString cstr;
 	struct tm *lt = localtime( &t );
-	str.Format( L"%04d-%02d-%02d %02d:%02d:%02d", lt->tm_year + 1900, lt->tm_mon + 1, lt->tm_mday, lt->tm_hour, lt->tm_min, lt->tm_sec);
-	m_projectList.SetItemText( index, 1, str );
+	cstr.Format( L"%04d%02d%02d%02d%02d%02d", lt->tm_year + 1900, lt->tm_mon + 1, lt->tm_mday, lt->tm_hour, lt->tm_min, lt->tm_sec);
+	//m_projectList.SetItemText( index, 1, cstr );
 
 	//time_t tt = mktime(lt);
 
 	//str.Format(L"%0.3f", dlg.m_startLen );
 	//m_projectList.SetItemText(index, 2, str );
 
-	CString strZhunagHaoEX;
-	CString  strJULI ;
+	//CString strZhunagHaoEX;
+	//CString  strJULI ;
 	//GetZhuanghaoLength(dlg.m_startLen, strZhunagHaoEX, strJULI );
 	//m_projectList.SetItemText( index, 2, strZhunagHaoEX );
 	//m_projectList.SetItemText( index, 3, strJULI );
@@ -786,7 +784,8 @@ void CDialogProject::initForNoProjectName()
 	_projectList.push_back( lpRow );
 ///////////////////////////////
 
-	m_selectProjectName = m_projectList.GetItemText( index, 0 );
+	//m_selectProjectName = m_projectList.GetItemText( index, 0 );
+	m_selectProjectName=cstr;
 	//m_selectLen = _wtof( m_projectList.GetItemText( index, 2 ) );
 	//GetStartLength(m_selectLen, m_projectList.GetItemText( index, 2 ), m_projectList.GetItemText( index, 3 ));
 

@@ -9,7 +9,7 @@
 
 //C++
 #include <sstream>
-
+#include <vector>
 
 
 // DlgRadarParameterConfig 对话框
@@ -38,22 +38,24 @@ void DlgRadarParameterConfig::DoDataExchange(CDataExchange* pDX)
 	DDX_Text(pDX, IDC_EDIT_FTPACCOUNT, m_cstrFtpAccount);//网口地址
 	DDX_Text(pDX, IDC_EDIT_FTPPASSWORD, m_cstrFtpPassword );//端口	
 
-	DDX_Text(pDX, IDC_EDIT_RADAR_ID, m_id );//id号
-	DDX_Text(pDX, IDC_EDIT_CHANNEL_COUNT, m_channelCount );//通道数量
+	DDX_Control(pDX, IDC_COMBO_CHANNELCOUNT, m_ComboBoxChannelCount);//通道总数
 	DDX_Control(pDX, IDC_COMBO_DIELECTRIC, m_dielectricComboBox);//介电常数
 	DDX_Control(pDX, IDC_COMBO_SAMPLE, m_sampleComboBox);//采样点数
 	DDX_Control(pDX, IDC_COMBO_SAMPLE_RATIO, m_sampleRatioComboBox);//采样率
-	DDX_Control(pDX, IDC_COMBO_GAIN, m_gainComboBox);//增益模式
-	//DDX_Control(pDX, IDC_SLIDER_GAIN_VALUE, m_gainValueSlider);//增益拉条
-	DDX_Text(pDX, IDC_EDIT_GAIN_VALUE, m_gainValue );//增益值
 	//DDX_Control(pDX, IDC_SLIDER_DELAY, m_delaySlider);//延迟拉条
 	DDX_Text(pDX, IDC_EDIT_DELAY, m_delayValue );//延迟值 
-	DDX_Control(pDX, IDC_COMBO_ADD_COUNT, m_addCountComboBox);//累加次数
 	DDX_Control(pDX, IDC_COMBO_TEST_TYPE, m_testTypeComboBox);//测量论模式
 	DDX_Text(pDX, IDC_EDIT_CELIANGLUN_LEN, m_precLen );//测量轮周长
 	//DDX_Control(pDX, IDC_COMBO_CELIANLUN_JINGDU, m_precIndex);//测量轮精度
 	DDX_Text(pDX, IDC_EDIT_WHEELPRECISION, m_precision);//测量轮精度
-	DDX_Text(pDX, IDC_EDIT_CELIANGLUN_RATIO, m_precRatio );//脉冲
+
+	//DDX_Text(pDX, IDC_EDIT_CELIANGLUN_RATIO, m_precRatio );//脉冲
+	//DDX_Text(pDX, IDC_EDIT_RADAR_ID, m_id );//id号
+	//DDX_Text(pDX, IDC_EDIT_CHANNEL_COUNT, m_channelCount );//通道数量
+	//DDX_Control(pDX, IDC_COMBO_GAIN, m_gainComboBox);//增益模式
+	//DDX_Text(pDX, IDC_EDIT_GAIN_VALUE, m_gainValue );//增益值
+	//DDX_Control(pDX, IDC_SLIDER_GAIN_VALUE, m_gainValueSlider);//增益拉条
+	//DDX_Control(pDX, IDC_COMBO_ADD_COUNT, m_addCountComboBox);//累加次数
 	
 	DDX_Text(pDX, IDC_EDIT_SCREEN_0, m_screenFirstChannels);
 	DDV_MaxChars(pDX, m_screenFirstChannels, 40);
@@ -73,6 +75,7 @@ void DlgRadarParameterConfig::DoDataExchange(CDataExchange* pDX)
 	DDX_Control(pDX, IDC_COMBO_PARITYBIT, m_parityBit );//校验位	
 	DDX_Text(pDX, IDC_EDIT_DATABIT, m_dataBit );//数据位	
 	DDX_Control(pDX, IDC_COMBO_STOPBIT, m_stopBit );//停止位	
+	DDX_Text(pDX, IDC_EDIT_GPS_FREQUENCY, m_sGpsFrequency);//gps频率
 
 	//因变量参数
 	DDX_Text(pDX, IDC_EDIT_TIMEWINDOW, m_timeWindow);//探测时窗
@@ -83,7 +86,11 @@ void DlgRadarParameterConfig::DoDataExchange(CDataExchange* pDX)
 	DDX_Text(pDX, IDC_EDIT_MARKVALUE, m_markValue );//标记值
 
 	//抽道显示
-	DDX_Text(pDX, IDC_EDIT_DISPLAYEXTRACT, m_diplayExtract );//标记值
+	DDX_Text(pDX, IDC_EDIT_DISPLAYEXTRACT, m_displayExtract );//标记值
+
+	//波形过小警告
+	DDX_Text(pDX, IDC_EDIT_WARNING_INTERVAL, m_dWarningInterval );//监测间隔
+	DDX_Text(pDX, IDC_EDIT_WARNING_THRESHOLD, m_dWarningThreshold );//阈值
 
 	//波形
 	DDX_Control( pDX, IDC_WAVEFORM1, _waveFormWnd[0]);
@@ -102,6 +109,8 @@ void DlgRadarParameterConfig::DoDataExchange(CDataExchange* pDX)
 	DDX_Control( pDX, IDC_WAVEFORM14, _waveFormWnd[13]);
 	DDX_Control( pDX, IDC_WAVEFORM15, _waveFormWnd[14]);
 	DDX_Control( pDX, IDC_WAVEFORM16, _waveFormWnd[15]);
+
+	//通道名称
 	DDX_Control( pDX, IDC_STATIC_CHANNEL1, _channelName[0]);
 	DDX_Control( pDX, IDC_STATIC_CHANNEL2, _channelName[1]);
 	DDX_Control( pDX, IDC_STATIC_CHANNEL3, _channelName[2]);
@@ -152,6 +161,14 @@ void DlgRadarParameterConfig::DoDataExchange(CDataExchange* pDX)
 	DDX_Control( pDX, IDC_EDIT_CORRECTION14, _channelCorrection[13]);
 	DDX_Control( pDX, IDC_EDIT_CORRECTION15, _channelCorrection[14]);
 	DDX_Control( pDX, IDC_EDIT_CORRECTION16, _channelCorrection[15]);
+
+	DDX_Control(pDX, IDC_COMBO_UPLOAD_TYPE, m_ComboBoxUploadType);//上传类型 0否 1是
+	//DDX_Control(pDX, IDC_COMBO_AUTO_SEPERATE, m_ComboBoxAutoSeperate);//是否自动分段 0否 1是
+	DDX_Control(pDX, IDC_COMBO_SEPERATE_TYPE, m_ComboBoxSeperateType);//分段类型 0不分段 1时间分段 2距离分段
+	DDX_Text(pDX, IDC_EDIT_TIME_THRESHOLD, m_dTimeInterval);//上传分段时间间隔
+	DDX_Text(pDX, IDC_EDIT_WHEEL_COUNT_THRESHOLD, m_dWheelCountInterval);//自动分段道数间隔
+
+	DDX_Control(pDX, IDC_COMBO_SAVE_FILE_TYPE, m_ComboBoxSaveFileType);//保存文件类型 0sgy 1rd3
 									  
 }
 
@@ -186,6 +203,15 @@ BEGIN_MESSAGE_MAP(DlgRadarParameterConfig, CDialog)
 	ON_EN_KILLFOCUS(IDC_EDIT_CORRECTION14, &DlgRadarParameterConfig::OnEnKillfocusEditCorrection14)
 	ON_EN_KILLFOCUS(IDC_EDIT_CORRECTION15, &DlgRadarParameterConfig::OnEnKillfocusEditCorrection15)
 	ON_EN_KILLFOCUS(IDC_EDIT_CORRECTION16, &DlgRadarParameterConfig::OnEnKillfocusEditCorrection16)
+	//ON_CBN_SELCHANGE(IDC_COMBO_UPLOAD_TYPE, &DlgRadarParameterConfig::OnCbnSelchangeComboUploadType)//上传类型
+	//ON_CBN_SELCHANGE(IDC_COMBO_SAVE_FILE_TYPE, &DlgRadarParameterConfig::OnCbnSelchangeComboSaveFileType)//保存文件类型
+
+	ON_CBN_SELCHANGE(IDC_COMBO1, &DlgRadarParameterConfig::OnCbnSelchangeCombo1)
+	ON_CBN_EDITCHANGE(IDC_COMBO_UPLOAD_TYPE, &DlgRadarParameterConfig::OnCbnEditchangeComboUploadType)
+	ON_CBN_SELCHANGE(IDC_COMBO_UPLOAD_TYPE, &DlgRadarParameterConfig::OnCbnSelchangeComboUploadType)
+	ON_CBN_CLOSEUP(IDC_COMBO_UPLOAD_TYPE, &DlgRadarParameterConfig::OnCbnCloseupComboUploadType)
+	ON_CBN_EDITUPDATE(IDC_COMBO_UPLOAD_TYPE, &DlgRadarParameterConfig::OnCbnEditupdateComboUploadType)
+	ON_CBN_KILLFOCUS(IDC_COMBO_UPLOAD_TYPE, &DlgRadarParameterConfig::OnCbnKillfocusComboUploadType)
 END_MESSAGE_MAP()
 
 
@@ -194,8 +220,8 @@ END_MESSAGE_MAP()
 BOOL DlgRadarParameterConfig::OnInitDialog()
 {
 	CDialog::OnInitDialog();
-
-	// TODO:  在此添加额外的初始化
+	
+	//介电常数增加选项
 	m_dielectricComboBox.AddString(L"1(空气)");
 	m_dielectricComboBox.AddString(L"1.9(汽油)");
 	m_dielectricComboBox.AddString(L"2(石蜡)");
@@ -264,21 +290,25 @@ BOOL DlgRadarParameterConfig::OnInitDialog()
 		break;
 	}
 	*/
+	
+	
+	////增益类型增加选项
+	//m_gainComboBox.AddString(L"固定增益");
+	//m_gainComboBox.AddString(L"变增益模式0");
+	//m_gainComboBox.AddString(L"变增益模式1");
 
-	m_gainComboBox.AddString(L"固定增益");
-	m_gainComboBox.AddString(L"变增益模式0");
-	m_gainComboBox.AddString(L"变增益模式1");
+	////累加次数选项
+	//m_addCountComboBox.AddString(L"1");
+	//m_addCountComboBox.AddString(L"2");
+	//m_addCountComboBox.AddString(L"4");
+	//m_addCountComboBox.AddString(L"8");
+	//m_addCountComboBox.AddString(L"16");
+	//m_addCountComboBox.AddString(L"32");
+	//m_addCountComboBox.AddString(L"64");
+	//m_addCountComboBox.AddString(L"128");
+	//m_addCountComboBox.AddString(L"256");
 
-	m_addCountComboBox.AddString(L"1");
-	m_addCountComboBox.AddString(L"2");
-	m_addCountComboBox.AddString(L"4");
-	m_addCountComboBox.AddString(L"8");
-	m_addCountComboBox.AddString(L"16");
-	m_addCountComboBox.AddString(L"32");
-	m_addCountComboBox.AddString(L"64");
-	m_addCountComboBox.AddString(L"128");
-	m_addCountComboBox.AddString(L"256");
-
+	//采集方式选项
 	m_testTypeComboBox.AddString(L"时间触发");
 	m_testTypeComboBox.AddString(L"距离触发");
 
@@ -288,24 +318,45 @@ BOOL DlgRadarParameterConfig::OnInitDialog()
 	m_precIndex.AddString(L"10cm");
 	m_precIndex.AddString(L"20cm");*/
 
+	//gps的校验位
 	m_parityBit.AddString(L"NONE");
 	m_parityBit.AddString(L"ODD");
 	m_parityBit.AddString(L"EVEN");
 	m_parityBit.AddString(L"MARK");
 	m_parityBit.AddString(L"SPACE");
 
+	//gps的停止位
 	m_stopBit.AddString(L"1");
 	m_stopBit.AddString(L"1.5");
 	m_stopBit.AddString(L"2");
 
+	//上传选项
+	m_ComboBoxUploadType.AddString(L"否");
+	m_ComboBoxUploadType.AddString(L"是");
+
+	//保存文件模式
+	m_ComboBoxSaveFileType.AddString(L"sgy");
+	m_ComboBoxSaveFileType.AddString(L"rd3");
+
+	////是否自动分段
+	//m_ComboBoxAutoSeperate.AddString(L"否");
+	//m_ComboBoxAutoSeperate.AddString(L"是");
+
+	//分段模式
+	m_ComboBoxSeperateType.AddString(L"不分段");
+	m_ComboBoxSeperateType.AddString(L"时间分段");
+	m_ComboBoxSeperateType.AddString(L"道数分段");
+	
 	for(int i=0;i<16;i++){//hjl 20210418参数设置波形显示
 		changeChannel(i,true);
 	}
-	resizeChannelWnd();
+	resizeChannelWnd();//调整窗口
 
-	InitByRadarConfig();
+	InitByRadarConfig();//根据配置文件进行赋值
 
-	OnBnClickedButtonWaveFormTest();
+	refreshControlCondition();
+
+	OnBnClickedButtonWaveFormTest();//连接雷达并进行显示
 	return TRUE;  // return TRUE unless you set the focus to a control
 	// 异常: OCX 属性页应返回 FALSE
 }
@@ -325,72 +376,95 @@ wchar_t* charToLPCTSTR(const char *cTemp){
 
 void DlgRadarParameterConfig::InitByRadarConfig()
 {
-	if ( !m_pConfigureSet )
-	{
+	if ( !m_pConfigureSet ){
 		return;
 	}
 
-	m_sampleComboBox.AddString(charToLPCTSTR(m_pConfigureSet->get("sampleNum", "0").c_str()));
-	m_sampleComboBox.AddString(charToLPCTSTR(m_pConfigureSet->get("sampleNum", "1").c_str()));
-	m_sampleComboBox.AddString(charToLPCTSTR(m_pConfigureSet->get("sampleNum", "2").c_str()));
-	m_sampleComboBox.AddString(charToLPCTSTR(m_pConfigureSet->get("sampleNum", "3").c_str()));
+	//通道数选项
+	int nChannelCountOptionCount=atoi(m_pConfigureSet->get("comboBox", "channelCountOptionCount").c_str());
+	for(int i=0;i<nChannelCountOptionCount;i++){
+		std::stringstream ss;
+		ss<<i;
+		std::string strTag="channelCount"+ss.str();
+		m_ComboBoxChannelCount.AddString(charToLPCTSTR(m_pConfigureSet->get("comboBox", strTag).c_str()));
+	}
 
-	m_sampleRatioComboBox.AddString(charToLPCTSTR(m_pConfigureSet->get("sampleRate", "0").c_str()));
-	m_sampleRatioComboBox.AddString(charToLPCTSTR(m_pConfigureSet->get("sampleRate", "1").c_str()));
-	m_sampleRatioComboBox.AddString(charToLPCTSTR(m_pConfigureSet->get("sampleRate", "2").c_str()));
-	m_sampleRatioComboBox.AddString(charToLPCTSTR(m_pConfigureSet->get("sampleRate", "3").c_str()));
-
+	//采样点选项
+	int nSampleNumOptionCount=atoi(m_pConfigureSet->get("comboBox", "sampleNumOptionCount").c_str());
+	for(int i=0;i<nSampleNumOptionCount;i++){
+		std::stringstream ss;
+		ss<<i;
+		std::string strTag="sampleNum"+ss.str();
+		m_sampleComboBox.AddString(charToLPCTSTR(m_pConfigureSet->get("comboBox", strTag).c_str()));
+	}
+	
+	//采样率选项
+	int nSampleRateOptionCount=atoi(m_pConfigureSet->get("comboBox", "sampleRateOptionCount").c_str());
+	for(int i=0;i<nSampleRateOptionCount;i++){
+		std::stringstream ss;
+		ss<<i;
+		std::string strTag="sampleRate"+ss.str();
+		m_sampleRatioComboBox.AddString(charToLPCTSTR(m_pConfigureSet->get("comboBox", strTag).c_str()));
+	}
 
 	USES_CONVERSION;
+	//雷达连接
 	m_serverIP = A2W(m_pConfigureSet->get("net", "addr").c_str());
 	m_serverPort = atoi ( m_pConfigureSet->get("net", "port").c_str() );
-	m_channelCount = atoi ( m_pConfigureSet->get("radar", "count").c_str());
 
+	//ftp连接
 	m_cstrFtpServerIP = A2W(m_pConfigureSet->get("ftp", "serverIP").c_str());
 	m_cstrFtpPort = A2W(m_pConfigureSet->get("ftp", "port").c_str());
 	m_cstrFtpAccount = A2W(m_pConfigureSet->get("ftp", "account").c_str());
 	m_cstrFtpPassword = A2W(m_pConfigureSet->get("ftp", "password").c_str());
 
-	CString idText;
-	idText.Format(L"0X%X", atoi( m_pConfigureSet->get("radar", "id").c_str()));
-	m_id = idText;
-	m_dielectricComboBox.SetCurSel ( atoi ( m_pConfigureSet->get("radar", "dielectric").c_str() ) );
-	m_sampleComboBox.SetCurSel( atoi ( m_pConfigureSet->get("radar", "sample").c_str() ) );
-	m_sampleRatioComboBox.SetCurSel( atoi( m_pConfigureSet->get("radar", "sampleratio").c_str() ) );
-	m_gainComboBox.SetCurSel(atoi(m_pConfigureSet->get("radra", "gain").c_str()));
+	//CString idText;
+	//idText.Format(L"0X%X", atoi( m_pConfigureSet->get("radar", "id").c_str()));
+	//m_id = idText;
+	m_ComboBoxChannelCount.SetCurSel ( atoi ( m_pConfigureSet->get("radar", "channelCount").c_str() ) );//介电常数
+	m_dielectricComboBox.SetCurSel ( atoi ( m_pConfigureSet->get("radar", "dielectric").c_str() ) );//介电常数
+	m_sampleComboBox.SetCurSel( atoi ( m_pConfigureSet->get("radar", "sample").c_str() ) );//采样点
+	m_sampleRatioComboBox.SetCurSel( atoi( m_pConfigureSet->get("radar", "sampleratio").c_str() ) );//采样率
+	//m_gainComboBox.SetCurSel(atoi(m_pConfigureSet->get("radra", "gain").c_str()));//增益类型
 	//m_gainValueSlider.SetRangeMin( 0 );
 	//m_gainValueSlider.SetRangeMax( 255 );
 	//m_gainValueSlider.SetPos( atoi( m_pConfigureSet->get("radar", "gainvalue").c_str() ) );
 	//m_gainValue.SetWindowText( A2W( m_pConfigureSet->get("radar", "gainvalue").c_str() ) );
-	m_gainValue = atoi ( m_pConfigureSet->get("radar", "gainvalue").c_str() );
+	//m_gainValue = atoi ( m_pConfigureSet->get("radar", "gainvalue").c_str() );//增益值
 	//m_delaySlider.SetRangeMin( 0 );
 	//m_delaySlider.SetRangeMax( 255 );
 	//m_delaySlider.SetPos( atoi( m_pConfigureSet->get("radar", "delay").c_str()));
 	//m_delayValue.SetWindowText ( A2W ( m_pConfigureSet->get("radar", "delay").c_str() ) );
-	m_delayValue = atoi ( m_pConfigureSet->get("radar", "delay").c_str() );
-	m_addCountComboBox.SetCurSel( atoi ( m_pConfigureSet->get("radar", "addcount").c_str()) );
-	m_testTypeComboBox.SetCurSel( atoi ( m_pConfigureSet->get("radar", "testtype").c_str()) );
+	m_delayValue = atoi ( m_pConfigureSet->get("radar", "delay").c_str() );//延迟
+	//m_addCountComboBox.SetCurSel( atoi ( m_pConfigureSet->get("radar", "addcount").c_str()) );//累加次数
+	m_testTypeComboBox.SetCurSel( atoi ( m_pConfigureSet->get("radar", "testtype").c_str()) );//测试过程
 
 	//m_precIndex.SetCurSel( atoi ( m_pConfigureSet->get("radar", "precindex").c_str()));
-	m_precision = atof ( m_pConfigureSet->get("radar", "precision").c_str() );
+	m_precision = atof ( m_pConfigureSet->get("radar", "precision").c_str() );//测量轮精度
 	m_precLen = atof ( m_pConfigureSet->get("radar", "preclen").c_str() );
-	m_precRatio = atoi ( m_pConfigureSet->get("radar", "precratio").c_str());
+	//m_precRatio = atoi ( m_pConfigureSet->get("radar", "precratio").c_str());//脉冲
 
-
+	//分屏显示通道
 	m_screenFirstChannels = A2W(m_pConfigureSet->get("screen","first").c_str());
 	m_screenSecondChannels = A2W(m_pConfigureSet->get("screen","second").c_str());
 	m_screenThirdChannels = A2W(m_pConfigureSet->get("screen","third").c_str());
 	m_screenFourthChannels = A2W(m_pConfigureSet->get("screen","fourth").c_str());
 
-	m_comNumber = atoi ( m_pConfigureSet->get("com", "port").c_str() );
-	m_portByte = atoi ( m_pConfigureSet->get("com", "baud").c_str() );
-	m_parityBit.SetCurSel( atoi ( m_pConfigureSet->get("com", "parity").c_str()) );
-	m_dataBit = atoi ( m_pConfigureSet->get("com", "databits").c_str() );
-	m_stopBit.SetCurSel( atoi ( m_pConfigureSet->get("com", "stopbits").c_str()) );
+	//gps连接部分
+	m_comNumber = atoi ( m_pConfigureSet->get("com", "port").c_str() );//com口
+	m_portByte = atoi ( m_pConfigureSet->get("com", "baud").c_str() );//波特率
+	m_parityBit.SetCurSel( atoi ( m_pConfigureSet->get("com", "parity").c_str()) );//校验位
+	m_dataBit = atoi ( m_pConfigureSet->get("com", "databits").c_str() );//数据位
+	m_stopBit.SetCurSel( atoi ( m_pConfigureSet->get("com", "stopbits").c_str()) );//停止位
+	m_sGpsFrequency = atoi ( m_pConfigureSet->get("com", "frequency").c_str() );//gps频率
 
-	m_markValue = atoi ( m_pConfigureSet->get("mark", "markValue").c_str() );
+	m_markValue = atoi ( m_pConfigureSet->get("mark", "markValue").c_str() );//标记功能标记值
 
-	m_diplayExtract = atoi ( m_pConfigureSet->get("displayExtract", "displayExtractValue").c_str() );
+	m_displayExtract = atoi ( m_pConfigureSet->get("displayExtract", "displayExtractValue").c_str() );//抽道显示
+
+	//波形过小警告
+	m_dWarningInterval = atoi( m_pConfigureSet->get("waveWarning", "warningInterval").c_str() );//监测间隔
+	m_dWarningThreshold = atoi( m_pConfigureSet->get("waveWarning", "warningThreshold").c_str() );//阈值 
 
 	//探测时窗=采样点数/频率
 	m_timeWindow = getSampleCountValue(atoi(m_pConfigureSet->get("radar", "sample").c_str()))/getSampleRationValue(atoi(m_pConfigureSet->get("radar", "sampleratio").c_str()));
@@ -399,12 +473,18 @@ void DlgRadarParameterConfig::InitByRadarConfig()
 	//扫描速率=100000/采样点数
 	m_scanSpeed = 100000/getSampleCountValue(atoi(m_pConfigureSet->get("radar", "sample").c_str()));
 
+	m_ComboBoxUploadType.SetCurSel (atoi(m_pConfigureSet->get("radar", "uploadFlag").c_str()));//上传模式
+	//m_ComboBoxAutoSeperate.SetCurSel (atoi(m_pConfigureSet->get("radar", "autoSeperateFlag").c_str()));//自动上传
+	m_ComboBoxSeperateType.SetCurSel (atoi(m_pConfigureSet->get("radar", "autoSeperateType").c_str()));//分段模式
+	m_dTimeInterval = atoi( m_pConfigureSet->get("radar", "timeInterval").c_str() );//时间分段间隔
+	m_dWheelCountInterval = atoi( m_pConfigureSet->get("radar", "wheelCountInterval").c_str() );//分段道数阈值
+	m_ComboBoxSaveFileType.SetCurSel (atoi(m_pConfigureSet->get("radar", "saveFileType").c_str()));//保存文件类型
+
+	//延迟微调
 	for (int i=0;i<16;i++){
-		{//为了ss用完就清空 而不是一直<<叠加字符
-			std::stringstream ss;
-			ss << i+12;
-			m_dCorrection[i] = atoi ( m_pConfigureSet->get("correction", ss.str()).c_str() );
-		}
+		std::stringstream ss;
+		ss << i;
+		m_dCorrection[i] = atoi ( m_pConfigureSet->get("correction", ss.str()).c_str() );
 	}
 
 	UpdateData( FALSE );
@@ -431,10 +511,11 @@ void DlgRadarParameterConfig::OnHScroll(UINT nSBCode, UINT nPos, CScrollBar* pSc
 void DlgRadarParameterConfig::OnBnClickedBtnsetOk()
 {
 	// TODO: 在此添加控件通知处理程序代码
-	RadarManager::Instance()->stopTest();
+	RadarManager::Instance()->stopTest();//停止测试
 
 	OpenThreads::ScopedLock<OpenThreads::Mutex> lock(_lock);
 
+	//修改cfg对象
 	UpdateData( TRUE );
 
 	if ( !m_pConfigureSet )
@@ -443,107 +524,118 @@ void DlgRadarParameterConfig::OnBnClickedBtnsetOk()
 	}
 	USES_CONVERSION;
 	{
-		m_pConfigureSet->set( "net", "addr", W2A( m_serverIP) );
-		m_pConfigureSet->set( "ftp", "serverIP", W2A( m_cstrFtpServerIP) );
-		m_pConfigureSet->set( "ftp", "port", W2A( m_cstrFtpPort) );
-		m_pConfigureSet->set( "ftp", "account", W2A( m_cstrFtpAccount) );
-		m_pConfigureSet->set( "ftp", "password", W2A( m_cstrFtpPassword) );
+		m_pConfigureSet->set( "net", "addr", W2A( m_serverIP) );//雷达ip
+		//ftp相关的
+		m_pConfigureSet->set( "ftp", "serverIP", W2A( m_cstrFtpServerIP) );//ftp地址ip
+		m_pConfigureSet->set( "ftp", "port", W2A( m_cstrFtpPort) );//ftp的端口号
+		m_pConfigureSet->set( "ftp", "account", W2A( m_cstrFtpAccount) );//ftp账号名称
+		m_pConfigureSet->set( "ftp", "password", W2A( m_cstrFtpPassword) );//ftp密码
 	}
 
 	{
 		std::stringstream ss;
 		ss << m_serverPort;
-		m_pConfigureSet->set("net", "port", ss.str());
+		m_pConfigureSet->set("net", "port", ss.str());//端口
 	}
-	{
-		std::stringstream ss;
-		ss << m_channelCount;
-		m_pConfigureSet->set("radar", "count", ss.str());
-	}
+	//{
+	//	std::stringstream ss;
+	//	ss << m_channelCount;
+	//	m_pConfigureSet->set("radar", "count", ss.str());//
+	//}
 	{
 		std::stringstream ss;
 		ss << 0X88;
-		m_pConfigureSet->set("radar", "id", ss.str());
+		m_pConfigureSet->set("radar", "id", ss.str());//
+	}
+	{
+		std::stringstream ss;
+		ss << m_ComboBoxChannelCount.GetCurSel();
+		m_pConfigureSet->set("radar", "channelCount", ss.str());//介电常数
 	}
 	{
 		std::stringstream ss;
 		ss << m_dielectricComboBox.GetCurSel();
-		m_pConfigureSet->set("radar", "dielectric", ss.str());
+		m_pConfigureSet->set("radar", "dielectric", ss.str());//介电常数
 	}
 	{
 		std::stringstream ss;
 		ss << m_sampleComboBox.GetCurSel();
-		m_pConfigureSet->set("radar", "sample", ss.str());
+		m_pConfigureSet->set("radar", "sample", ss.str());//采样点
 	}
 	{
 		std::stringstream ss;
 		ss << m_sampleRatioComboBox.GetCurSel();
-		m_pConfigureSet->set("radar", "sampleratio", ss.str());
+		m_pConfigureSet->set("radar", "sampleratio", ss.str());//采样率
 	}
-	{
-		std::stringstream ss;
-		ss << m_gainComboBox.GetCurSel();
-		m_pConfigureSet->set("radar", "gain", ss.str());
-	}
-	{
-		std::stringstream ss;
-		ss << m_gainValue;
-		m_pConfigureSet->set("radar", "gainvalue", ss.str());
-	}
+	//{
+	//	std::stringstream ss;
+	//	ss << m_gainComboBox.GetCurSel();
+	//	m_pConfigureSet->set("radar", "gain", ss.str());//增益模式
+	//}
+	//{
+	//	std::stringstream ss;
+	//	ss << m_gainValue;
+	//	m_pConfigureSet->set("radar", "gainvalue", ss.str());//增益值
+	//}
 	{
 		std::stringstream ss;
 		ss << m_delayValue;
-		m_pConfigureSet->set("radar", "delay", ss.str());
+		m_pConfigureSet->set("radar", "delay", ss.str());//延迟
 	}
-	{
-		std::stringstream ss;
-		ss << m_addCountComboBox.GetCurSel();
-		m_pConfigureSet->set("radar", "addcount", ss.str());
-	}
+	//{
+	//	std::stringstream ss;
+	//	ss << m_addCountComboBox.GetCurSel();
+	//	m_pConfigureSet->set("radar", "addcount", ss.str());
+	//}
 	{
 		std::stringstream ss;
 		ss << m_testTypeComboBox.GetCurSel();
-		m_pConfigureSet->set("radar", "testtype", ss.str());
+		m_pConfigureSet->set("radar", "testtype", ss.str());//工作模式
 	}
 	{
 		std::stringstream ss;
 		ss << m_precision;
-		m_pConfigureSet->set("radar", "precision", ss.str());
+		m_pConfigureSet->set("radar", "precision", ss.str());//测量轮精度
 	}
 	{
 		std::stringstream ss;
 		ss << m_precLen;
-		m_pConfigureSet->set("radar", "preclen", ss.str());
+		m_pConfigureSet->set("radar", "preclen", ss.str());//
 	}
-	{
-		std::stringstream ss;
-		ss << m_precRatio;
-		m_pConfigureSet->set("radar", "precratio", ss.str());
-	}
+	//{
+	//	std::stringstream ss;
+	//	ss << m_precRatio;
+	//	m_pConfigureSet->set("radar", "precratio", ss.str());
+	//}
 	{
 		std::stringstream ss;
 		ss << m_comNumber;
-		m_pConfigureSet->set("com", "port", ss.str());
+		m_pConfigureSet->set("com", "port", ss.str());//gps连接的com串口号
 	}
 	{
 		std::stringstream ss;
 		ss << m_portByte;
-		m_pConfigureSet->set("com", "baud", ss.str());
+		m_pConfigureSet->set("com", "baud", ss.str());//gps连接的波特率
 	}
 	{
 		std::stringstream ss;
 		ss << m_parityBit.GetCurSel();
-		m_pConfigureSet->set("com", "parity", ss.str());
+		m_pConfigureSet->set("com", "parity", ss.str());//gps连接的校验位
 	}
 	{
 		std::stringstream ss;
 		ss << m_dataBit;
-		m_pConfigureSet->set("com", "databits", ss.str());
+		m_pConfigureSet->set("com", "databits", ss.str());//gps连接的数据位
 	}
 	{
 		std::stringstream ss;
 		ss << m_stopBit.GetCurSel();
-		m_pConfigureSet->set("com", "stopbits", ss.str());
+		m_pConfigureSet->set("com", "stopbits", ss.str());//gps连接的停止位
+	}
+	{
+		std::stringstream ss;
+		ss << m_sGpsFrequency;
+		m_pConfigureSet->set("com", "frequency", ss.str());//gps频率
 	}
 
 	//screen
@@ -557,13 +649,62 @@ void DlgRadarParameterConfig::OnBnClickedBtnsetOk()
 	{
 		std::stringstream ss;
 		ss << m_markValue;
-		m_pConfigureSet->set("mark", "markValue", ss.str());
+		m_pConfigureSet->set("mark", "markValue", ss.str());//标记值
 	}
 
 	{
 		std::stringstream ss;
-		ss << m_diplayExtract;
-		m_pConfigureSet->set("displayExtract", "displayExtractValue", ss.str());
+		ss << m_displayExtract;
+		m_pConfigureSet->set("displayExtract", "displayExtractValue", ss.str());//抽道显示
+	}
+
+	//波形过小警告
+	{
+		std::stringstream ss;
+		ss << m_dWarningInterval;
+		m_pConfigureSet->set("waveWarning", "warningInterval", ss.str());//监测间隔
+	}
+	{
+		std::stringstream ss;
+		ss << m_dWarningThreshold;
+		m_pConfigureSet->set("waveWarning", "warningThreshold", ss.str());//阈值
+	}
+
+	{
+		std::stringstream ss;
+		ss << m_ComboBoxUploadType.GetCurSel();
+		m_pConfigureSet->set("radar", "uploadFlag", ss.str());//上传类型
+	}
+
+	//{
+	//	std::stringstream ss;
+	//	ss << m_ComboBoxAutoSeperate.GetCurSel();
+	//	m_pConfigureSet->set("radar", "autoSeperateFlag", ss.str());//自动分段
+	//}
+
+	{
+		std::stringstream ss;
+		ss << m_ComboBoxSeperateType.GetCurSel();
+		m_pConfigureSet->set("radar", "autoSeperateType", ss.str());//分段模式
+	}
+	
+	
+	{
+		std::stringstream ss;
+		ss << m_dTimeInterval;
+		m_pConfigureSet->set("radar", "timeInterval", ss.str());//上传分段时间间隔
+	}
+
+	{
+		std::stringstream ss;
+		ss << m_dWheelCountInterval;
+		m_pConfigureSet->set("radar", "wheelCountInterval", ss.str());//自动分段道数间隔
+	}
+
+	{
+		std::stringstream ss;
+		ss << m_ComboBoxSaveFileType.GetCurSel();
+		m_pConfigureSet->set("radar", "saveFileType", ss.str());//文件保存类型
 	}
 
 	for(int i=0; i<16; i++){
@@ -571,17 +712,17 @@ void DlgRadarParameterConfig::OnBnClickedBtnsetOk()
 			std::stringstream ss1;
 			ss1 << m_dCorrection[i];
 			std::stringstream ss2;
-			ss2 << i+12;
+			ss2 << i;
 			m_pConfigureSet->set("correction", ss2.str(), ss1.str());
 			if( i<12 ){
 				std::stringstream ss3;
-				ss3 << i;
+				ss3 << i+16;
 				m_pConfigureSet->set("correction", ss3.str(), ss1.str());
 			}
 		}
 	}
 
-	m_pConfigureSet->write();
+	m_pConfigureSet->write();//将设置好的cfg对象写入配置文件
 
 	OnOK();
 }
@@ -618,14 +759,13 @@ void DlgRadarParameterConfig::OnBnClickedButtonApply()
 	{
 		std::stringstream ss;
 		ss << m_serverPort;
-		m_pConfigureSet->set("net", "port", ss.str());
+		m_pConfigureSet->set("net", "port", ss.str());//雷达端口号
 	}
-	{
-		std::stringstream ss;
-		ss << m_channelCount;
-		m_pConfigureSet->set("radar", "count", ss.str());
-	}
-
+	//{
+	//	std::stringstream ss;
+	//	ss << m_channelCount;
+	//	m_pConfigureSet->set("radar", "count", ss.str());
+	//}
 	{
 		std::stringstream ss;
 		ss << 0X88;
@@ -633,95 +773,153 @@ void DlgRadarParameterConfig::OnBnClickedButtonApply()
 	}
 	{
 		std::stringstream ss;
+		ss << m_ComboBoxChannelCount.GetCurSel();
+		m_pConfigureSet->set("radar", "channelCount", ss.str());//介电常数
+	}
+	{
+		std::stringstream ss;
 		ss << m_dielectricComboBox.GetCurSel();
-		m_pConfigureSet->set("radar", "dielectric", ss.str());
+		m_pConfigureSet->set("radar", "dielectric", ss.str());//介电常数
 	}
 	{
 		std::stringstream ss;
 		ss << m_sampleComboBox.GetCurSel();
-		m_pConfigureSet->set("radar", "sample", ss.str());
+		m_pConfigureSet->set("radar", "sample", ss.str());//采样点
 	}
 	{
 		std::stringstream ss;
 		ss << m_sampleRatioComboBox.GetCurSel();
-		m_pConfigureSet->set("radar", "sampleratio", ss.str());
+		m_pConfigureSet->set("radar", "sampleratio", ss.str());//采样率
 	}
-	{
-		std::stringstream ss;
-		ss << m_gainComboBox.GetCurSel();
-		m_pConfigureSet->set("radar", "gain", ss.str());
-	}
-	{
-		std::stringstream ss;
-		ss << m_gainValue;
-		m_pConfigureSet->set("radar", "gainvalue", ss.str());
-	}
+	//{
+	//	std::stringstream ss;
+	//	ss << m_gainComboBox.GetCurSel();
+	//	m_pConfigureSet->set("radar", "gain", ss.str());//增益类型
+	//}
+	//{
+	//	std::stringstream ss;
+	//	ss << m_gainValue;
+	//	m_pConfigureSet->set("radar", "gainvalue", ss.str());//增益值
+	//}
 	{
 		std::stringstream ss;
 		ss << m_delayValue;
-		m_pConfigureSet->set("radar", "delay", ss.str());
+		m_pConfigureSet->set("radar", "delay", ss.str());//延迟
 	}
-	{
-		std::stringstream ss;
-		ss << m_addCountComboBox.GetCurSel();
-		m_pConfigureSet->set("radar", "addcount", ss.str());
-	}
+	//{
+	//	std::stringstream ss;
+	//	ss << m_addCountComboBox.GetCurSel();
+	//	m_pConfigureSet->set("radar", "addcount", ss.str());
+	//}
 	{
 		std::stringstream ss;
 		ss << m_testTypeComboBox.GetCurSel();
-		m_pConfigureSet->set("radar", "testtype", ss.str());
+		m_pConfigureSet->set("radar", "testtype", ss.str());//工作模式 0:时间  1:测量轮 
 	}
 	{
 		std::stringstream ss;
 		ss << m_precision;
-		m_pConfigureSet->set("radar", "precision", ss.str());
+		m_pConfigureSet->set("radar", "precision", ss.str());//测量轮精度
 	}
 	{
 		std::stringstream ss;
 		ss << m_precLen;
-		m_pConfigureSet->set("radar", "preclen", ss.str());
+		m_pConfigureSet->set("radar", "preclen", ss.str());//
 	}
-	{
-		std::stringstream ss;
-		ss << m_precRatio;
-		m_pConfigureSet->set("radar", "precratio", ss.str());
-	}
+	//{
+	//	std::stringstream ss;
+	//	ss << m_precRatio;
+	//	m_pConfigureSet->set("radar", "precratio", ss.str());//
+	//}
 	{
 		std::stringstream ss;
 		ss << m_comNumber;
-		m_pConfigureSet->set("com", "port", ss.str());
+		m_pConfigureSet->set("com", "port", ss.str());//gps com口
 	}
 	{
 		std::stringstream ss;
 		ss << m_portByte;
-		m_pConfigureSet->set("com", "baud", ss.str());
+		m_pConfigureSet->set("com", "baud", ss.str());//gps 波特率
 	}
-		{
+	{
 		std::stringstream ss;
 		ss << m_parityBit.GetCurSel();
-		m_pConfigureSet->set("com", "parity", ss.str());
+		m_pConfigureSet->set("com", "parity", ss.str());//gps 校验位
 	}
 	{
 		std::stringstream ss;
 		ss << m_dataBit;
-		m_pConfigureSet->set("com", "databits", ss.str());
+		m_pConfigureSet->set("com", "databits", ss.str());//gps 数据位
 	}
 	{
 		std::stringstream ss;
 		ss << m_stopBit.GetCurSel();
-		m_pConfigureSet->set("com", "stopbits", ss.str());
+		m_pConfigureSet->set("com", "stopbits", ss.str());//gps 停止位
+	}
+	{
+		std::stringstream ss;
+		ss << m_sGpsFrequency;
+		m_pConfigureSet->set("com", "frequency", ss.str());//gps频率
 	}
 
 	{
 		std::stringstream ss;
 		ss << m_markValue;
-		m_pConfigureSet->set("mark", "markValue", ss.str());
+		m_pConfigureSet->set("mark", "markValue", ss.str());//自定义标记值
 	}
 
 	{
 		std::stringstream ss;
-		ss << m_diplayExtract;
-		m_pConfigureSet->set("displayExtract", "displayExtractValue", ss.str());
+		ss << m_displayExtract;
+		m_pConfigureSet->set("displayExtract", "displayExtractValue", ss.str());//抽道显示
+	}
+
+	//波形过小警告
+	{
+		std::stringstream ss;
+		ss << m_dWarningInterval;
+		m_pConfigureSet->set("waveWarning", "warningInterval", ss.str());//监测间隔
+	}
+	{
+		std::stringstream ss;
+		ss << m_dWarningThreshold;
+		m_pConfigureSet->set("waveWarning", "warningThreshold", ss.str());//阈值
+	}
+
+	{
+		std::stringstream ss;
+		ss << m_ComboBoxUploadType.GetCurSel();
+		m_pConfigureSet->set("radar", "uploadFlag", ss.str());//上传类型
+	}
+	
+	//{
+	//	std::stringstream ss;
+	//	ss << m_ComboBoxAutoSeperate.GetCurSel();
+	//	m_pConfigureSet->set("radar", "autoSeperateFlag", ss.str());//自动分段
+	//}
+
+	{
+		std::stringstream ss;
+		ss << m_ComboBoxSeperateType.GetCurSel();
+		m_pConfigureSet->set("radar", "autoSeperateType", ss.str());//分段模式
+	}
+
+	{
+		std::stringstream ss;
+		ss << m_dTimeInterval;
+		m_pConfigureSet->set("radar", "timeInterval", ss.str());//上传分段时间阈值
+	}
+
+	{
+		std::stringstream ss;
+		ss << m_dWheelCountInterval;
+		m_pConfigureSet->set("radar", "wheelCountInterval", ss.str());//自动分段道数间隔
+	}
+
+	{
+		std::stringstream ss;
+		ss << m_ComboBoxSaveFileType.GetCurSel();
+		m_pConfigureSet->set("radar", "saveFileType", ss.str());//文件保存类型
 	}
 
 	for(int i=0; i<16; i++){
@@ -729,17 +927,17 @@ void DlgRadarParameterConfig::OnBnClickedButtonApply()
 			std::stringstream ss1;
 			ss1 << m_dCorrection[i];
 			std::stringstream ss2;
-			ss2 << i+12;
+			ss2 << i;
 			m_pConfigureSet->set("correction", ss2.str(), ss1.str());
 			if( i<12 ){
 				std::stringstream ss3;
-				ss3 << i;
+				ss3 << i+16;
 				m_pConfigureSet->set("correction", ss3.str(), ss1.str());
 			}
 		}
 	}
 
-	m_pConfigureSet->write();
+	m_pConfigureSet->write();//往cfg文件写入修改后的cfg对象
 
 	if ( RadarManager::Instance()->getRadarDataRader() )
 	{
@@ -754,13 +952,24 @@ void DlgRadarParameterConfig::OnBnClickedButtonWaveFormTest()
 	m_pConfigureSet->set("radar", "testtype", "0");//z暂时设为时间采集
 
 	//更新波形显示窗口的采样率和采样点
+	/*
 	ConfigureSet *lpSet = RadarManager::Instance()->getConfigureSet();
 	int iSmpNum = atoi ( lpSet->get("radar", "sample").c_str());
 	int iSampRate = atoi ( lpSet->get("radar", "sampleratio" ).c_str() );
+	*/
+	int iSmpNum = atoi ( m_pConfigureSet->get("radar", "sample").c_str());
+	int iSampRate = atoi ( m_pConfigureSet->get("radar", "sampleratio" ).c_str() );
 	for(int index=0;index<16;index++){
 		_waveFormWnd[index].SetSampleCount( RadarManager::Instance()->getSampCount( iSmpNum ) );
 		_waveFormWnd[index].SetSampleRatio( RadarManager::Instance()->getSampRatio( iSampRate, index ) );
 	}
+	//探测时窗=采样点数/频率
+	m_timeWindow = getSampleCountValue(m_sampleComboBox.GetCurSel())/getSampleRationValue(m_sampleRatioComboBox.GetCurSel());
+	//最大深度=采样点数/（采样频率*根号下介电常数）*0.15
+	m_maxDepth = getSampleCountValue(m_sampleComboBox.GetCurSel())/(getSampleRationValue(m_sampleRatioComboBox.GetCurSel())*sqrt(getDielectricValue(m_dielectricComboBox.GetCurSel())))*0.15;
+	//扫描速率=100000/采样点数
+	m_scanSpeed = 100000/getSampleCountValue(m_sampleComboBox.GetCurSel());
+	UpdateData( FALSE );
 
 	RadarManager::Instance()->startNewTest();
 }
@@ -779,6 +988,11 @@ void DlgRadarParameterConfig::OnClose()
 	CDialog::OnClose();
 }
 
+int getChannelCountValue(int index){
+	int tempArr[3]={6,12,16};
+	return tempArr[index];
+}
+
 float getSampleRationValue(int index){
 	float tempArr[4]={20.48,10.24,5.12,2.56};
 	return tempArr[index];
@@ -790,39 +1004,39 @@ int getSampleCountValue(int index){
 }
 
 float getDielectricValue(int index){
-	int tempArr[25]={1,1.9,2,2.5,2.8,2.8,3.2,4,4,4.1,5,5,6,6.4,7,7,7,8,8,12,15,16,30,30,81};
+	float tempArr[25]={1,1.9,2,2.5,2.8,2.8,3.2,4,4,4.1,5,5,6,6.4,7,7,7,8,8,12,15,16,30,30,81};
 	return tempArr[index];
 }
 
 
 void DlgRadarParameterConfig::OnCbnSelchangeComboDielectric()
 {
-	//最大深度=采样点数/（采样频率*根号下介电常数）*0.15
-	m_maxDepth = getSampleCountValue(m_sampleComboBox.GetCurSel())/(getSampleRationValue(m_sampleRatioComboBox.GetCurSel())*sqrt(getDielectricValue(m_dielectricComboBox.GetCurSel())))*0.15;
-	UpdateData( FALSE );
+	////最大深度=采样点数/（采样频率*根号下介电常数）*0.15
+	//m_maxDepth = getSampleCountValue(m_sampleComboBox.GetCurSel())/(getSampleRationValue(m_sampleRatioComboBox.GetCurSel())*sqrt(getDielectricValue(m_dielectricComboBox.GetCurSel())))*0.15;
+	//UpdateData( FALSE );
 	OnBnClickedButtonWaveFormTest();
 }
 
 
 void DlgRadarParameterConfig::OnCbnSelchangeComboSample()
 {
-	//探测时窗=采样点数/频率
-	m_timeWindow = getSampleCountValue(m_sampleComboBox.GetCurSel())/getSampleRationValue(m_sampleRatioComboBox.GetCurSel());
-	//最大深度=采样点数/（采样频率*根号下介电常数）*0.15
-	m_maxDepth = getSampleCountValue(m_sampleComboBox.GetCurSel())/(getSampleRationValue(m_sampleRatioComboBox.GetCurSel())*sqrt(getDielectricValue(m_dielectricComboBox.GetCurSel())))*0.15;
-	//扫描速率=100000/采样点数
-	m_scanSpeed = 100000/getSampleCountValue(m_sampleComboBox.GetCurSel());
-	UpdateData( FALSE );
+	////探测时窗=采样点数/频率
+	//m_timeWindow = getSampleCountValue(m_sampleComboBox.GetCurSel())/getSampleRationValue(m_sampleRatioComboBox.GetCurSel());
+	////最大深度=采样点数/（采样频率*根号下介电常数）*0.15
+	//m_maxDepth = getSampleCountValue(m_sampleComboBox.GetCurSel())/(getSampleRationValue(m_sampleRatioComboBox.GetCurSel())*sqrt(getDielectricValue(m_dielectricComboBox.GetCurSel())))*0.15;
+	////扫描速率=100000/采样点数
+	//m_scanSpeed = 100000/getSampleCountValue(m_sampleComboBox.GetCurSel());
+	//UpdateData( FALSE );
 	OnBnClickedButtonWaveFormTest();
 }
 
 void DlgRadarParameterConfig::OnCbnSelchangeComboSampleRatio()
 {
-	//探测时窗=采样点数/频率
-	m_timeWindow = getSampleCountValue(m_sampleComboBox.GetCurSel())/getSampleRationValue(m_sampleRatioComboBox.GetCurSel());
-	//最大深度=采样点数/（采样频率*根号下介电常数）*0.15
-	m_maxDepth = getSampleCountValue(m_sampleComboBox.GetCurSel())/(getSampleRationValue(m_sampleRatioComboBox.GetCurSel())*sqrt(getDielectricValue(m_dielectricComboBox.GetCurSel())))*0.15;
-	UpdateData( FALSE );
+	////探测时窗=采样点数/频率
+	//m_timeWindow = getSampleCountValue(m_sampleComboBox.GetCurSel())/getSampleRationValue(m_sampleRatioComboBox.GetCurSel());
+	////最大深度=采样点数/（采样频率*根号下介电常数）*0.15
+	//m_maxDepth = getSampleCountValue(m_sampleComboBox.GetCurSel())/(getSampleRationValue(m_sampleRatioComboBox.GetCurSel())*sqrt(getDielectricValue(m_dielectricComboBox.GetCurSel())))*0.15;
+	//UpdateData( FALSE );
 	OnBnClickedButtonWaveFormTest();
 }
 
@@ -841,7 +1055,7 @@ void DlgRadarParameterConfig::changeChannel( int index, bool flag )//hjl 2021041
 		_waveFormWnd[index].SetSampleRatio( RadarManager::Instance()->getSampRatio( iSampRate, index ) );
 
 		std::stringstream ss;
-		ss << index+12;
+		ss << index;
 		_waveFormWnd[index].setCorrection( atoi( lpSet->get("correction", ss.str()).c_str() ) );
 		
 		_waveFormWnd[index].StartDraw();
@@ -855,14 +1069,14 @@ void DlgRadarParameterConfig::changeChannel( int index, bool flag )//hjl 2021041
 		{
 			CString titleName;
 			CString name;
-			name = A2W( lpProject->getChannelName(index+12).c_str() );//12+12+4 直接+12就全是16个按顺序来
-			//name = A2W( "" );//12+12+4 直接+12就全是16个按顺序来
+			/*name = A2W( lpProject->getChannelName(index+12).c_str() );//12+12+4 直接+12就全是16个按顺序来
 			if(index<12){
 				titleName.Format(L"通道%d-%s", index + 1, name);//origin
 			}else{
 				titleName.Format(L"通道%d-%s", index + 13, name);//origin
-			}
-
+			}*/
+			name = A2W( lpProject->getChannelName(index).c_str() );
+			titleName.Format(L"通道%d-%s", index + 1, name);//origin
 			_channelName[index].SetWindowText( titleName );
 		}
 
@@ -924,13 +1138,13 @@ void DlgRadarParameterConfig::resizeChannelWnd()//hjl 20210418参数设置波形显示
 	int curWidth = 90;
 	int wndHeight = 205;
 
-	MoveWindow( (nScreenWidth-600-(curWidth+space)*8)/2, (nScreenHeight-550)/2, 600+(curWidth+space)*8, 550 );//居中显示
+	MoveWindow( (nScreenWidth-500-(curWidth+space)*8)/2, (nScreenHeight-600)/2, 500+(curWidth+space)*8, 600 );//居中显示
 
 	CRect staticRect;
 	_channelName[0].GetClientRect( staticRect );
 
 	//showCount=showCount-1;//最后一个窗宽点显时窗
-	int startX = 550;
+	int startX = 450;
 	for( int i = 0; i < 7; i ++ ){
 		_channelName[i].MoveWindow( startX+i*(curWidth + space), 4, curWidth , namespaceHeight );
 		_channelCorrection[i].MoveWindow( startX+i*(curWidth + space), 1+namespaceHeight, curWidth , namespaceHeight );
@@ -951,13 +1165,13 @@ void DlgRadarParameterConfig::resizeChannelWnd()//hjl 20210418参数设置波形显示
 	_waveFormWnd[7].MoveWindow( startX+7*(curWidth + space), 3+namespaceHeight*2, curWidth+30, wndHeight );//最后一个窗宽度+30以显示时窗
 
 	for( int i = 8; i < 15; i ++ ){	
-		_channelName[i].MoveWindow( startX+(i-8)*(curWidth + space), 4+namespaceHeight*2+wndHeight, curWidth, namespaceHeight );
-		_channelCorrection[i].MoveWindow( startX+(i-8)*(curWidth + space), 1+namespaceHeight*3+wndHeight, curWidth , namespaceHeight );
-		_waveFormWnd[i].MoveWindow( startX+(i-8)*(curWidth + space), 3+namespaceHeight*4+wndHeight, curWidth, wndHeight );
+		_channelName[i].MoveWindow( startX+(i-8)*(curWidth + space), 4+namespaceHeight*2+wndHeight+space, curWidth, namespaceHeight );
+		_channelCorrection[i].MoveWindow( startX+(i-8)*(curWidth + space), 1+namespaceHeight*3+wndHeight+space, curWidth , namespaceHeight );
+		_waveFormWnd[i].MoveWindow( startX+(i-8)*(curWidth + space), 3+namespaceHeight*4+wndHeight+space, curWidth, wndHeight );
 	}
-	_channelName[15].MoveWindow( startX+7*(curWidth + space), 4+namespaceHeight*2+wndHeight, curWidth+30, namespaceHeight );
-	_channelCorrection[15].MoveWindow( startX+7*(curWidth + space), 1+namespaceHeight*3+wndHeight, curWidth , namespaceHeight );
-	_waveFormWnd[15].MoveWindow( startX+7*(curWidth + space), 3+namespaceHeight*4+wndHeight, curWidth+30, wndHeight );//最后一个窗宽度+30以显示时窗
+	_channelName[15].MoveWindow( startX+7*(curWidth + space), 4+namespaceHeight*2+wndHeight+space, curWidth+30, namespaceHeight );
+	_channelCorrection[15].MoveWindow( startX+7*(curWidth + space), 1+namespaceHeight*3+wndHeight+space, curWidth , namespaceHeight );
+	_waveFormWnd[15].MoveWindow( startX+7*(curWidth + space), 3+namespaceHeight*4+wndHeight+space, curWidth+30, wndHeight );//最后一个窗宽度+30以显示时窗
 }
 
 void DlgRadarParameterConfig::AddRadarData( RadarData *lpData , int index )
@@ -1012,4 +1226,55 @@ void DlgRadarParameterConfig::OnEnKillfocusEditCorrection15(){
 }
 void DlgRadarParameterConfig::OnEnKillfocusEditCorrection16(){
 	//OnBnClickedButtonWaveFormTest();
+}
+
+void DlgRadarParameterConfig::OnCbnSelchangeCombo1()
+{
+	// TODO: 在此添加控件通知处理程序代码
+}
+
+void DlgRadarParameterConfig::OnCbnEditchangeComboUploadType()
+{
+	// TODO: 在此添加控件通知处理程序代码
+}
+
+void DlgRadarParameterConfig::OnCbnSelchangeComboUploadType()
+{
+	// TODO: 在此添加控件通知处理程序代码
+	refreshControlCondition();
+}
+
+//更新控件取值及可修改的状态
+void DlgRadarParameterConfig::refreshControlCondition(){
+	if(m_ComboBoxUploadType.GetCurSel()==1){//上传模式时固定其余选项
+		//m_ComboBoxAutoSeperate.SetCurSel(1);
+		//m_ComboBoxAutoSeperate.EnableWindow(false);
+		m_ComboBoxSeperateType.SetCurSel(1);
+		m_ComboBoxSeperateType.EnableWindow(false);
+		m_ComboBoxSaveFileType.SetCurSel(1);
+		m_ComboBoxSaveFileType.EnableWindow(false);
+	}else if(m_ComboBoxUploadType.GetCurSel()==0){//非上传模式
+		//m_ComboBoxAutoSeperate.EnableWindow(true);
+		m_ComboBoxSeperateType.EnableWindow(true);
+		m_ComboBoxSaveFileType.EnableWindow(true);
+	}
+	//GetDlgItem(IDC_EDIT1)->EnableWindow(false);
+}
+
+void DlgRadarParameterConfig::OnCbnCloseupComboUploadType()
+{
+	// TODO: 在此添加控件通知处理程序代码
+	//refreshControlCondition();
+}
+
+void DlgRadarParameterConfig::OnCbnEditupdateComboUploadType()
+{
+	// TODO: 在此添加控件通知处理程序代码
+	//refreshControlCondition();
+}
+
+void DlgRadarParameterConfig::OnCbnKillfocusComboUploadType()
+{
+	// TODO: 在此添加控件通知处理程序代码
+	//refreshControlCondition();
 }

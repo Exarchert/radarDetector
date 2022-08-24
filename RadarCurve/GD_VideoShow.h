@@ -104,7 +104,7 @@ protected:
 
 
 	CString m_proPath;
-	CString     m_cPatrFile;//
+	CString     m_cPatrFile;//´¢´æÍ¼Æ¬µØ·½
 	int         m_iOnceTime;//
 	ShowType m_sType;//
 

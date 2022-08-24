@@ -35,6 +35,9 @@ public:
 	void addRadarData( RadarData *lpData, int index );
 	//void DeleteRadarData( int index );
 
+	void setCurrentIndexDisplay( int currentChannelIndex );
+	
+
 protected:
 	virtual void DoDataExchange(CDataExchange* pDX);    // DDX/DDV Ö§³Ö
 
@@ -42,6 +45,8 @@ protected:
 	void changeChannel( int index );
 
 	void updateMenuState( int index, CMenu *lpMenu );
+	
+
 
 	DECLARE_MESSAGE_MAP()
 	//afx_msg LRESULT OnRadarData( WPARAM wParam, LPARAM lParam );
@@ -54,7 +59,11 @@ protected:
 	//RadarCurveWnd _curveWnd[MAX_CHANNEL];
 	Radar3DWnd m_3DWnd;
 	int m_dChannelIndex;
+	CComboBox m_comboBoxChannel;
 	int m_dDepthIndex;
+	int m_bAutoDisplay;
+	CStatic m_csCurrentChannel;
+	CString m_cstrCurrentChannel;
 	//CStatic _channelName[MAX_CHANNEL];
 
 	/*
@@ -133,4 +142,6 @@ public:
 	afx_msg void OnBnClickedButtonSwitch();
 	//	afx_msg void OnEnKillfocusEditDepth();
 	//	afx_msg void OnEnKillfocusEditChannel();
+public:
+	afx_msg void OnBnClickedCheckAutodisplay();
 };
