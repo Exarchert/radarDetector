@@ -59,18 +59,21 @@ CDialogCurCurve::CDialogCurCurve(separateScreen pScreenType, CWnd* pParent /*=NU
 		m_channelCount = m_channelVec.size();
 	}
 	//hjl20210408以下为计算推荐速度
+	m_nChannelCount=RadarManager::Instance()->GetTrueChannelCount();
 	float precLen = atoi ( cfg->get("radar", "preclen").c_str() );
-	//int precIndex = atoi( cfg->get("radar", "precindex").c_str() );
-	//float fJihuaAccuracy = RadarManager::Instance()->GetJihuaAccuracy(precIndex);
 	float fJihuaAccuracy = (float)atoi( cfg->get("radar", "precision").c_str() );
-	float fwheelPricise = RadarManager::Instance()->GetTrueAccuracyFromPreclenAndPrecindex(precLen,fJihuaAccuracy);//实际道间距
+	float fwheelPrecise = RadarManager::Instance()->GetTrueAccuracyFromPreclenAndPrecindex(precLen,fJihuaAccuracy);//实际道间距
 	int iSampleCountIndex = atoi ( cfg->get("radar", "sample").c_str());
 	int iSampleCount = RadarManager::Instance()->getSampCount( iSampleCountIndex );//采样点
 	//float temp=((float)iSampleCount*20/3);
 	//float temp2=1/temp;
 	//_fRecommendableSpeed=fwheelPricise*10000*temp2*3.6;
-	_fRecommendableSpeed=fwheelPricise*10000/((float)iSampleCount*20/3)*3.6;
-
+	_fRecommendableSpeed=(float)29400/m_nChannelCount*fwheelPrecise/(float)iSampleCount;
+	if(_fRecommendableSpeed>20){
+		_fRecommendableSpeed=20+0.4*(_fRecommendableSpeed-20);
+	}
+	m_nInformationIndex = atoi ( cfg->get("screen", "index").c_str() );
+	m_nSaveFileType=atoi(cfg->get("radar", "saveFileType").c_str());
 }
 
 CDialogCurCurve::~CDialogCurCurve()
@@ -229,13 +232,30 @@ BOOL CDialogCurCurve::OnInitDialog()
 	if ( nScreenHeight > 500 ){
 		nScreenHeight = 500;
 	}
-	
-	MoveWindow( 0, nScreenHeight*m_separateScreen + 50, nScreenWidth, nScreenHeight );
+
+	ConfigureSet *cfg = RadarManager::Instance()->getConfigureSet();
+	if ( !cfg ){
+		return TRUE;
+	}
+
+	//MoveWindow( 0, nScreenHeight*m_separateScreen + 50, nScreenWidth, nScreenHeight );
 	if (m_separateScreen==0){
-		MoveWindow( 0, nScreenHeight*m_separateScreen + 50, nScreenWidth, nScreenHeight );
+		if(m_nSaveFileType==0){
+			MoveWindow( 0, nScreenHeight*m_separateScreen + 50, nScreenWidth, nScreenHeight*2 );
+		}else if(m_nSaveFileType==1){
+			MoveWindow( -5, 50, GetSystemMetrics(SM_CXSCREEN)/2+10, nScreenHeight*2 );
+			if (RadarManager::Instance()->GetTrueChannelCount()==15){
+				MoveWindow( 0, nScreenHeight*m_separateScreen + 50, nScreenWidth, nScreenHeight*2 );
+			}
+		}
 	}
 	if (m_separateScreen==1){
-		MoveWindow( 0, nScreenHeight*m_separateScreen + 50, nScreenWidth, nScreenHeight );
+		//MoveWindow( 0, nScreenHeight*m_separateScreen + 50, nScreenWidth, nScreenHeight );
+		/*if(m_channelCount==7){
+			MoveWindow( GetSystemMetrics(SM_CXSCREEN)/2, 50, GetSystemMetrics(SM_CXSCREEN)/2+10, nScreenHeight*2 );
+		}
+		MoveWindow( 0, nScreenHeight*m_separateScreen + 50, nScreenWidth, nScreenHeight );*/
+		MoveWindow( GetSystemMetrics(SM_CXSCREEN)/2, 50, GetSystemMetrics(SM_CXSCREEN)/2+10, nScreenHeight*2 );
 	}
 	if (m_separateScreen==2){
 		MoveWindow( 0, nScreenHeight*m_separateScreen + 50, nScreenWidth/2, nScreenHeight*2 );
@@ -244,10 +264,7 @@ BOOL CDialogCurCurve::OnInitDialog()
 		MoveWindow( 0, nScreenHeight*m_separateScreen + 50, nScreenWidth/2, nScreenHeight );
 	}*/
 
-	ConfigureSet *cfg = RadarManager::Instance()->getConfigureSet();
-	if ( !cfg ){
-		return TRUE;
-	}
+	
 	//隐藏要移除的频道
 	for (int i = 0; i != pChannelRemoved.size(); ++i){
 		changeChannel( pChannelRemoved[i], false );
@@ -314,7 +331,7 @@ void CDialogCurCurve::AddRadarData( RadarData *lpData , int index )
 		//_curveWnd[index].setData( lpData );
 	}
 	//_curveWnd[index].addData( lpData );
-	if ( index == 0 ){
+	if ( index == m_nInformationIndex ){
 		_dcValue = lpData->getDCValue();//电压
 
 		//hjl6.5 以下两行用于定时更新经纬度显示
@@ -385,8 +402,14 @@ void CDialogCurCurve::changeChannel( int channelIndex, bool flag )
 		std::stringstream ss;
 		//ss << channelIndex+12;//
 		ss << channelIndex;//20211226
-		_curveWnd[channelIndex].setCorrection( atoi( lpSet->get("correction", ss.str()).c_str() ) );
-
+		_curveWnd[channelIndex].SetCorrection( atoi( lpSet->get("correction", ss.str()).c_str() ) );
+		bool iType=(bool)atoi( lpSet->get("radar", "saveFileType").c_str());
+		_curveWnd[channelIndex].SetSpectrumDisplay(!iType);
+		/*if(iType==1){
+			_curveWnd[channelIndex].SetSpectrumDisplay(true);
+		}else{
+			_curveWnd[channelIndex].SetSpectrumDisplay(false);
+		}*/
 		_curveWnd[channelIndex].StartDraw();
 		_curveWnd[channelIndex].ShowWindow( SW_SHOW );
 		_channelName[channelIndex].ShowWindow( SW_SHOW );
@@ -713,7 +736,7 @@ void CDialogCurCurve::OnTimer(UINT_PTR nIDEvent)
 	}
 
 
-	_CstrDataMissing.Format(L"丢道/总道：%d/%d",m_arrnRecordTotalWheelCount[0]-m_arrnRealTotalWheelCount[0],m_arrnRecordTotalWheelCount[0]);	
+	_CstrDataMissing.Format(L"丢道/总道：%d/%d",m_arrnRecordTotalWheelCount[m_nInformationIndex]-m_arrnRealTotalWheelCount[m_nInformationIndex],m_arrnRecordTotalWheelCount[m_nInformationIndex]);	
 	_dataMissing.SetWindowText( _CstrDataMissing );//hjl20210302 定时更新丢道情况
 
 	_CstrDistance.Format(L"测量轮距离/gps距离：%.2f/%.2f",_wheelDistance,_gpsDistance);	
@@ -729,7 +752,7 @@ void CDialogCurCurve::OnTimer(UINT_PTR nIDEvent)
 	}
 	_speed.SetWindowText( _CstrSpeed );//显示速度 hjl20200907 速度显示模块
 
-	_CstrRecommendableSpeed.Format(L"推荐速度：%0.2fkmph",_fRecommendableSpeed/3.5);
+	_CstrRecommendableSpeed.Format(L"推荐速度：%0.2fkmph",_fRecommendableSpeed);
 	_recommendableSpeed.SetWindowText( _CstrRecommendableSpeed );//显示速度 hjl20210408 推荐速度显示模块
 
 	switch ( RadarManager::Instance()->getGpsReader()->getCondition()){

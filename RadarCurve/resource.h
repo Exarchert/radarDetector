@@ -69,14 +69,17 @@
 #define IDC_STATIC_CHANNEL_01           1021
 #define IDC_EDIT_PWD                    1022
 #define IDC_STATIC_CHANNEL_02           1022
+#define IDD_PAGE1                       1022
 #define IDC_STATIC_CHANNEL_03           1023
 #define IDC_EDIT_LeftScreen             1023
 #define IDC_EditSaveFile                1023
+#define IDD_PAGE2                       1023
 #define IDC_STATIC_CHANNEL_04           1024
 #define IDC_EDIT_RightScreen2           1024
 #define IDC_EDIT_RightScreen            1024
 #define IDC_EditSaveFile2               1024
 #define IDC_EditPicSaveFile             1024
+#define IDD_DIALOG_TER_DISPLAY          1024
 #define IDC_COMBO_DIELECTRIC            1025
 #define IDC_STATIC_CHANNEL_05           1025
 #define IDC_STATIC_CHANNEL_06           1026
@@ -126,6 +129,7 @@
 #define IDC_EDIT_STAKE_NUMBER           1040
 #define IDC_EDIT_ComNumber              1040
 #define IDC_EDIT_CHANNEL                1040
+#define IDC_GPSEDIT                     1040
 #define IDC_LIST_PROJECT_EXPORT         1041
 #define IDC_EDIT_DAOHAO_2               1041
 #define IDC_EDIT_JULI_                  1041
@@ -160,6 +164,9 @@
 #define IDC_Btn_ExtractTrackPoints      1052
 #define IDC_BtnOk                       1052
 #define IDC_BtnExportGPS                1052
+#define IDC_BUTTON                      1052
+#define IDC_READYRECEIVE_BUTTON         1052
+#define IDC_AUTO_CORRECTION             1052
 #define IDC_STATIC_PLAY_TOPL4           1053
 #define IDC_STA_PROMPT_INFO             1053
 #define IDC_BtnCancel                   1053
@@ -179,6 +186,7 @@
 #define IDC_BTN_STUP_COLOR              1063
 #define IDC_BtnExportFIle1              1063
 #define IDC_BtnExportFIle               1063
+#define IDC_STARTRECEIVE_BUTTON         1063
 #define IDC_COMBO1                      1064
 #define IDD_DLGPROJECTMANAGER           1065
 #define IDC_EDIT_LineWidth              1065
@@ -227,10 +235,13 @@
 #define IDC_CHECK_CHANNEL8              1096
 #define IDC_EDIT4                       1098
 #define IDC_EDIT_TIMEWINDOW             1098
+#define IDC_STACKFOLDEDIT               1098
 #define IDC_EDIT5                       1099
 #define IDC_EDIT_MAXDEPTH               1099
+#define IDC_DUTYEDIT                    1099
 #define IDC_EDIT6                       1100
 #define IDC_EDIT_SCANSPEED              1100
+#define IDC_STACKEDIT                   1100
 #define IDC_EDIT7                       1101
 #define IDC_EDIT_WHEELPRECISION         1101
 #define IDC_LONLAT                      1103
@@ -245,6 +256,7 @@
 #define IDC_EDIT3                       1110
 #define IDC_EDIT_SCREEN_0               1110
 #define IDC_CURVE_17                    1110
+#define IDC_CHANNELEDIT                 1110
 #define IDC_EDIT8                       1111
 #define IDC_EDIT_SCREEN_1               1111
 #define IDC_EDIT_SCREEN_2               1112
@@ -259,6 +271,7 @@
 #define IDC_WAVEFORM1                   1118
 #define IDC_CURVE_16                    1118
 #define IDC_3D                          1118
+#define IDC_TER_DISPLAY                 1118
 #define IDC_CUSTOM3                     1119
 #define IDC_WAVEFORM2                   1119
 #define IDC_CURVE_18                    1119
@@ -373,6 +386,7 @@
 #define IDC_STATIC_CURRENTCHANNEL       1186
 #define IDC_COMBO2                      1187
 #define IDC_COMBO_SAVE_FILE_TYPE        1187
+#define IDC_GAINCOMBO                   1187
 #define IDC_COMBO_UPLOAD_TYPE           1188
 #define IDC_EDIT_WARNING_INTERVAL       1189
 #define IDC_EDIT26                      1190
@@ -385,6 +399,27 @@
 #define IDC_COMBO_CHANNELCOUNT          1196
 #define IDC_EDIT25                      1197
 #define IDC_EDIT_GPS_FREQUENCY          1197
+#define IDC_BUTTON6                     1198
+#define IDC_HAND_RADIO                  1199
+#define IDC_GPS_RADIO                   1200
+#define IDC_METER_RADIO                 1201
+#define IDC_WHEELEDIT                   1202
+#define IDC_PERIMETEREDIT               1203
+#define IDC_HZCOMBO                     1204
+#define IDC_COILCOMBO                   1205
+#define IDC_DELAYEDIT                   1206
+#define IDC_SAMPCOMBO                   1207
+#define IDC_SYNSENDBUTTON               1208
+#define IDC_READYSEND_BUTTON            1209
+#define IDC_STARTSEND_BUTTON            1210
+#define IDC_SYNRECEIVE_BUTTON           1211
+#define IDC_STOPRECEIVE_BUTTON          1212
+#define IDC_COMBO_PRECRATIO             1213
+#define IDC_STOPSEND_BUTTON             1214
+#define IDC_TER_LONLAT                  1215
+#define IDC_TER_DATAMISSING             1216
+#define IDC_TER_DISTANCE                1217
+#define IDC_TER_SPEED                   1218
 #define ID_SHOW_CHANNEL_00              32780
 #define ID_SHOW_CHANNEL_01              32781
 #define ID_SHOW_CHANNEL_02              32782
@@ -452,9 +487,9 @@
 // 
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
-#define _APS_NEXT_RESOURCE_VALUE        1021
+#define _APS_NEXT_RESOURCE_VALUE        1025
 #define _APS_NEXT_COMMAND_VALUE         32834
-#define _APS_NEXT_CONTROL_VALUE         1198
+#define _APS_NEXT_CONTROL_VALUE         1219
 #define _APS_NEXT_SYMED_VALUE           1070
 #endif
 #endif

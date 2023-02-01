@@ -45,6 +45,8 @@
 #include "DialogCurCurve.h"
 #include "DlgRadarParameterConfig.h"
 #include "DialogThreeView.h"
+#include "SheetBase.h"
+#include "DialogTERDisplay.h"
 
 using namespace std; 
 
@@ -53,6 +55,7 @@ CDialogCurCurve *g_CurCurveSecondDlg = NULL;
 CDialogCurCurve *g_CurCurveThirdDlg = NULL;
 CDialogCurCurve *g_CurCurveFourthDlg = NULL;
 CDialogThreeView *g_ThreeViewDlg = NULL;
+CDialogTERDisplay *g_TERDisplayDlg = NULL;
 DlgRadarParameterConfig *g_RadarParameterConfig=NULL;
 CDialogProject *g_HistoryProjectDlg = NULL;
 
@@ -303,13 +306,15 @@ RadarManager::RadarManager(void)
 {
 	_testing = false;
 	_working = false;
+	m_bTERWorking=false;
 	_lpCurProject = NULL;
+	m_MPTERCurProject = NULL;
 
 	m_pDlgWorkDetection = NULL;
 
 	m_configureSet = new ConfigureSet;
 
-	m_nChannelCount = 8;
+	m_nTrueChannelCount = 8;
 
 	_dbOpen = false;
 
@@ -524,9 +529,10 @@ void RadarManager::init()
 	strCfgFile += "\\radar.cfg";
 	m_configureSet->read(strCfgFile);
 	//setRadarChannelCount( atoi ( m_configureSet->get("radar", "channelCount").c_str() ) );
-	m_nChannelCount = getChannelCount(atoi(m_configureSet->get("radar", "channelCount").c_str()));
+	m_nTrueChannelCount = getTrueChannelCount(getSettingChannelCountByIndex(atoi(m_configureSet->get("radar", "channelCount").c_str())));
+	m_nSettingChannelCount = getSettingChannelCountByIndex(atoi(m_configureSet->get("radar", "channelCount").c_str()));
 	m_nUpload = atoi( m_configureSet->get("radar", "uploadFlag").c_str() );
-	m_dTwelveFlag=atoi( m_configureSet->get("radar", "twelveFlag").c_str() );
+	//m_dTwelveFlag=atoi( m_configureSet->get("radar", "twelveFlag").c_str() );
 // 	if ( m_configureSet->get("db", "use" ) == "true")
 // 	{
 // 		if ( !getDBHelp()->Open( m_configureSet->get("db","dbsource").c_str()
@@ -555,6 +561,16 @@ void RadarManager::init()
 	m_strImagePath =W2A(strImagePath);
 }
 
+void RadarManager::RefreshForCfgChange(){
+	USES_CONVERSION;
+	std::string strCfgFile = W2A(m_strRadarPath);
+	strCfgFile += "\\radar.cfg";
+	m_configureSet->read(strCfgFile);
+	m_nTrueChannelCount = getTrueChannelCount(getSettingChannelCountByIndex(atoi(m_configureSet->get("radar", "channelCount").c_str())));
+	m_nSettingChannelCount = getSettingChannelCountByIndex(atoi(m_configureSet->get("radar", "channelCount").c_str()));
+	m_nUpload = atoi( m_configureSet->get("radar", "uploadFlag").c_str() );
+	//m_dTwelveFlag=atoi( m_configureSet->get("radar", "twelveFlag").c_str() );
+}
 
 void RadarManager::ShowDlgPromptNULL()
 {
@@ -1527,6 +1543,7 @@ bool RadarManager::startNewWork(){
 					_gpsReader.close();
 					//------------
 				}*/
+				_gpsReader.close();//确保上次已关闭
 				int connectGpsFailCount=0;//偶尔出现连接不上的情况 可用多次连接来解决 所以自动连接10次
 				while ( !_gpsReader.open(//gps硬件连接
 					atoi(m_configureSet->get("com","port").c_str())
@@ -2643,7 +2660,7 @@ void RadarManager::addRadarDataToDisplay( RadarData *d, int index ){
 	}
 	//往二号显示窗口添加数据
 	if ( g_CurCurveSecondDlg ){
-		if(index>15&&index<28){
+		if((index>15&&index<28)||(m_nTrueChannelCount==7&&index>6&&index<14)||(m_nTrueChannelCount==4&&index>3&&index<8)||(m_nTrueChannelCount==8&&index>7&&index<16)){
 			g_CurCurveSecondDlg->AddRadarData( d, index );
 		}
 	}
@@ -2722,11 +2739,33 @@ void RadarManager::addRadarDataToProject( RadarData *d, int index ){
 void RadarManager::addRadarDataToThreeViewDialog( RadarData *d, int index ){
 	if ( g_ThreeViewDlg ){
 		//g_ThreeViewDlg->AddRadarData( d, index );
+		if(index>=m_nTrueChannelCount){
+			return;
+		}
 		
 		m_vec3DRadarDataGroup.push_back(d);
-		if(index==m_nChannelCount-1){
-			if(m_vec3DRadarDataGroup.size()>m_nChannelCount-1){
+
+		/*if(m_nTrueChannelCount==15&&index==13){
+		}else */
+			
+		if(m_nTrueChannelCount!=15&&index==m_nTrueChannelCount-1){
+			if(m_vec3DRadarDataGroup.size()==m_nTrueChannelCount){
 				g_ThreeViewDlg->addGroupRadarData( m_vec3DRadarDataGroup );	
+			}
+			m_vec3DRadarDataGroup.clear();
+		}else if(m_nTrueChannelCount==15&&index==13){//15通道的传输是特例，按照1324 5768 9111012 13151416传输，所以到14才停
+			if(m_vec3DRadarDataGroup.size()==m_nTrueChannelCount){
+				std::vector<osg::ref_ptr<RadarData>> temp;
+				for(int i=0;i<3;i++){
+					temp.push_back(m_vec3DRadarDataGroup[i*4+0]);
+					temp.push_back(m_vec3DRadarDataGroup[i*4+2]);
+					temp.push_back(m_vec3DRadarDataGroup[i*4+1]);
+					temp.push_back(m_vec3DRadarDataGroup[i*4+3]);
+				}
+				temp.push_back(m_vec3DRadarDataGroup[12]);
+				temp.push_back(m_vec3DRadarDataGroup[14]);
+				temp.push_back(m_vec3DRadarDataGroup[13]);
+				g_ThreeViewDlg->addGroupRadarData( temp );
 			}
 			m_vec3DRadarDataGroup.clear();
 		}
@@ -2806,10 +2845,10 @@ CDBConnectHelp *RadarManager::getDBHelp()
 
 //通道数量
 void RadarManager::setRadarChannelCount( int value ){
-	m_nChannelCount = value;
+	m_nTrueChannelCount = value;
 }
 int RadarManager::getRadarChannelCount()const{
-	return m_nChannelCount;
+	return m_nTrueChannelCount;
 }
 
 //获取cfg
@@ -2956,23 +2995,52 @@ float RadarManager::getChannelRatioPrect( int index )const{
 }
 
 //通过索引获取通道数
-int RadarManager::getChannelCount( int index ){
+int RadarManager::getSettingChannelCountByIndex( int index ){
 	std::stringstream ss;
 	ss<<index;
 	std::string strTag="channelCount"+ss.str();
 	return atoi(m_configureSet->get("comboBox", strTag).c_str());
-	/*switch ( index ){
-		case 0:
-			return 6;
-			break;
-		case 1:
-			return 12;
-			break;
+}
+
+//通过设置通道数获取实际通道数
+int RadarManager::getTrueChannelCount(int setChannelCount){
+	std::stringstream ss;
+	ss<<setChannelCount;
+	return atoi(m_configureSet->get("channelCountTransformation", ss.str()).c_str());
+	/*int nTrueChannelCount=2;
+	switch ( setChannelCount ){
 		case 2:
-			return 16;
+			nTrueChannelCount=2;
 			break;
+		case 6:
+			nTrueChannelCount=6;
+			break;
+		case 8:
+			nTrueChannelCount=4;
+			break;
+		case 14:
+			nTrueChannelCount=7;
+			break;
+		case 16:
+			nTrueChannelCount=8;
+			break;
+		case 24:
+			nTrueChannelCount=12;
+			break;
+		case 28:
+			nTrueChannelCount=16;
+			break;
+		
 	}
-	return 16;*/
+	return nTrueChannelCount;*/
+}
+
+int RadarManager::GetTrueChannelCount(){
+	return m_nTrueChannelCount;
+}
+
+int RadarManager::GetSettingChannelCount(){
+	return m_nSettingChannelCount;
 }
 
 //通过索引获取介电常数
@@ -3063,21 +3131,6 @@ int RadarManager::getSampCount( int index ){
 	ss<<index;
 	std::string strTag="sampleNum"+ss.str();
 	return atoi(m_configureSet->get("comboBox", strTag).c_str());
-	/*switch ( index ){
-		case 0:
-			return 256;
-			break;
-		case 1:
-			return 512;
-			break;
-		case 2:
-			return 1024;
-			break;
-		case 3:
-			return 2048;
-			break;
-	}
-	return 256;*/
 }
 
 /*
@@ -3233,7 +3286,7 @@ float RadarManager::getSampRatio( int index, int trackNo ){
 }
 */
 
-//通过目前的工作模式以及索引获取采样率
+//通过索引获取采样率
 float RadarManager::getSampRatio( int index, int trackNo ){
 	std::stringstream ss;
 	ss<<index;
@@ -3242,6 +3295,14 @@ float RadarManager::getSampRatio( int index, int trackNo ){
 	float fSampRate = atof(strTemp.substr(0,strTemp.length()-1).c_str());
 	fSampRate /= getChannelRatioPrect( trackNo );
 	return fSampRate;
+}
+
+//通过索引获取脉冲值
+int RadarManager::getPrecRatio( int index ){
+	std::stringstream ss;
+	ss<<index;
+	std::string strTag="precRatio"+ss.str();
+	return atoi(m_configureSet->get("comboBox", strTag).c_str());
 }
 
 HWND s_nhWnd[1000];
@@ -3514,7 +3575,9 @@ bool RadarManager::ExportGprFile(void *_lpProjectRow/*std::string strProName*/,i
 
 //获取值：测量轮多少格一记录（一周720格）
 int RadarManager::GetTrueCmdIndexFromPreclenAndAccuracy(float fCLen,float fAccuracy){
-	int iCount = fAccuracy / (fCLen/720.0)+1;//设置精度/（测量轮周长/720）
+	ConfigureSet *cs = getConfigureSet();
+	float precRatio = (float)getPrecRatio(atoi( cs->get("radar", "precRatio").c_str()));
+	int iCount = fAccuracy / (fCLen/precRatio)+1;//设置精度/（测量轮周长/720）
 	if (0 < iCount){
 		iCount--;
 	}
@@ -3523,7 +3586,9 @@ int RadarManager::GetTrueCmdIndexFromPreclenAndAccuracy(float fCLen,float fAccur
 
 //获取比值：720/几转一记录
 float RadarManager::GetPrecratioFromPreclenAndAccuracy(float fCLen,float fAccuracy){
-	float iCount = 720 /(float)( GetTrueCmdIndexFromPreclenAndAccuracy(fCLen,fAccuracy)+1);
+	ConfigureSet *cs = getConfigureSet();
+	float precRatio = (float)getPrecRatio(atoi( cs->get("radar", "precRatio").c_str()));
+	float iCount = precRatio /(float)( GetTrueCmdIndexFromPreclenAndAccuracy(fCLen,fAccuracy)+1);
 	return iCount;
 }
 
@@ -3794,64 +3859,6 @@ void RadarManager::ReadRadarIni()//从ini读入设置
 			int_Check_Channel[i]=0;
 		}
 	}
-	/*
-	ZeroMemory(szKeyVal,256*sizeof(TCHAR));
-	::GetPrivateProfileString(_T("RADARWORKTYPE"),_T("NetChannelTwoAvailability"),_T(""), szKeyVal, MAX_PATH, m_strRadarIni);
-	strTemp = szKeyVal;
-	if(0 == strTemp.Compare(_T("1"))){
-		int_Check_Channel[1]=1;
-	}else{
-		int_Check_Channel[1]=0;
-	}
-	ZeroMemory(szKeyVal,256*sizeof(TCHAR));
-	::GetPrivateProfileString(_T("RADARWORKTYPE"),_T("NetChannelThreeAvailability"),_T(""), szKeyVal, MAX_PATH, m_strRadarIni);
-	strTemp = szKeyVal;
-	if(0 == strTemp.Compare(_T("1"))){
-		int_Check_Channel[2]=1;
-	}else{
-		int_Check_Channel[2]=0;
-	}
-	ZeroMemory(szKeyVal,256*sizeof(TCHAR));
-	::GetPrivateProfileString(_T("RADARWORKTYPE"),_T("NetChannelFourAvailability"),_T(""), szKeyVal, MAX_PATH, m_strRadarIni);
-	strTemp = szKeyVal;
-	if(0 == strTemp.Compare(_T("1"))){
-		int_Check_Channel[3]=1;
-	}else{
-		int_Check_Channel[3]=0;
-	}
-	ZeroMemory(szKeyVal,256*sizeof(TCHAR));
-	::GetPrivateProfileString(_T("RADARWORKTYPE"),_T("NetChannelFiveAvailability"),_T(""), szKeyVal, MAX_PATH, m_strRadarIni);
-	strTemp = szKeyVal;
-	if(0 == strTemp.Compare(_T("1"))){
-		int_Check_Channel[4]=1;
-	}else{
-		int_Check_Channel[4]=0;
-	}
-	ZeroMemory(szKeyVal,256*sizeof(TCHAR));
-	::GetPrivateProfileString(_T("RADARWORKTYPE"),_T("NetChannelSixAvailability"),_T(""), szKeyVal, MAX_PATH, m_strRadarIni);
-	strTemp = szKeyVal;
-	if(0 == strTemp.Compare(_T("1"))){
-		int_Check_Channel[5]=1;
-	}else{
-		int_Check_Channel[5]=0;
-	}
-	ZeroMemory(szKeyVal,256*sizeof(TCHAR));
-	::GetPrivateProfileString(_T("RADARWORKTYPE"),_T("NetChannelSevenAvailability"),_T(""), szKeyVal, MAX_PATH, m_strRadarIni);
-	strTemp = szKeyVal;
-	if(0 == strTemp.Compare(_T("1"))){
-		int_Check_Channel[6]=1;
-	}else{
-		int_Check_Channel[6]=0;
-	}
-	ZeroMemory(szKeyVal,256*sizeof(TCHAR));
-	::GetPrivateProfileString(_T("RADARWORKTYPE"),_T("NetChannelEightAvailability"),_T(""), szKeyVal, MAX_PATH, m_strRadarIni);
-	strTemp = szKeyVal;
-	if(0 == strTemp.Compare(_T("1"))){
-		int_Check_Channel[7]=1;
-	}else{
-		int_Check_Channel[7]=0;
-	}
-	*/
 
 	//存储方式
 	ZeroMemory(szKeyVal,256*sizeof(TCHAR));
@@ -3908,48 +3915,6 @@ void RadarManager::WriteRadarIni(){
 				::WritePrivateProfileString(_T("RADARWORKTYPE"), NetChannelAvailability[i],  _T("0"), m_strRadarIni);//11.3
 			}
 		}
-		/*
-		if(int_Check_Channel1==1){
-			::WritePrivateProfileString(_T("RADARWORKTYPE"), _T("NetChannelOneAvailability"),  _T("1"), m_strRadarIni);//11.3
-		}else{
-			::WritePrivateProfileString(_T("RADARWORKTYPE"), _T("NetChannelOneAvailability"),  _T("0"), m_strRadarIni);//11.3
-		}
-		if(int_Check_Channel2==1){
-			::WritePrivateProfileString(_T("RADARWORKTYPE"), _T("NetChannelTwoAvailability"),  _T("1"), m_strRadarIni);//11.3
-		}else{
-			::WritePrivateProfileString(_T("RADARWORKTYPE"), _T("NetChannelTwoAvailability"),  _T("0"), m_strRadarIni);//11.3
-		}
-		if(int_Check_Channel3==1){
-			::WritePrivateProfileString(_T("RADARWORKTYPE"), _T("NetChannelThreeAvailability"),  _T("1"), m_strRadarIni);//11.3
-		}else{
-			::WritePrivateProfileString(_T("RADARWORKTYPE"), _T("NetChannelThreeAvailability"),  _T("0"), m_strRadarIni);//11.3
-		}
-		if(int_Check_Channel4==1){
-			::WritePrivateProfileString(_T("RADARWORKTYPE"), _T("NetChannelFourAvailability"),  _T("1"), m_strRadarIni);//11.3
-		}else{
-			::WritePrivateProfileString(_T("RADARWORKTYPE"), _T("NetChannelFourAvailability"),  _T("0"), m_strRadarIni);//11.3
-		}
-		if(int_Check_Channel5==1){
-			::WritePrivateProfileString(_T("RADARWORKTYPE"), _T("NetChannelFiveAvailability"),  _T("1"), m_strRadarIni);//11.3
-		}else{
-			::WritePrivateProfileString(_T("RADARWORKTYPE"), _T("NetChannelFiveAvailability"),  _T("0"), m_strRadarIni);//11.3
-		}
-		if(int_Check_Channel6==1){
-			::WritePrivateProfileString(_T("RADARWORKTYPE"), _T("NetChannelSixAvailability"),  _T("1"), m_strRadarIni);//11.3
-		}else{
-			::WritePrivateProfileString(_T("RADARWORKTYPE"), _T("NetChannelSixAvailability"),  _T("0"), m_strRadarIni);//11.3
-		}
-		if(int_Check_Channel7==1){
-			::WritePrivateProfileString(_T("RADARWORKTYPE"), _T("NetChannelSevenAvailability"),  _T("1"), m_strRadarIni);//11.3
-		}else{
-			::WritePrivateProfileString(_T("RADARWORKTYPE"), _T("NetChannelSevenAvailability"),  _T("0"), m_strRadarIni);//11.3
-		}
-		if(int_Check_Channel8==1){
-			::WritePrivateProfileString(_T("RADARWORKTYPE"), _T("NetChannelEightAvailability"),  _T("1"), m_strRadarIni);//11.3
-		}else{
-			::WritePrivateProfileString(_T("RADARWORKTYPE"), _T("NetChannelEightAvailability"),  _T("0"), m_strRadarIni);//11.3
-		}
-		*/
 	}
 		
 	//USB类型
@@ -4106,12 +4071,231 @@ int RadarManager::getArtificalChannelIndexFromOriginalIndex(int originalIndex)
 	return indexArray[originalIndex];
 }
 */
+
+
+
+
 //std::locale loc = std::locale::global(std::locale(""));//中文路径
-void RadarManager::StartElectromagneticExe(){
+void RadarManager::TERSetting(){
 	//WinExec("C:\\Users\\msi-pc\\Desktop\\electromagnetic\\USEP21地质超前预报采集系统.exe",SW_SHOWNORMAL);
 	//WinExec("C:\\Users\\msi-pc\\Desktop\\electromagnetic.bat",SW_HIDE);
 	//system("C:\\Users\\msi-pc\\Desktop\\electromagnetic.bat");
 	//WinExec("C:\\Users\\msi-pc\\Desktop\\electromagnetic.bat",SW_HIDE);
-	WinExec(m_configureSet->get("electromagnetic", "batPath").c_str(),SW_HIDE);
+	//WinExec(m_configureSet->get("electromagnetic", "batPath").c_str(),SW_HIDE);
+
+	AFX_MANAGE_STATE(AfxGetStaticModuleState());
+	CSheetBase propSheet(_T("低频设备采集设置"));
+	if (propSheet.DoModal() == IDCANCEL)
+	{
+		ConfigureSet* pConfigureSet = RadarManager::Instance()->getConfigureSet();
+		pConfigureSet->write();
+	}
+}
+
+bool RadarManager::TERStartWork(){
+	AFX_MANAGE_STATE(AfxGetStaticModuleState());
+
+	if ( m_bTERWorking ){
+		return true;
+	}
+
+	m_TERReader.close();//20210621hjl 保证已经终止采集
+
+	USES_CONVERSION;
+	/*CDialogProject dlg( _projectList, 1 );
+	if ( dlg.DoModal() != IDOK ){
+		//::AfxMessageBox(L"没有选择工程, 不能开始工作" );
+		return false;
+	}
+	dlg.initForNoProjectName();*/
+	time_t nowtime;
+	//首先创建一个time_t 类型的变量nowtime
+	struct tm* p;
+	//然后创建一个新时间结构体指针 p 
+	time(&nowtime);
+	//使用该函数就可得到当前系统时间，使用该函数需要将传入time_t类型变量nowtime的地址值。
+	p = localtime(&nowtime);
+
+	std::string projectName = "GD";
+	std::string projectTab = to_String(p->tm_year+1900);
+	if(p->tm_mon+1<10){
+		projectTab=projectTab+"0"+to_String(p->tm_mon+1);
+	}else{
+		projectTab=projectTab+to_String(p->tm_mon+1);
+	}
+	if(p->tm_mday<10){
+		projectTab=projectTab+"0"+to_String(p->tm_mday);
+	}else{
+		projectTab=projectTab+to_String(p->tm_mday);
+	}
+	if(p->tm_hour==0){
+		projectTab=projectTab+"00";
+	}else if(p->tm_hour<10){
+		projectTab=projectTab+"0"+to_String(p->tm_hour);
+	}else{
+		projectTab=projectTab+to_String(p->tm_hour);
+	}
+	if(p->tm_min==0){
+		projectTab=projectTab+"00";
+	}else if(p->tm_min<10){
+		projectTab=projectTab+"0"+to_String(p->tm_min);
+	}else{
+		projectTab=projectTab+to_String(p->tm_min);
+	}
+	if(p->tm_sec==0){
+		projectTab=projectTab+"00";
+	}else if(p->tm_sec<10){
+		projectTab=projectTab+"0"+to_String(p->tm_sec);
+	}else{
+		projectTab=projectTab+to_String(p->tm_sec);
+	}
+	m_strLastProjectCreatTime = projectTab;
+	std::string strPath;
+	OpenThreads::ScopedLock<OpenThreads::Mutex> lock(_lock);
+	if ( RadarManager::Instance()->getShowGpsPos()){
+		_gpsReader.close();//确保上次已关闭
+		int connectGpsFailCount=0;//偶尔出现连接不上的情况 可用多次连接来解决 所以自动连接10次
+		while ( !_gpsReader.open(//gps硬件连接
+			atoi(m_configureSet->get("com","port").c_str())
+			,atoi(m_configureSet->get("com","baud").c_str())
+			,m_configureSet->get("com","parity").length() > 0 ? getParityBit(atoi(m_configureSet->get("com","parity").c_str())) : 'N'
+			,atoi(m_configureSet->get("com","databits").c_str())
+			,atoi(m_configureSet->get("com","stopbits").c_str())
+			) )
+		{
+			connectGpsFailCount=connectGpsFailCount+1;
+			_gpsReader.close();
+			if(connectGpsFailCount>10){
+				::AfxMessageBox(L"连接GPS串口失败!" );
+				break;
+			}
+			Sleep(100);
+		}
+	}
+	{//连接TER硬件
+		int connectRadarFailCount=0;
+		while ( !m_TERReader.open(//雷达连接
+			m_configureSet->get("TER","addr")
+			,atoi(m_configureSet->get("TER","port").c_str())
+			) )
+		{
+			connectRadarFailCount=connectRadarFailCount+1;
+			if(connectRadarFailCount>10){
+				::AfxMessageBox(L"连接雷达设备失败，请检查设备是否正常连接或重启设备" );
+				return false;
+			}
+		}
+	}
+	if ( m_MPTERCurProject ){
+		delete m_MPTERCurProject;
+	}
+	//OpenThreads::ScopedLock<OpenThreads::Mutex> lock(_lock);
+	m_MPTERCurProject = new MeasureProject;
+	m_MPTERCurProject->setProjectName( projectName );
+	m_MPTERCurProject->setProjectTab( projectTab );
+	//m_MPTERCurProject->setProjectRow( dlg._selectRow.get() );
+	strPath = m_strImagePath + projectTab;
+	if (!PathIsDirectory(A2W ( strPath.c_str() ) ) ){
+		CreateDirectory(A2W(strPath.c_str()),NULL);
+	}
+	//m_MPTERCurProject->SetSaveOracleOrFile(m_iRadarWorkType,m_iSaveOracle,m_strSavePath);
+	m_MPTERCurProject->SetTERThread(m_strSavePath);
+
+	showTERDisplay();
+
+	m_bTERWorking = true;
+	m_TERReader.ReadThreadStart(true);
 	
+	return true;
+}
+
+void RadarManager::showTERDisplay(){
+	if ( !g_TERDisplayDlg ){
+		g_TERDisplayDlg = new CDialogTERDisplay;
+		g_TERDisplayDlg->Create( CDialogTERDisplay::IDD );
+	}
+	g_TERDisplayDlg->ShowWindow(SW_SHOW);
+	g_TERDisplayDlg->SendMessage(WM_SIZE,0,0);
+	g_TERDisplayDlg->UpdateWindow();
+	g_TERDisplayDlg->UpdateData();
+}
+
+void RadarManager::addTERDataToProject( TERData *d ){
+	//添加数据
+	{
+		OpenThreads::ScopedLock<OpenThreads::Mutex> lock(_lock);
+		if (m_MPTERCurProject.valid()){
+			m_MPTERCurProject->addTERData(d);
+		}
+	}
+	
+	//往显示窗口添加数据
+	if ( g_TERDisplayDlg ){
+		g_TERDisplayDlg->AddTERData( d );
+	}
+}
+
+bool RadarManager::TERStopWork(){
+ 	if ( !m_bTERWorking ){
+ 		return true;
+ 	}
+
+	AFX_MANAGE_STATE(AfxGetStaticModuleState());
+
+	m_TERReader.close();
+
+	if ( RadarManager::Instance()->getShowGpsPos()){
+		_gpsReader.close();
+	}
+
+	if (g_TERDisplayDlg ){
+		delete g_TERDisplayDlg;
+		g_TERDisplayDlg = NULL;
+	}
+
+	m_MPTERCurProject = NULL;
+	m_bTERWorking = false;
+	return true;
+}
+
+void RadarManager::TERSendParameter(int index){
+	if(!m_MPTERCurProject){
+		::AfxMessageBox(L"请先点击开始工作。");
+		return;
+	}
+	switch(index){
+		case 0:
+			m_TERReader.SetSenderFree();
+			Sleep(1000);
+			m_TERReader.SetSenderParameter();
+			break;
+		case 1:
+			m_TERReader.SetSenderReady();
+			break;
+		case 2:
+			m_TERReader.SetSenderStart();
+			m_TERReader.ReadThreadStart(true);
+			break;
+		case 3:
+			m_TERReader.SetSenderStop();
+			break;
+		case 4:
+			m_TERReader.SetReceiverFree();
+			Sleep(1000);
+			m_TERReader.SetReceiverParameter();
+			break;
+		case 5:
+			m_TERReader.SetReceiverReady();
+			break;
+		case 6:
+			m_TERReader.SetReceiverStart();
+			m_TERReader.ReadThreadStart(true);
+			break;
+		case 7:
+			m_TERReader.SetReceiverStop();
+			break;
+		default:
+			m_TERReader.SetReceiverStop();
+			break;
+	}
 }

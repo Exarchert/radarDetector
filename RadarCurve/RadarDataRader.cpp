@@ -5,6 +5,7 @@
 #include <RadarCurve/RadarManager.h>
 #include <RadarCurve/MeasureProject.h>
 #include <OpenThreads/Thread>
+#include <sstream>
 
 const long MAX_RECV = 1024;
 
@@ -105,7 +106,7 @@ RadarDataRader::RadarDataRader(void)
 	_lpReadThread = NULL;
 
 	_channelCount = MAX_CHANNEL;
-
+	m_nChannelCount = MAX_CHANNEL;
 	_sampleCount = 512;
 	_sampleRatio = 51.2f;
 	_hadInit = false;
@@ -165,6 +166,9 @@ void RadarDataRader::setInit(bool value)
 
 void RadarDataRader::init()
 {
+	int a=0,b=3,c=3;
+	a=b+c;
+
 	OpenThreads::ScopedLock<OpenThreads::Mutex> lock(_lock);
 	if ( _hadInit )
 	{
@@ -180,6 +184,8 @@ void RadarDataRader::init()
 	setParam(0X00, 0X00);
 	_sampleCount = RadarManager::Instance()->getSampCount( atoi ( cs->get("radar", "sample" ).c_str() ) );
 	_sampleRatio = RadarManager::Instance()->getSampRatio( atoi( cs->get("radar", "sampleratio").c_str()), 0 );
+	
+	m_nChannelCount = RadarManager::Instance()->GetTrueChannelCount();
 
 	_channelCount = atoi( cs->get("radar", "count").c_str() );
 	if ( _channelCount == 0 )
@@ -196,7 +202,8 @@ void RadarDataRader::init()
 	setParam( 0X0A, atoi( cs->get("radar", "testtype").c_str()));
 	
 	m_iModeType = atoi( cs->get("radar", "testtype").c_str());
-	int precRatio = atoi( cs->get("radar", "precratio").c_str() );
+	//int precRatio = atoi( cs->get("radar", "precratio").c_str() );
+	int precRatio = RadarManager::Instance()->getPrecRatio(atoi( cs->get("radar", "precRatio").c_str()));
 	float precLen = atof ( cs->get("radar", "preclen").c_str() );
 	//int precIndex = atoi( cs->get("radar", "precindex").c_str() );
 	
@@ -206,7 +213,7 @@ void RadarDataRader::init()
 	//每两个脉冲距离=发送给主机的数*周长/720                     ===== 面板值
 	//float fJihuaAccuracy = RadarManager::Instance()->GetJihuaAccuracy(precIndex);//
 	float fJihuaAccuracy = (float)atoi( cs->get("radar", "precision").c_str() );
-	int iCmdIndex = RadarManager::Instance()->GetTrueCmdIndexFromPreclenAndAccuracy(precLen,fJihuaAccuracy);
+	int iCmdIndex = RadarManager::Instance()->GetTrueCmdIndexFromPreclenAndAccuracy(precLen,fJihuaAccuracy);//测量轮多少格一记录（一周720格）
 	setParam( 0X0B, iCmdIndex);
 	setParam( 0XFA, atoi( cs->get("radar", "id").c_str()));
 	setParam(0X00, 0X0F);
@@ -290,7 +297,8 @@ bool RadarDataRader::open(int iType)
 		_channelCount = 2;
 	}
 
-	int precRatio = atoi( cs->get("radar", "precratio").c_str() );//脉冲数
+	//int precRatio = atoi( cs->get("radar", "precratio").c_str() );//脉冲数
+	int precRatio = RadarManager::Instance()->getPrecRatio(atoi( cs->get("radar", "precRatio").c_str()));//脉冲数
 	float precLen = atof ( cs->get("radar", "preclen").c_str() );//测量轮周长
 	//int precIndex = atoi( cs->get("radar", "precindex").c_str() );//精度(用于标识的index)
 	//float fJihuaAccuracy = RadarManager::Instance()->GetJihuaAccuracy(precIndex);//测量轮精度(0,1,2,3,4-->1,2,5,10,20),
@@ -315,6 +323,13 @@ bool RadarDataRader::open(int iType)
 
 bool RadarDataRader::openForSetting( std::string const& targetIP, unsigned int port )
 {
+	ConfigureSet *cs = RadarManager::Instance()->getConfigureSet();
+	m_bNeed3DDisplay = atoi ( cs->get("radar", "saveFileType" ).c_str() ) ;//rd3才需要加到三视图里
+	/*m_bNeedCopyInPreview = atoi ( cs->get("radar", "saveFileType" ).c_str() ) ;//rd3三维主板才需要复制
+	if(m_nChannelCount==15){
+		m_bNeedCopyInPreview=0;
+	}*/
+
 	for ( int i = 0 ; i < MAX_CHANNEL; i ++ )
 	{
 		_channelWheelCount[i] = -1;
@@ -368,7 +383,12 @@ bool RadarDataRader::openForSetting( std::string const& targetIP, unsigned int p
 
 bool RadarDataRader::open( std::string const& targetIP, unsigned int port )
 {
-
+	ConfigureSet *cs = RadarManager::Instance()->getConfigureSet();
+	m_bNeed3DDisplay = atoi ( cs->get("radar", "saveFileType" ).c_str() ) ;//rd3才需要加到三视图里
+	/*m_bNeedCopyInPreview = atoi ( cs->get("radar", "saveFileType" ).c_str() ) ;//rd3三维主板才需要复制
+	if(m_nChannelCount==15){
+		m_bNeedCopyInPreview=0;
+	}*/
 	for ( int i = 0 ; i < MAX_CHANNEL; i ++ )
 	{
 		_channelWheelCount[i] = -1;
@@ -447,6 +467,8 @@ void RadarDataRader::ReadThreadStart(bool flag /*= true*/)
 void RadarDataRader::parseHeadData( char *buff, int len )
 {
 	RadarManager *lpManager = RadarManager::Instance();
+	ConfigureSet *cfg = RadarManager::Instance()->getConfigureSet();
+	m_nChannelCount = RadarManager::Instance()->GetTrueChannelCount();
 	if ( !lpManager )
 	{
 		return;
@@ -483,7 +505,19 @@ void RadarDataRader::parseHeadData( char *buff, int len )
 
 	float basicRatio =-1.0f;
 
-	//PARTNAME
+	//PORTNAME
+	//先全部初始化
+	char chTemp[6];
+	chTemp[0] = 'N';
+	chTemp[1] = '0';
+	chTemp[2] = '0';
+	chTemp[3] = '0';
+	chTemp[4] = '0';
+	chTemp[5] = '\0';
+	for(int i=0;i<28;i++){
+		lpManager->setChannelName( chTemp, i );
+	}
+
 	for ( int i = 0; i < len - 14; i ++ )//例子PORTNAME1=S0200:5.12G;
 	{
 		if ( buff[i] == 'P'
@@ -525,11 +559,17 @@ void RadarDataRader::parseHeadData( char *buff, int len )
 				lpManager->setChannelName( name, index*2+12 );//16通道里一个表示两个
 				lpManager->setChannelName( name, index*2+13 );//16通道里一个表示两个
 			}*/
-			lpManager->setChannelName( name, index*2 );//16通道里一个表示两个
-			lpManager->setChannelName( name, index*2+1 );//16通道里一个表示两个
-			if(index<6){
-				lpManager->setChannelName( name, index*2+16 );//16通道里一个表示两个
-				lpManager->setChannelName( name, index*2+17 );//16通道里一个表示两个
+			if(strcmp(name,chTemp)){//不为N0000 strcmp()相同时返回0
+				if(atoi( cfg->get("radar", "saveFileType").c_str())){//1是rd3 即三维主板 
+					lpManager->setChannelName( name, index*2 );//三维主板里一个表示两个
+					lpManager->setChannelName( name, index*2+1 );//三维主板里一个表示两个
+					if(index<6){
+						lpManager->setChannelName( name, index*2+m_nChannelCount );//前12个存在复制的可能 1-12会复制到17-28
+						lpManager->setChannelName( name, index*2+m_nChannelCount+1 );//前12个存在复制的可能
+					}
+				}else{//sgy 多通道主板
+					lpManager->setChannelName( name, index );
+				}
 			}
 
 			std::string strRatio;
@@ -642,8 +682,8 @@ bool RadarDataRader::close()
 	case RADAR_WORK_TYPE_EIGHT:
 		if ( !_lpReadThread )
 		{
+			setParam(0X00, 0X00);
 			_client.CloseDevice();
-
 			return true;
 		}
 		setParam(0X00, 0X00);
@@ -736,6 +776,11 @@ void RadarDataRader::parseData()
 		rd->setData( lpDataBuff + startPos, channelData );
 		int index = lpDataBuff[startPos + 1] - CHANEL_INDEX_BEGIN;
 
+		if(index>=m_nChannelCount){
+			startPos += channelData;
+			break;
+		}
+
 		int wheelCount = rd->getPrec();//原始测量轮道数
 		startPos += channelData;
 
@@ -780,10 +825,25 @@ void RadarDataRader::parseData()
 			}else{
 				RadarManager::Instance()->addRadarDataToProject( rd.get(), index+12 );
 			}*/
-			RadarManager::Instance()->addRadarDataToProject( rd.get(), index );
-			RadarManager::Instance()->addRadarDataToThreeViewDialog( rd.get(), index );
-			if(index<12){
-				RadarManager::Instance()->addRadarDataToDisplay( rd.get(), index+16 );
+			if(m_bNeed3DDisplay){
+				if(m_nChannelCount==16){
+					RadarManager::Instance()->addRadarDataToProject( rd.get(), index );
+					RadarManager::Instance()->addRadarDataToThreeViewDialog( rd.get(), index );
+					if(index<12){
+						RadarManager::Instance()->addRadarDataToDisplay( rd.get(), index+16 );
+					}
+				}/*else if(m_nChannelCount==4||m_nChannelCount==7||m_nChannelCount==8){
+					if(index<m_nChannelCount){
+						RadarManager::Instance()->addRadarDataToProject( rd.get(), index );
+						RadarManager::Instance()->addRadarDataToThreeViewDialog( rd.get(), index );
+						RadarManager::Instance()->addRadarDataToDisplay( rd.get(), index+m_nChannelCount );
+					}
+				}*/else{
+					RadarManager::Instance()->addRadarDataToProject( rd.get(), index );
+					RadarManager::Instance()->addRadarDataToThreeViewDialog( rd.get(), index );
+				}
+			}else{
+				RadarManager::Instance()->addRadarDataToProject( rd.get(), index );
 			}
 		}
 		//if(index!=15){
@@ -861,7 +921,13 @@ void RadarDataRader::parseDataToDisplay()
 		rd->setSampleRatio( _sampleRatio );
 		rd->setData( lpDataBuff + startPos, channelData );
 		int index = lpDataBuff[startPos + 1] - CHANEL_INDEX_BEGIN;
-		int wheelCount = rd->getPrec();//测量轮道数
+
+		if(index>=m_nChannelCount){
+			startPos += channelData;
+			break;
+		}
+
+		//int wheelCount = rd->getPrec();//测量轮道数
 		startPos += channelData;
 		/*
 		if ( _channelWheelCount[index] < 0 )//第一轮初始化
@@ -885,8 +951,12 @@ void RadarDataRader::parseDataToDisplay()
 			rd->setPrec(_recordChannelWheelCount[index]);
 		}
 		*/
-
-		RadarManager::Instance()->addRadarDataToParameterConfig( rd.get(), index );
+		if(index<m_nChannelCount){
+			RadarManager::Instance()->addRadarDataToParameterConfig( rd.get(), index );
+			/*if(m_bNeedCopyInPreview&&m_nChannelCount!=15&&index+m_nChannelCount<16){
+				RadarManager::Instance()->addRadarDataToParameterConfig( rd.get(), index+m_nChannelCount );
+			}*/
+		}
 
 		//RadarManager::Instance()->addRadarDataToParameterConfig( rd.get(), index );
 		//_dataBuf.remove( startPos);
@@ -1800,7 +1870,7 @@ bool RadarDataRader::SetChannelLen(RadarData* _radar , int index)
 	return true;
 }
 
-bool RadarDataRader::SetChannelLenNew( RadarData* _radar , int index , int &flag )
+/*bool RadarDataRader::SetChannelLenNew( RadarData* _radar , int index , int &flag )
 {
 	int wheelCount = _radar->getPrec();
 	//if (wheelCount > 2)
@@ -1844,154 +1914,11 @@ bool RadarDataRader::SetChannelLenNew( RadarData* _radar , int index , int &flag
 		}
 	}
 	return true;
-}
+}*/
 
 
 
 //标记 
-/*
-void RadarDataRader::MarkOne()
-{
-	//unsigned char *lpDataBuff = _dataBuf.getData();
-
-	unsigned char *temp = new unsigned char[_sampleCount*2];
-	for ( int i=0;i<_sampleCount*2;i++){
-		//temp[i]=0x1000000000000000;
-		temp[i]=0;
-	}
-
-	for ( int i=0;i<_sampleCount*2;i++){
-		//temp[i]=0x1000000000000000;
-		if(i%2==0){
-			temp[i]=-255;
-		}
-	}
-
-	for ( int i=0;i<10;i++){
-		//temp[i]=0x1000000000000000;
-		temp[i]=0;
-	}
-
-	unsigned char *lpDataBuff = temp;
-
-	osg::ref_ptr<RadarData> rdA = new RadarData;
-	rdA->SetBufLength(_sampleCount*2);
-	rdA->setSampleCount( _sampleCount );//采样点数
-	rdA->setSampleRatio( _sampleRatio );//采样率
-
-	rdA->AddDataToEnd(&lpDataBuff[ 0 ],_sampleCount*2);
-
-	switch (RadarManager::Instance()->GetRadarWorkType())
-	{
-	case RADAR_WORK_TYPE_ONE_USB:
-		RadarManager::Instance()->addRadarDataToProject( rdA.get(), 0 );
-		break;
-	case RADAR_WORK_TYPE_DOUBLE_USB:
-		RadarManager::Instance()->addRadarDataToProject( rdA.get(), 0 );
-		RadarManager::Instance()->addRadarDataToProject( rdA.get(), 1 );
-		break;
-	case RADAR_WORK_TYPE_DOUBLE_USB_OLD:
-		RadarManager::Instance()->addRadarDataToProject( rdA.get(), 0 );
-		RadarManager::Instance()->addRadarDataToProject( rdA.get(), 1 );
-		break;
-	case RADAR_WORK_TYPE_FOUR_USB:
-		RadarManager::Instance()->addRadarDataToProject( rdA.get(), 0 );
-		RadarManager::Instance()->addRadarDataToProject( rdA.get(), 1 );
-		RadarManager::Instance()->addRadarDataToProject( rdA.get(), 2 );
-		RadarManager::Instance()->addRadarDataToProject( rdA.get(), 3 );
-		break;
-	case RADAR_WORK_TYPE_EIGHT:
-		{
-			int tempArr[8]={RadarManager::Instance()->int_Check_Channel1,RadarManager::Instance()->int_Check_Channel2,RadarManager::Instance()->int_Check_Channel3,RadarManager::Instance()->int_Check_Channel4,RadarManager::Instance()->int_Check_Channel5,RadarManager::Instance()->int_Check_Channel6,RadarManager::Instance()->int_Check_Channel7};
-			for (int i=0;i<8;i++){
-				if (tempArr[i]==1){
-					RadarManager::Instance()->addRadarDataToProject( rdA.get(), i );
-				}
-			}
-		}
-		break;
-	default:
-		break;
-	}
-	delete[] temp;
-}
-*/
-
-//待修改
-/*
-void RadarDataRader::Mark(int numberOne, int numberTwo)
-{
-	//unsigned char *lpDataBuff = _dataBuf.getData();
-
-	unsigned char *temp = new unsigned char[_sampleCount*2];
-	//开始的10个数据为数据头里的信息 测量轮、电压之类的
-	for ( int i=0;i<10;i++){
-		temp[i]=0;
-	}
-	//剩下的数据为雷达数据，每个值由两个数构成，value=a+b*256
-	for ( int i=10;i<_sampleCount*2;i++){
-		if(i%2==0){
-			temp[i]=numberOne;
-		}else{
-			temp[i]=numberTwo;
-		}
-	}
-
-	unsigned char *lpDataBuff = temp;
-
-	osg::ref_ptr<RadarData> rd = new RadarData;
-	rd->SetBufLength(_sampleCount*2);
-	rd->setSampleCount( _sampleCount );//采样点数
-	rd->setSampleRatio( _sampleRatio );//采样率
-
-	rd->AddDataToEnd(&lpDataBuff[ 0 ],_sampleCount*2);
-
-	switch (RadarManager::Instance()->GetRadarWorkType())
-	{
-	case RADAR_WORK_TYPE_ONE_USB:
-		RadarManager::Instance()->addRadarDataToProject( rd.get(), 0 );
-		break;
-	case RADAR_WORK_TYPE_DOUBLE_USB:
-		RadarManager::Instance()->addRadarDataToProject( rd.get(), 0 );
-		RadarManager::Instance()->addRadarDataToProject( rd.get(), 1 );
-		break;
-	case RADAR_WORK_TYPE_DOUBLE_USB_OLD:
-		RadarManager::Instance()->addRadarDataToProject( rd.get(), 0 );
-		RadarManager::Instance()->addRadarDataToProject( rd.get(), 1 );
-		break;
-	case RADAR_WORK_TYPE_FOUR_USB:
-		RadarManager::Instance()->addRadarDataToProject( rd.get(), 0 );
-		RadarManager::Instance()->addRadarDataToProject( rd.get(), 1 );
-		RadarManager::Instance()->addRadarDataToProject( rd.get(), 2 );
-		RadarManager::Instance()->addRadarDataToProject( rd.get(), 3 );
-		break;
-	case RADAR_WORK_TYPE_EIGHT:
-		{
-			//int tempArr[MAX_CHANNEL];
-			//for (int i=0;i<MAX_CHANNEL;i++){
-			//	tempArr[i]=RadarManager::Instance()->int_Check_Channel[i];
-			//}
-
-			//={RadarManager::Instance()->int_Check_Channel1,RadarManager::Instance()->int_Check_Channel2,RadarManager::Instance()->int_Check_Channel3,RadarManager::Instance()->int_Check_Channel4,RadarManager::Instance()->int_Check_Channel5,RadarManager::Instance()->int_Check_Channel6,RadarManager::Instance()->int_Check_Channel7,RadarManager::Instance()->int_Check_Channel8};
-			for (int index=0;index<16;index++){//13-24是由1-12复制的 所以在标记的时候不用管13-24
-				//if (tempArr[index]==1){
-				if (RadarManager::Instance()->int_Check_Channel[index]==1){
-					if (index<12){
-						RadarManager::Instance()->addRadarDataToDisplay( rd.get(), index);
-					}else{
-						RadarManager::Instance()->addRadarDataToProject( rd.get(), index+12 );
-					}
-				}
-			}
-		}
-		break;
-	default:
-		break;
-	}
-	delete[] temp;
-}
-*/
-
 void RadarDataRader::Mark(int markValue){
 	//开始的8个字节的数据为数据头里的信息 测量轮、电压之类的
 	short *temp = new short[_sampleCount];
@@ -2033,42 +1960,28 @@ void RadarDataRader::Mark(int markValue){
 		case RADAR_WORK_TYPE_EIGHT:
 			{//用于解决initialization of "cfg" is skipped by 'default' label
 				ConfigureSet *cfg = RadarManager::Instance()->getConfigureSet();
-				int dSaveFileType = atoi( cfg->get("radar", "saveFileType").c_str() );
-				if(dSaveFileType==0){
+				int nSaveFileType = atoi( cfg->get("radar", "saveFileType").c_str() );
+				int nTemp[8];
+				for(int i=0;i<8;i++){
+					std::stringstream ss;
+					ss << i;
+					nTemp[i]=atoi(cfg->get("2DchannelCheckBox", ss.str()).c_str());
+				}
+				if(nSaveFileType==0){
 					for (int i=0;i<8;i++){
-						if (RadarManager::Instance()->int_Check_Channel[i]==1){
+						if (nTemp[i]==1){
 							RadarManager::Instance()->addRadarDataToProject( rd.get(), i );
 						}
 					}
-				}else if(dSaveFileType==1){
-					for (int index=0;index<16;index++){//13-24是由1-12复制的 所以在标记的时候不用管13-24
+				}else if(nSaveFileType==1){
+					for (int index=0;index<m_nChannelCount;index++){//13-24是由1-12复制的 所以在标记的时候不用管13-24
 						RadarManager::Instance()->addRadarDataToProject( rd.get(), index );
-						if(index<12){
+						if(m_nChannelCount==16&&index<12){
 							RadarManager::Instance()->addRadarDataToDisplay( rd.get(), index+16 );
 						}
-						/*if (RadarManager::Instance()->int_Check_Channel[index]==1){
-							//if (index<12){
-							//	RadarManager::Instance()->addRadarDataToDisplay( rd.get(), index);
-							//}else{
-							//	RadarManager::Instance()->addRadarDataToProject( rd.get(), index+16 );
-							//}
-							RadarManager::Instance()->addRadarDataToProject( rd.get(), index );
-							if(index<12){
-								RadarManager::Instance()->addRadarDataToDisplay( rd.get(), index+16 );
-							}
-						}*/
 					}
 				}
 			}
-			/*
-			int tempArr[MAX_CHANNEL];
-			for (int i=0;i<MAX_CHANNEL;i++){
-				tempArr[i]=RadarManager::Instance()->int_Check_Channel[i];
-			}*/
-
-			//={RadarManager::Instance()->int_Check_Channel1,RadarManager::Instance()->int_Check_Channel2,RadarManager::Instance()->int_Check_Channel3,RadarManager::Instance()->int_Check_Channel4,RadarManager::Instance()->int_Check_Channel5,RadarManager::Instance()->int_Check_Channel6,RadarManager::Instance()->int_Check_Channel7,RadarManager::Instance()->int_Check_Channel8};
-			
-			
 			break;
 		default:
 			break;
@@ -2180,3 +2093,4 @@ void RadarDataRader::artificializeRadarData(int originalIndex)
 	RadarManager::Instance()->addRadarDataToProject( rd.get(), RadarManager::Instance()->getArtificalChannelIndexFromOriginalIndex(originalIndex));
 	delete[] temp;
 }*/
+

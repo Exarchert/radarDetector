@@ -19,6 +19,7 @@ public:
 	virtual ~Radar3DWnd();
 
 	void SetChannelCount( int count );
+	void SetSettingChannelCount( int count );
 	void SetSampleCount( int count );
 	void SetSampleRatio( double value );
 	void SetDielectric( float value );
@@ -29,7 +30,7 @@ public:
 	void SetName( CString const& name );
 	void SetRadiaIndex( int index);
 
-	void setCorrection( int value, int index );
+	void SetCorrection( int value, int index );
 	void setChannelIndex( int value );
 	void setDepthIndex( int value );
 	void setStartTime( int value );
@@ -132,7 +133,8 @@ protected:
 	int _startPos;
 	int _scaleRatio;
 
-	int m_nChannelCount;
+	int m_nTrueChannelCount;
+	int m_nSettingChannelCount;
 	int _sampleCount;
 	double _sampleRatio;
 	float m_fDielectric;

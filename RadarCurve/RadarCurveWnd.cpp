@@ -68,6 +68,7 @@ RadarCurveWnd::RadarCurveWnd()
 	_dataAvailabled = false;
 
 	m_dCorrection=0;
+	m_bSpectrumDisplay=0;
 }
 
 RadarCurveWnd::~RadarCurveWnd()
@@ -195,7 +196,9 @@ void RadarCurveWnd::OnPaint()
 
 	if ( _drawing ){
 		DrawCurve(&dcMem);//波形图
-		//DrawSection( &dcMem, newData );//波谱图
+		if(m_bSpectrumDisplay){
+			DrawSection( &dcMem, newData );//波谱图
+		}
 	}
 	//DrawScaleFlag( &dcMem );//线性增益所需控制
 	pDC->BitBlt(0,0,rc.Width(),rc.Height(),&dcMem,0,0,SRCCOPY);//20210803hjl
@@ -786,24 +789,21 @@ COLORREF RadarCurveWnd::getColor( float radarValue ){
 
 //给数组添加数据
 void RadarCurveWnd::addData( RadarData *lpData ){
-	/*
-	{
-		OpenThreads::ScopedLock<OpenThreads::Mutex> lock( _mutex );
-		_radarDataVector.push_back( lpData );
+	if(m_bSpectrumDisplay){
+		{
+			OpenThreads::ScopedLock<OpenThreads::Mutex> lock( _mutex );
+			_radarDataVector.push_back( lpData );
+		}
+		while( _radarDataVector.size() > MAX_DRAW_COUNT ){
+			_radarDataVector.erase( _radarDataVector.begin() );
+		}
+	}else{
+		{
+			OpenThreads::ScopedLock<OpenThreads::Mutex> lock( _mutex );
+			_radarDataVector.clear();
+			_radarDataVector.push_back( lpData );
+		}
 	}
-
-	while( _radarDataVector.size() > MAX_DRAW_COUNT )
-	{
-		_radarDataVector.erase( _radarDataVector.begin() );
-	}
-	*/
-	
-	{
-		OpenThreads::ScopedLock<OpenThreads::Mutex> lock( _mutex );
-		_radarDataVector.clear();
-		_radarDataVector.push_back( lpData );
-	}
-
 	_maxTime = lpData->getTime();
 	_minTime = _radarDataVector[0]->getTime();
 
@@ -943,7 +943,11 @@ void RadarCurveWnd::OnSize(UINT nType, int cx, int cy)
 }
 
 //设置当前通道的延迟微调值
-void RadarCurveWnd::setCorrection( int value )
-{
+void RadarCurveWnd::SetCorrection( int value ){
 	m_dCorrection = value;
+}
+
+//设置当前通道的延迟微调值
+void RadarCurveWnd::SetSpectrumDisplay( bool value ){
+	m_bSpectrumDisplay = value;
 }

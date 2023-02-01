@@ -48,8 +48,8 @@ void DlgRadarParameterConfig::DoDataExchange(CDataExchange* pDX)
 	DDX_Text(pDX, IDC_EDIT_CELIANGLUN_LEN, m_precLen );//测量轮周长
 	//DDX_Control(pDX, IDC_COMBO_CELIANLUN_JINGDU, m_precIndex);//测量轮精度
 	DDX_Text(pDX, IDC_EDIT_WHEELPRECISION, m_precision);//测量轮精度
+	DDX_Control(pDX, IDC_COMBO_PRECRATIO, m_comboxPrecRatio );//脉冲
 
-	//DDX_Text(pDX, IDC_EDIT_CELIANGLUN_RATIO, m_precRatio );//脉冲
 	//DDX_Text(pDX, IDC_EDIT_RADAR_ID, m_id );//id号
 	//DDX_Text(pDX, IDC_EDIT_CHANNEL_COUNT, m_channelCount );//通道数量
 	//DDX_Control(pDX, IDC_COMBO_GAIN, m_gainComboBox);//增益模式
@@ -92,6 +92,16 @@ void DlgRadarParameterConfig::DoDataExchange(CDataExchange* pDX)
 	DDX_Text(pDX, IDC_EDIT_WARNING_INTERVAL, m_dWarningInterval );//监测间隔
 	DDX_Text(pDX, IDC_EDIT_WARNING_THRESHOLD, m_dWarningThreshold );//阈值
 
+	//2维通道选择
+	DDX_Control(pDX, IDC_CHECK_CHANNEL1, m_CheckBox_Channel[0]);
+	DDX_Control(pDX, IDC_CHECK_CHANNEL2, m_CheckBox_Channel[1]);
+	DDX_Control(pDX, IDC_CHECK_CHANNEL3, m_CheckBox_Channel[2]);
+	DDX_Control(pDX, IDC_CHECK_CHANNEL4, m_CheckBox_Channel[3]);
+	DDX_Control(pDX, IDC_CHECK_CHANNEL5, m_CheckBox_Channel[4]);
+	DDX_Control(pDX, IDC_CHECK_CHANNEL6, m_CheckBox_Channel[5]);
+	DDX_Control(pDX, IDC_CHECK_CHANNEL7, m_CheckBox_Channel[6]);
+	DDX_Control(pDX, IDC_CHECK_CHANNEL8, m_CheckBox_Channel[7]);
+												   
 	//波形
 	DDX_Control( pDX, IDC_WAVEFORM1, _waveFormWnd[0]);
 	DDX_Control( pDX, IDC_WAVEFORM2, _waveFormWnd[1]);
@@ -207,11 +217,14 @@ BEGIN_MESSAGE_MAP(DlgRadarParameterConfig, CDialog)
 	//ON_CBN_SELCHANGE(IDC_COMBO_SAVE_FILE_TYPE, &DlgRadarParameterConfig::OnCbnSelchangeComboSaveFileType)//保存文件类型
 
 	ON_CBN_SELCHANGE(IDC_COMBO1, &DlgRadarParameterConfig::OnCbnSelchangeCombo1)
-	ON_CBN_EDITCHANGE(IDC_COMBO_UPLOAD_TYPE, &DlgRadarParameterConfig::OnCbnEditchangeComboUploadType)
+//	ON_CBN_EDITCHANGE(IDC_COMBO_UPLOAD_TYPE, &DlgRadarParameterConfig::OnCbnEditchangeComboUploadType)
 	ON_CBN_SELCHANGE(IDC_COMBO_UPLOAD_TYPE, &DlgRadarParameterConfig::OnCbnSelchangeComboUploadType)
-	ON_CBN_CLOSEUP(IDC_COMBO_UPLOAD_TYPE, &DlgRadarParameterConfig::OnCbnCloseupComboUploadType)
-	ON_CBN_EDITUPDATE(IDC_COMBO_UPLOAD_TYPE, &DlgRadarParameterConfig::OnCbnEditupdateComboUploadType)
-	ON_CBN_KILLFOCUS(IDC_COMBO_UPLOAD_TYPE, &DlgRadarParameterConfig::OnCbnKillfocusComboUploadType)
+//	ON_CBN_CLOSEUP(IDC_COMBO_UPLOAD_TYPE, &DlgRadarParameterConfig::OnCbnCloseupComboUploadType)
+//	ON_CBN_EDITUPDATE(IDC_COMBO_UPLOAD_TYPE, &DlgRadarParameterConfig::OnCbnEditupdateComboUploadType)
+//	ON_CBN_KILLFOCUS(IDC_COMBO_UPLOAD_TYPE, &DlgRadarParameterConfig::OnCbnKillfocusComboUploadType)
+
+//	ON_CBN_SELENDOK(IDC_COMBO_SAVE_FILE_TYPE, &DlgRadarParameterConfig::OnCbnSelendokComboSaveFileType)
+	ON_CBN_SELCHANGE(IDC_COMBO_SAVE_FILE_TYPE, &DlgRadarParameterConfig::OnCbnSelchangeComboSaveFileType)
 END_MESSAGE_MAP()
 
 
@@ -407,6 +420,15 @@ void DlgRadarParameterConfig::InitByRadarConfig()
 		m_sampleRatioComboBox.AddString(charToLPCTSTR(m_pConfigureSet->get("comboBox", strTag).c_str()));
 	}
 
+	//脉冲率采样选项
+	int nPrecRatioOptionCount=atoi(m_pConfigureSet->get("comboBox", "precRatioOptionCount").c_str());
+	for(int i=0;i<nPrecRatioOptionCount;i++){
+		std::stringstream ss;
+		ss<<i;
+		std::string strTag="precRatio"+ss.str();
+		m_comboxPrecRatio.AddString(charToLPCTSTR(m_pConfigureSet->get("comboBox", strTag).c_str()));
+	}
+
 	USES_CONVERSION;
 	//雷达连接
 	m_serverIP = A2W(m_pConfigureSet->get("net", "addr").c_str());
@@ -442,6 +464,7 @@ void DlgRadarParameterConfig::InitByRadarConfig()
 	//m_precIndex.SetCurSel( atoi ( m_pConfigureSet->get("radar", "precindex").c_str()));
 	m_precision = atof ( m_pConfigureSet->get("radar", "precision").c_str() );//测量轮精度
 	m_precLen = atof ( m_pConfigureSet->get("radar", "preclen").c_str() );
+	m_comboxPrecRatio.SetCurSel ( atoi ( m_pConfigureSet->get("radar", "precRatio").c_str() ) );//脉冲
 	//m_precRatio = atoi ( m_pConfigureSet->get("radar", "precratio").c_str());//脉冲
 
 	//分屏显示通道
@@ -479,6 +502,13 @@ void DlgRadarParameterConfig::InitByRadarConfig()
 	m_dTimeInterval = atoi( m_pConfigureSet->get("radar", "timeInterval").c_str() );//时间分段间隔
 	m_dWheelCountInterval = atoi( m_pConfigureSet->get("radar", "wheelCountInterval").c_str() );//分段道数阈值
 	m_ComboBoxSaveFileType.SetCurSel (atoi(m_pConfigureSet->get("radar", "saveFileType").c_str()));//保存文件类型
+
+	//2维通道设置
+	for (int i=0;i<8;i++){
+		std::stringstream ss;
+		ss << i;
+		m_CheckBox_Channel[i].SetCheck(atoi(m_pConfigureSet->get("2DchannelCheckBox", ss.str()).c_str()));
+	}
 
 	//延迟微调
 	for (int i=0;i<16;i++){
@@ -602,11 +632,11 @@ void DlgRadarParameterConfig::OnBnClickedBtnsetOk()
 		ss << m_precLen;
 		m_pConfigureSet->set("radar", "preclen", ss.str());//
 	}
-	//{
-	//	std::stringstream ss;
-	//	ss << m_precRatio;
-	//	m_pConfigureSet->set("radar", "precratio", ss.str());
-	//}
+	{
+		std::stringstream ss;
+		ss << m_comboxPrecRatio.GetCurSel();
+		m_pConfigureSet->set("radar", "precRatio", ss.str());//脉冲 0:720  1:512
+	}
 	{
 		std::stringstream ss;
 		ss << m_comNumber;
@@ -707,6 +737,17 @@ void DlgRadarParameterConfig::OnBnClickedBtnsetOk()
 		m_pConfigureSet->set("radar", "saveFileType", ss.str());//文件保存类型
 	}
 
+	for (int i=0;i<8;i++){
+		{
+			std::stringstream ss1;
+			int nTemp=m_CheckBox_Channel[i].GetCheck();
+			ss1 << nTemp;
+			std::stringstream ss2;
+			ss2 << i;
+			m_pConfigureSet->set("2DchannelCheckBox", ss2.str(), ss1.str());
+		}
+	}
+
 	for(int i=0; i<16; i++){
 		{
 			std::stringstream ss1;
@@ -723,6 +764,8 @@ void DlgRadarParameterConfig::OnBnClickedBtnsetOk()
 	}
 
 	m_pConfigureSet->write();//将设置好的cfg对象写入配置文件
+
+	RadarManager::Instance()->RefreshForCfgChange();//RadarManager更新相关类容
 
 	OnOK();
 }
@@ -826,6 +869,11 @@ void DlgRadarParameterConfig::OnBnClickedButtonApply()
 		ss << m_precLen;
 		m_pConfigureSet->set("radar", "preclen", ss.str());//
 	}
+	{
+		std::stringstream ss;
+		ss << m_comboxPrecRatio.GetCurSel();
+		m_pConfigureSet->set("radar", "precRatio", ss.str());//脉冲 0:720  1:512
+	}
 	//{
 	//	std::stringstream ss;
 	//	ss << m_precRatio;
@@ -922,6 +970,17 @@ void DlgRadarParameterConfig::OnBnClickedButtonApply()
 		m_pConfigureSet->set("radar", "saveFileType", ss.str());//文件保存类型
 	}
 
+	for (int i=0;i<8;i++){
+		{
+			std::stringstream ss1;
+			int nTemp=m_CheckBox_Channel[i].GetCheck();
+			ss1 << nTemp;
+			std::stringstream ss2;
+			ss2 << i;
+			m_pConfigureSet->set("2DchannelCheckBox", ss2.str(), ss1.str());
+		}
+	}
+
 	for(int i=0; i<16; i++){
 		{
 			std::stringstream ss1;
@@ -938,6 +997,8 @@ void DlgRadarParameterConfig::OnBnClickedButtonApply()
 	}
 
 	m_pConfigureSet->write();//往cfg文件写入修改后的cfg对象
+
+	RadarManager::Instance()->RefreshForCfgChange();//RadarManager更新相关类容
 
 	if ( RadarManager::Instance()->getRadarDataRader() )
 	{
@@ -1056,7 +1117,7 @@ void DlgRadarParameterConfig::changeChannel( int index, bool flag )//hjl 2021041
 
 		std::stringstream ss;
 		ss << index;
-		_waveFormWnd[index].setCorrection( atoi( lpSet->get("correction", ss.str()).c_str() ) );
+		_waveFormWnd[index].SetCorrection( atoi( lpSet->get("correction", ss.str()).c_str() ) );
 		
 		_waveFormWnd[index].StartDraw();
 		_waveFormWnd[index].ShowWindow( SW_SHOW );
@@ -1138,7 +1199,7 @@ void DlgRadarParameterConfig::resizeChannelWnd()//hjl 20210418参数设置波形显示
 	int curWidth = 90;
 	int wndHeight = 205;
 
-	MoveWindow( (nScreenWidth-500-(curWidth+space)*8)/2, (nScreenHeight-600)/2, 500+(curWidth+space)*8, 600 );//居中显示
+	MoveWindow( (nScreenWidth-500-(curWidth+space)*8)/2, (nScreenHeight-650)/2, 500+(curWidth+space)*8, 650 );//居中显示
 
 	CRect staticRect;
 	_channelName[0].GetClientRect( staticRect );
@@ -1233,10 +1294,10 @@ void DlgRadarParameterConfig::OnCbnSelchangeCombo1()
 	// TODO: 在此添加控件通知处理程序代码
 }
 
-void DlgRadarParameterConfig::OnCbnEditchangeComboUploadType()
-{
-	// TODO: 在此添加控件通知处理程序代码
-}
+//void DlgRadarParameterConfig::OnCbnEditchangeComboUploadType()
+//{
+//	// TODO: 在此添加控件通知处理程序代码
+//}
 
 void DlgRadarParameterConfig::OnCbnSelchangeComboUploadType()
 {
@@ -1258,23 +1319,50 @@ void DlgRadarParameterConfig::refreshControlCondition(){
 		m_ComboBoxSeperateType.EnableWindow(true);
 		m_ComboBoxSaveFileType.EnableWindow(true);
 	}
+	//sgy用二维，rd3用三维
+	if(m_ComboBoxSaveFileType.GetCurSel()==0){
+		m_ComboBoxChannelCount.EnableWindow(false);
+		for(int i=0;i<8;i++){
+			m_CheckBox_Channel[i].EnableWindow(true);
+		}
+	}else if(m_ComboBoxSaveFileType.GetCurSel()==1){
+		m_ComboBoxChannelCount.EnableWindow(true);
+		for(int i=0;i<8;i++){
+			m_CheckBox_Channel[i].EnableWindow(false);
+		}
+	}
 	//GetDlgItem(IDC_EDIT1)->EnableWindow(false);
 }
 
-void DlgRadarParameterConfig::OnCbnCloseupComboUploadType()
-{
-	// TODO: 在此添加控件通知处理程序代码
-	//refreshControlCondition();
-}
+//void DlgRadarParameterConfig::OnCbnCloseupComboUploadType()
+//{
+//	// TODO: 在此添加控件通知处理程序代码
+//	//refreshControlCondition();
+//	int a;
+//}
 
-void DlgRadarParameterConfig::OnCbnEditupdateComboUploadType()
-{
-	// TODO: 在此添加控件通知处理程序代码
-	//refreshControlCondition();
-}
+//void DlgRadarParameterConfig::OnCbnEditupdateComboUploadType()
+//{
+//	// TODO: 在此添加控件通知处理程序代码
+//	//refreshControlCondition();
+//}
 
-void DlgRadarParameterConfig::OnCbnKillfocusComboUploadType()
+//void DlgRadarParameterConfig::OnCbnKillfocusComboUploadType()
+//{
+//	// TODO: 在此添加控件通知处理程序代码
+//	//refreshControlCondition();
+//}
+
+
+//void DlgRadarParameterConfig::OnCbnSelendokComboSaveFileType()
+//{
+//	// TODO: 在此添加控件通知处理程序代码
+//	int a=0,b=0,c=0;
+//	c=a+b;
+//}
+
+void DlgRadarParameterConfig::OnCbnSelchangeComboSaveFileType()
 {
 	// TODO: 在此添加控件通知处理程序代码
-	//refreshControlCondition();
+	refreshControlCondition();
 }

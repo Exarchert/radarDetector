@@ -694,6 +694,14 @@
 				>
 			</File>
 			<File
+				RelativePath=".\DialogTERDisplay.cpp"
+				>
+			</File>
+			<File
+				RelativePath=".\DialogTERDisplay.h"
+				>
+			</File>
+			<File
 				RelativePath=".\DialogThreeView.cpp"
 				>
 			</File>
@@ -719,6 +727,82 @@
 			</File>
 			<File
 				RelativePath=".\GD_VideoShow.h"
+				>
+			</File>
+		</Filter>
+		<Filter
+			Name="TER"
+			>
+			<File
+				RelativePath=".\C_SamplingParam.cpp"
+				>
+			</File>
+			<File
+				RelativePath=".\C_SamplingParam.h"
+				>
+			</File>
+			<File
+				RelativePath=".\Receive.cpp"
+				>
+			</File>
+			<File
+				RelativePath=".\Receive.h"
+				>
+			</File>
+			<File
+				RelativePath=".\Sender.cpp"
+				>
+			</File>
+			<File
+				RelativePath=".\Sender.h"
+				>
+			</File>
+			<File
+				RelativePath=".\SheetBase.cpp"
+				>
+			</File>
+			<File
+				RelativePath=".\SheetBase.h"
+				>
+			</File>
+			<File
+				RelativePath=".\TERData.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\Include\RadarCurve\TERData.h"
+				>
+			</File>
+			<File
+				RelativePath=".\TERDataReader.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\Include\RadarCurve\TERDataReader.h"
+				>
+			</File>
+			<File
+				RelativePath=".\TERDataWriter.cpp"
+				>
+			</File>
+			<File
+				RelativePath=".\TERDataWriter.h"
+				>
+			</File>
+			<File
+				RelativePath=".\TERDisplayWnd.cpp"
+				>
+			</File>
+			<File
+				RelativePath=".\TERDisplayWnd.h"
+				>
+			</File>
+			<File
+				RelativePath=".\UepBlock.h"
+				>
+			</File>
+			<File
+				RelativePath=".\UepHeader.h"
 				>
 			</File>
 		</Filter>

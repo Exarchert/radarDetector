@@ -54,6 +54,8 @@ protected:
 	CStatic _channelName[CHANNELCOUNT];
 	unsigned int _dcValue;
 
+	int m_nChannelCount;//通道个数
+
 	osg::Vec3d _position;//hjl6.5 用于定时更新经纬度
 	CString _CstrLonlat;//hjl6.5 用于定时更新经纬度
 	CStatic _lonlat;//hjl6.5 用于定时更新经纬度
@@ -91,9 +93,13 @@ protected:
 	//对话框在那个屏幕上
 	separateScreen m_separateScreen;
 
+	int m_nSaveFileType;
+
 	//频道个数
 	int m_channelCount;
 	std::vector<int> m_channelVec;
+
+	int m_nInformationIndex;
 
 	CMenu m_pMenu;
 public:

@@ -44,7 +44,7 @@ private:
 	//short m_channelCount;
 	int m_precision;
 	float m_precLen;
-	//int m_precRatio;
+	CComboBox m_comboxPrecRatio;
 	CComboBox m_ComboBoxUploadType;
 	//CComboBox m_ComboBoxAutoSeperate;
 	CComboBox m_ComboBoxSeperateType;
@@ -90,6 +90,8 @@ private:
 	CStatic _channelName[16];//hjl 20210418参数设置波形显示
 	CStatic _channelCorrection[16];//hjl 20210805矫正设置
 	int m_dCorrection[16];
+
+	CButton m_CheckBox_Channel[8];//二维通道选择
 
 protected:
 	//SpectrumWnd _spectrumWnd[8];
@@ -143,13 +145,16 @@ public:
 public:
 	afx_msg void OnCbnSelchangeCombo1();
 public:
-	afx_msg void OnCbnEditchangeComboUploadType();
+//	afx_msg void OnCbnEditchangeComboUploadType();
 public:
 	afx_msg void OnCbnSelchangeComboUploadType();
 public:
-	afx_msg void OnCbnCloseupComboUploadType();
+//	afx_msg void OnCbnCloseupComboUploadType();
 public:
-	afx_msg void OnCbnEditupdateComboUploadType();
+//	afx_msg void OnCbnEditupdateComboUploadType();
 public:
-	afx_msg void OnCbnKillfocusComboUploadType();
+//	afx_msg void OnCbnKillfocusComboUploadType();
+	afx_msg void OnBnClickedAutoCorrection();
+//	afx_msg void OnCbnSelendokComboSaveFileType();
+	afx_msg void OnCbnSelchangeComboSaveFileType();
 };

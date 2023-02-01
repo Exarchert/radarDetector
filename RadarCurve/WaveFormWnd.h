@@ -26,7 +26,7 @@ public:
 	void SetName( CString const& name );
 	void SetRadiaIndex( int index);
 
-	void setCorrection(int value);
+	void SetCorrection(int value);
 
 	void StartDraw();
 	void EndDraw();

@@ -27,7 +27,9 @@ public:
 	void SetName( CString const& name );//设置当前通道窗口的显示名称
 	//void SetRadiaIndex( int index);
 
-	void setCorrection(int value);//设置延迟微调的修正值
+	void SetCorrection(int value);//设置延迟微调的修正值
+
+	void SetSpectrumDisplay( bool value );
 
 	void StartDraw();//开始绘制
 	void EndDraw();//停止绘制
@@ -113,6 +115,8 @@ protected:
 	bool _dataAvailabled;
 
 	int m_dCorrection;//延迟微调的修正值
+
+	bool m_bSpectrumDisplay;//是否显示图谱
 
 public:
 	afx_msg void OnTimer(UINT_PTR nIDEvent);

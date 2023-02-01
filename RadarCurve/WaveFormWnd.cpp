@@ -892,7 +892,7 @@ void WaveFormWnd::OnSize(UINT nType, int cx, int cy)
 	_needReinit = true;
 }
 
-void WaveFormWnd::setCorrection( int value )
+void WaveFormWnd::SetCorrection( int value )
 {
 	m_dCorrection = value;
 }

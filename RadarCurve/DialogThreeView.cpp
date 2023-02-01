@@ -151,12 +151,12 @@ BEGIN_MESSAGE_MAP(CDialogThreeView, CDialog)
 	ON_WM_CLOSE()
 	ON_WM_SIZE()
 	ON_WM_KEYDOWN()*/
-//	ON_EN_KILLFOCUS(IDC_EDIT_CHANNEL, &CDialogThreeView::OnEnKillfocusEditChannel)
-//	ON_EN_KILLFOCUS(IDC_EDIT_DEPTH, &CDialogThreeView::OnEnKillfocusEditDepth)
-//ON_EN_KILLFOCUS(IDC_EDIT_CHANNEL, &CDialogThreeView::OnEnKillfocusEditChannel)
-//ON_EN_KILLFOCUS(IDC_EDIT_DEPTH, &CDialogThreeView::OnEnKillfocusEditDepth)
-ON_BN_CLICKED(IDC_BUTTON_SWITCH, &CDialogThreeView::OnBnClickedButtonSwitch)
-ON_BN_CLICKED(IDC_CHECK_AUTODISPLAY, &CDialogThreeView::OnBnClickedCheckAutodisplay)
+	//ON_EN_KILLFOCUS(IDC_EDIT_CHANNEL, &CDialogThreeView::OnEnKillfocusEditChannel)
+	//ON_EN_KILLFOCUS(IDC_EDIT_DEPTH, &CDialogThreeView::OnEnKillfocusEditDepth)
+	//ON_EN_KILLFOCUS(IDC_EDIT_CHANNEL, &CDialogThreeView::OnEnKillfocusEditChannel)
+	//ON_EN_KILLFOCUS(IDC_EDIT_DEPTH, &CDialogThreeView::OnEnKillfocusEditDepth)
+	ON_BN_CLICKED(IDC_BUTTON_SWITCH, &CDialogThreeView::OnBnClickedButtonSwitch)
+	ON_BN_CLICKED(IDC_CHECK_AUTODISPLAY, &CDialogThreeView::OnBnClickedCheckAutodisplay)
 END_MESSAGE_MAP()
 
 
@@ -176,12 +176,12 @@ BOOL CDialogThreeView::OnInitDialog()
 	m_dChannelIndex=atoi( lpSet->get("threeDWindow", "selectedChannelIndex").c_str());
 	m_dDepthIndex=atoi( lpSet->get("threeDWindow", "selectedDepth").c_str());
 
-	int nTotalChannelCountIndex = atoi(lpSet->get("radar", "channelCount").c_str());
 	int nSampleNumIndex = atoi ( lpSet->get("radar", "sample").c_str());
 	int nSampleRateIndex = atoi ( lpSet->get("radar", "sampleratio" ).c_str() );
 	int nDielectricIndex = atoi ( lpSet->get("radar", "dielectric" ).c_str() );
 	
-	m_3DWnd.SetChannelCount( RadarManager::Instance()->getChannelCount( nTotalChannelCountIndex ) );
+	m_3DWnd.SetChannelCount( RadarManager::Instance()->GetTrueChannelCount() );
+	m_3DWnd.SetSettingChannelCount( RadarManager::Instance()->GetSettingChannelCount() );
 	m_3DWnd.SetSampleCount( RadarManager::Instance()->getSampCount( nSampleNumIndex ) );
 	m_3DWnd.SetSampleRatio( RadarManager::Instance()->getSampRatio( nSampleRateIndex, 0 ) );
 	m_3DWnd.SetDielectric( RadarManager::Instance()->getDielectric( nDielectricIndex ) );
@@ -189,8 +189,9 @@ BOOL CDialogThreeView::OnInitDialog()
 	m_3DWnd.setDepthIndex(m_dDepthIndex);
 
 	std::string vecStrTemp[28]={"01","02","03","04","05","06","07","08","09","10","11","12","13","14","15","16","17","18","19","20","21","22","23","24","25","26","27","28"};
-	int nChannelCount=RadarManager::Instance()->getChannelCount( nTotalChannelCountIndex );
-	if(nChannelCount==16){
+	int nChannelCount=RadarManager::Instance()->GetTrueChannelCount();
+	int nSettingChannelCount=RadarManager::Instance()->GetSettingChannelCount();
+	/*if(nChannelCount==16){
 		for (int i=0;i<28;i++){
 			CString cstrTemp;
 			cstrTemp=vecStrTemp[i].c_str();
@@ -202,6 +203,11 @@ BOOL CDialogThreeView::OnInitDialog()
 			cstrTemp=vecStrTemp[i].c_str();
 			m_comboBoxChannel.AddString(cstrTemp);
 		}
+	}*/
+	for (int i=0;i<nSettingChannelCount;i++){
+		CString cstrTemp;
+		cstrTemp=vecStrTemp[i].c_str();
+		m_comboBoxChannel.AddString(cstrTemp);
 	}
 	if(m_dChannelIndex<nChannelCount){
 		m_comboBoxChannel.SetCurSel ( m_dChannelIndex );
@@ -223,12 +229,13 @@ BOOL CDialogThreeView::OnInitDialog()
 	if ( nScreenHeight > 500 ){
 		nScreenHeight = 500;
 	}
+	//MoveWindow( 5, nScreenHeight*2 + 50, nScreenWidth/2-10, nScreenHeight*2 );
 	MoveWindow( 0, nScreenHeight*2 + 50, nScreenWidth/2, nScreenHeight*2 );
 
 	for(int i=0;i<16;i++){
 		std::stringstream ss;
 		ss << i;
-		m_3DWnd.setCorrection( atoi( lpSet->get("correction", ss.str()).c_str() ), i );
+		m_3DWnd.SetCorrection( atoi( lpSet->get("correction", ss.str()).c_str() ), i );
 	}
 
 	time_t mytime = time(NULL);

@@ -20,6 +20,8 @@ public:
 	bool openGPS( std::string const& corFilePath, std::string const& corForUploadFilePath, std::string const& csvFilePath );
 	bool closeGPS();
 	bool writeGpsFlag;//是否写gps文件
+	bool writeGpsCsvFlag;//是否写gps文件
+	bool writeGpsCorFlag;//是否写gps文件
 
 	bool openKml( std::string const& filePath );
 	bool closeKml();
@@ -75,6 +77,8 @@ protected:
 	int m_dDataCountThreshold;//上传阈值 超过这个值就另开一个文件储存 把写好的这个上传
 	bool m_bNeedToChangePath;//数据量到了设定的阈值，需要更换保存路径
 	bool m_bHasChangedPath;//已经更换保存路径
+	bool m_bNeedToSaveAsFirstKml;//已经更换保存路径
+
 
 	ConfigureSet _set;//cfg
 
