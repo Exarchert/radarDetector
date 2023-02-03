@@ -1,9 +1,9 @@
-﻿// Created by Microsoft (R) C/C++ Compiler Version 14.00.50727.762 (6eeb8dca).
+﻿// Created by Microsoft (R) C/C++ Compiler Version 14.00.50727.762 (60c93fc7).
 //
-// e:\radardetector16\radarcurve\release\msxml3.tli
+// e:\radardetector\radarcurve\release\msxml3.tli
 //
 // Wrapper implementations for Win32 type library msxml3.dll
-// compiler-generated file created 08/11/22 at 15:17:14 - DO NOT EDIT!
+// compiler-generated file created 02/01/23 at 11:23:28 - DO NOT EDIT!
 
 #pragma once
 

@@ -38,6 +38,8 @@ void DlgRadarParameterConfig::DoDataExchange(CDataExchange* pDX)
 	DDX_Text(pDX, IDC_EDIT_FTPACCOUNT, m_cstrFtpAccount);//网口地址
 	DDX_Text(pDX, IDC_EDIT_FTPPASSWORD, m_cstrFtpPassword );//端口	
 
+	//DDX_Text(pDX, IDC_EDIT_DEVICE_MODEL, m_cstrDeviceModel);//设备型号
+	DDX_Control(pDX, IDC_COMBO_DEVICE_MODEL, m_ComboBoxDeviceModel);//设备型号
 	DDX_Control(pDX, IDC_COMBO_CHANNELCOUNT, m_ComboBoxChannelCount);//通道总数
 	DDX_Control(pDX, IDC_COMBO_DIELECTRIC, m_dielectricComboBox);//介电常数
 	DDX_Control(pDX, IDC_COMBO_SAMPLE, m_sampleComboBox);//采样点数
@@ -225,6 +227,7 @@ BEGIN_MESSAGE_MAP(DlgRadarParameterConfig, CDialog)
 
 //	ON_CBN_SELENDOK(IDC_COMBO_SAVE_FILE_TYPE, &DlgRadarParameterConfig::OnCbnSelendokComboSaveFileType)
 	ON_CBN_SELCHANGE(IDC_COMBO_SAVE_FILE_TYPE, &DlgRadarParameterConfig::OnCbnSelchangeComboSaveFileType)
+	ON_CBN_SELENDOK(IDC_COMBO_DEVICE_MODEL, &DlgRadarParameterConfig::OnCbnSelendokComboDeviceModel)
 END_MESSAGE_MAP()
 
 
@@ -365,6 +368,9 @@ BOOL DlgRadarParameterConfig::OnInitDialog()
 	}
 	resizeChannelWnd();//调整窗口
 
+	//先FA88一次获取设备号
+	//RadarManager::Instance()->_radarReader.openForSetting(RadarManager::Instance()->m_configureSet->get("net","addr"),atoi(RadarManager::Instance()->m_configureSet->get("net","port").c_str()));
+	RadarManager::Instance()->FA88();
 	InitByRadarConfig();//根据配置文件进行赋值
 
 	refreshControlCondition();
@@ -391,6 +397,15 @@ void DlgRadarParameterConfig::InitByRadarConfig()
 {
 	if ( !m_pConfigureSet ){
 		return;
+	}
+
+	//设备型号选项
+	int nDeviceModelOptionCount=atoi(m_pConfigureSet->get("comboBox", "deviceModelOptionCount").c_str());
+	for(int i=0;i<nDeviceModelOptionCount;i++){
+		std::stringstream ss;
+		ss<<i;
+		std::string strTag="deviceModel"+ss.str();
+		m_ComboBoxDeviceModel.AddString(charToLPCTSTR(m_pConfigureSet->get("comboBox", strTag).c_str()));
 	}
 
 	//通道数选项
@@ -443,7 +458,10 @@ void DlgRadarParameterConfig::InitByRadarConfig()
 	//CString idText;
 	//idText.Format(L"0X%X", atoi( m_pConfigureSet->get("radar", "id").c_str()));
 	//m_id = idText;
-	m_ComboBoxChannelCount.SetCurSel ( atoi ( m_pConfigureSet->get("radar", "channelCount").c_str() ) );//介电常数
+
+	//m_cstrDeviceModel = A2W(m_pConfigureSet->get("radar", "deviceModel").c_str());//设备型号
+	m_ComboBoxDeviceModel.SetCurSel ( atoi ( m_pConfigureSet->get("radar", "deviceModelIndex").c_str() ) );//设备型号
+	m_ComboBoxChannelCount.SetCurSel ( atoi ( m_pConfigureSet->get("radar", "channelCountIndex").c_str() ) );//通道数
 	m_dielectricComboBox.SetCurSel ( atoi ( m_pConfigureSet->get("radar", "dielectric").c_str() ) );//介电常数
 	m_sampleComboBox.SetCurSel( atoi ( m_pConfigureSet->get("radar", "sample").c_str() ) );//采样点
 	m_sampleRatioComboBox.SetCurSel( atoi( m_pConfigureSet->get("radar", "sampleratio").c_str() ) );//采样率
@@ -560,6 +578,7 @@ void DlgRadarParameterConfig::OnBnClickedBtnsetOk()
 		m_pConfigureSet->set( "ftp", "port", W2A( m_cstrFtpPort) );//ftp的端口号
 		m_pConfigureSet->set( "ftp", "account", W2A( m_cstrFtpAccount) );//ftp账号名称
 		m_pConfigureSet->set( "ftp", "password", W2A( m_cstrFtpPassword) );//ftp密码
+		//m_pConfigureSet->set("radar", "deviceModel", W2A(m_cstrDeviceModel));//设备型号
 	}
 
 	{
@@ -579,8 +598,13 @@ void DlgRadarParameterConfig::OnBnClickedBtnsetOk()
 	}
 	{
 		std::stringstream ss;
+		ss << m_ComboBoxDeviceModel.GetCurSel();
+		m_pConfigureSet->set("radar", "deviceModelIndex", ss.str());//设备型号
+	}
+	{
+		std::stringstream ss;
 		ss << m_ComboBoxChannelCount.GetCurSel();
-		m_pConfigureSet->set("radar", "channelCount", ss.str());//介电常数
+		m_pConfigureSet->set("radar", "channelCountIndex", ss.str());//通道数
 	}
 	{
 		std::stringstream ss;
@@ -798,6 +822,7 @@ void DlgRadarParameterConfig::OnBnClickedButtonApply()
 		m_pConfigureSet->set( "ftp", "port", W2A( m_cstrFtpPort) );
 		m_pConfigureSet->set( "ftp", "account", W2A( m_cstrFtpAccount) );
 		m_pConfigureSet->set( "ftp", "password", W2A( m_cstrFtpPassword) );
+		//m_pConfigureSet->set("radar", "deviceModel",W2A( m_cstrDeviceModel));//设备型号
 	}
 	{
 		std::stringstream ss;
@@ -816,8 +841,13 @@ void DlgRadarParameterConfig::OnBnClickedButtonApply()
 	}
 	{
 		std::stringstream ss;
+		ss << m_ComboBoxDeviceModel.GetCurSel();
+		m_pConfigureSet->set("radar", "deviceModelIndex", ss.str());//设备型号
+	}
+	{
+		std::stringstream ss;
 		ss << m_ComboBoxChannelCount.GetCurSel();
-		m_pConfigureSet->set("radar", "channelCount", ss.str());//介电常数
+		m_pConfigureSet->set("radar", "channelCountIndex", ss.str());//通道数
 	}
 	{
 		std::stringstream ss;
@@ -1319,6 +1349,26 @@ void DlgRadarParameterConfig::refreshControlCondition(){
 		m_ComboBoxSeperateType.EnableWindow(true);
 		m_ComboBoxSaveFileType.EnableWindow(true);
 	}
+	//根据编号进行储存类型以及其他东西的设置
+	/*USES_CONVERSION;
+	std::string strTemp=W2A(m_cstrDeviceModel);
+	if(strTemp=="待定"){
+		m_ComboBoxSaveFileType.SetCurSel(1);
+		m_ComboBoxChannelCount.SetCurSel(1);
+	}else if(strTemp=="待定"){
+		m_ComboBoxSaveFileType.SetCurSel(1);
+		m_ComboBoxChannelCount.SetCurSel(1);
+	}*/
+
+	int nDeviceModelOptionCount=atoi(m_pConfigureSet->get("comboBox", "deviceModelOptionCount").c_str());
+	int nDeviceModelIndex=m_ComboBoxDeviceModel.GetCurSel();
+	if(nDeviceModelIndex<nDeviceModelOptionCount-2){
+		m_ComboBoxSaveFileType.SetCurSel(1);
+		m_ComboBoxChannelCount.SetCurSel(nDeviceModelIndex);
+	}else if(nDeviceModelIndex==nDeviceModelOptionCount-2){
+		m_ComboBoxSaveFileType.SetCurSel(0);
+	}
+
 	//sgy用二维，rd3用三维
 	if(m_ComboBoxSaveFileType.GetCurSel()==0){
 		m_ComboBoxChannelCount.EnableWindow(false);
@@ -1363,6 +1413,10 @@ void DlgRadarParameterConfig::refreshControlCondition(){
 
 void DlgRadarParameterConfig::OnCbnSelchangeComboSaveFileType()
 {
-	// TODO: 在此添加控件通知处理程序代码
+	refreshControlCondition();
+}
+
+void DlgRadarParameterConfig::OnCbnSelendokComboDeviceModel()
+{
 	refreshControlCondition();
 }

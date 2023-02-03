@@ -377,6 +377,12 @@ bool RadarDataRader::openForSetting( std::string const& targetIP, unsigned int p
 // 		sendData( 0X88 );
 		//_lpReadThread = new ReceiveNetDataThread( this );
 		//_lpReadThread->start();
+	}else{//没连接成功需要将设备编号置空
+		RadarManager::Instance()->setDeviceCode( "undefined" );
+		//RadarManager::Instance()->setDeviceCode( "3D14" );
+		for(int i=0;i<28;i++){
+			RadarManager::Instance()->setChannelName( "N0000", i );
+		}	
 	}
 	return value;
 }
@@ -563,7 +569,7 @@ void RadarDataRader::parseHeadData( char *buff, int len )
 				if(atoi( cfg->get("radar", "saveFileType").c_str())){//1是rd3 即三维主板 
 					lpManager->setChannelName( name, index*2 );//三维主板里一个表示两个
 					lpManager->setChannelName( name, index*2+1 );//三维主板里一个表示两个
-					if(index<6){
+					if(index<6&&m_nChannelCount==16){
 						lpManager->setChannelName( name, index*2+m_nChannelCount );//前12个存在复制的可能 1-12会复制到17-28
 						lpManager->setChannelName( name, index*2+m_nChannelCount+1 );//前12个存在复制的可能
 					}

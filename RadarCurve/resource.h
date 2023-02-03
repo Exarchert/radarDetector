@@ -420,6 +420,8 @@
 #define IDC_TER_DATAMISSING             1216
 #define IDC_TER_DISTANCE                1217
 #define IDC_TER_SPEED                   1218
+#define IDC_EDIT_DEVICE_MODEL           1222
+#define IDC_COMBO_DEVICE_MODEL          1223
 #define ID_SHOW_CHANNEL_00              32780
 #define ID_SHOW_CHANNEL_01              32781
 #define ID_SHOW_CHANNEL_02              32782
@@ -489,7 +491,7 @@
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NEXT_RESOURCE_VALUE        1025
 #define _APS_NEXT_COMMAND_VALUE         32834
-#define _APS_NEXT_CONTROL_VALUE         1219
+#define _APS_NEXT_CONTROL_VALUE         1224
 #define _APS_NEXT_SYMED_VALUE           1070
 #endif
 #endif

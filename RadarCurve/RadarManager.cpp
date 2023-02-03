@@ -529,8 +529,8 @@ void RadarManager::init()
 	strCfgFile += "\\radar.cfg";
 	m_configureSet->read(strCfgFile);
 	//setRadarChannelCount( atoi ( m_configureSet->get("radar", "channelCount").c_str() ) );
-	m_nTrueChannelCount = getTrueChannelCount(getSettingChannelCountByIndex(atoi(m_configureSet->get("radar", "channelCount").c_str())));
-	m_nSettingChannelCount = getSettingChannelCountByIndex(atoi(m_configureSet->get("radar", "channelCount").c_str()));
+	m_nTrueChannelCount = getTrueChannelCount(getSettingChannelCountByIndex(atoi(m_configureSet->get("radar", "channelCountIndex").c_str())));
+	m_nSettingChannelCount = getSettingChannelCountByIndex(atoi(m_configureSet->get("radar", "channelCountIndex").c_str()));
 	m_nUpload = atoi( m_configureSet->get("radar", "uploadFlag").c_str() );
 	//m_dTwelveFlag=atoi( m_configureSet->get("radar", "twelveFlag").c_str() );
 // 	if ( m_configureSet->get("db", "use" ) == "true")
@@ -566,8 +566,8 @@ void RadarManager::RefreshForCfgChange(){
 	std::string strCfgFile = W2A(m_strRadarPath);
 	strCfgFile += "\\radar.cfg";
 	m_configureSet->read(strCfgFile);
-	m_nTrueChannelCount = getTrueChannelCount(getSettingChannelCountByIndex(atoi(m_configureSet->get("radar", "channelCount").c_str())));
-	m_nSettingChannelCount = getSettingChannelCountByIndex(atoi(m_configureSet->get("radar", "channelCount").c_str()));
+	m_nTrueChannelCount = getTrueChannelCount(getSettingChannelCountByIndex(atoi(m_configureSet->get("radar", "channelCountIndex").c_str())));
+	m_nSettingChannelCount = getSettingChannelCountByIndex(atoi(m_configureSet->get("radar", "channelCountIndex").c_str()));
 	m_nUpload = atoi( m_configureSet->get("radar", "uploadFlag").c_str() );
 	//m_dTwelveFlag=atoi( m_configureSet->get("radar", "twelveFlag").c_str() );
 }
@@ -1927,6 +1927,11 @@ bool RadarManager::startNewWorkWithoutProjectName()
 }
 
 //参数设置界面用于查看当前设置下波形情况
+bool RadarManager::FA88(){
+	bool result = _radarReader.openForSetting(m_configureSet->get("net","addr"),atoi(m_configureSet->get("net","port").c_str()));
+	return result;
+}
+
 bool RadarManager::startNewTest()
 {
 	stopTest();
@@ -2748,7 +2753,7 @@ void RadarManager::addRadarDataToThreeViewDialog( RadarData *d, int index ){
 		/*if(m_nTrueChannelCount==15&&index==13){
 		}else */
 			
-		if(m_nTrueChannelCount!=15&&index==m_nTrueChannelCount-1){
+		if(m_nTrueChannelCount!=15&&m_nTrueChannelCount!=14&&index==m_nTrueChannelCount-1){
 			if(m_vec3DRadarDataGroup.size()==m_nTrueChannelCount){
 				g_ThreeViewDlg->addGroupRadarData( m_vec3DRadarDataGroup );	
 			}
@@ -2765,6 +2770,21 @@ void RadarManager::addRadarDataToThreeViewDialog( RadarData *d, int index ){
 				temp.push_back(m_vec3DRadarDataGroup[12]);
 				temp.push_back(m_vec3DRadarDataGroup[14]);
 				temp.push_back(m_vec3DRadarDataGroup[13]);
+				g_ThreeViewDlg->addGroupRadarData( temp );
+			}
+			m_vec3DRadarDataGroup.clear();
+		}else if(m_nTrueChannelCount==14&&index==13){//14通道的传输也是特例，按照1324 5768 9111012 13151416传输，所以到14才停
+			if(m_vec3DRadarDataGroup.size()==m_nTrueChannelCount){
+				std::vector<osg::ref_ptr<RadarData>> temp;
+				for(int i=0;i<3;i++){
+					temp.push_back(m_vec3DRadarDataGroup[i*4+0]);
+					temp.push_back(m_vec3DRadarDataGroup[i*4+2]);
+					temp.push_back(m_vec3DRadarDataGroup[i*4+1]);
+					temp.push_back(m_vec3DRadarDataGroup[i*4+3]);
+				}
+				temp.push_back(m_vec3DRadarDataGroup[12]);
+				temp.push_back(m_vec3DRadarDataGroup[14]);
+				//temp.push_back(m_vec3DRadarDataGroup[13]);
 				g_ThreeViewDlg->addGroupRadarData( temp );
 			}
 			m_vec3DRadarDataGroup.clear();
@@ -2959,6 +2979,20 @@ std::string RadarManager::getChannelName( int index )const{
 void RadarManager::setDeviceCode( std::string const& code ){
 	if ( code.length() > 0 ){
 		_deviceCode = code;
+		//m_configureSet->set( "radar", "deviceModel", code );
+		int nDeviceModelOptionCount=atoi(m_configureSet->get("comboBox", "deviceModelOptionCount").c_str());
+		for(int i=0;i<nDeviceModelOptionCount;i++){
+			std::stringstream ss;
+			ss<<i;
+			std::string strTag="deviceModel"+ss.str();
+			string strTemp=m_configureSet->get("comboBox", strTag).c_str();
+			if(_deviceCode==strTemp){
+				std::stringstream ss2;
+				ss2 << i;
+				m_configureSet->set("radar", "deviceModelIndex", ss2.str());
+				break;
+			}
+		}
 	}
 
 }

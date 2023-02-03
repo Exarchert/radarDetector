@@ -930,6 +930,38 @@ void Radar3DWnd::DrawSection( CDC *lpDC, int newData, int channelIndex, int dept
 						break;
 					}
 				}
+			}else if(m_nTrueChannelCount==14){
+				int interpolationValueOne=0;//给插值用的
+				for(int i=0;i<m_nTrueChannelCount;i++){
+					if((*it).size()<m_nTrueChannelCount){
+						continue;
+					}
+					rd = (((*it)[i]).get());
+					if ( !rd ){
+						continue;
+					}
+					if ( x < 0 ){//仅绘制当前屏幕能放下的最新的数据
+						horizontalSectionToBreak = true;
+					}
+					if ( dataNum >= 0 ){
+						int horizontalSectionX = x;
+						float fValue = (float)rd->getIndexData( depthIndex+m_dVecCorrection[i], NULL );
+						COLORREF color;
+						color = getColor(fValue);
+						_bmpDCTmp.getDC()->SetPixelV( horizontalSectionX, INTERPOLATION_SIZE-i*4-1, color );
+						if(i>0){
+							std::vector<float> valueInterpolation=interpolation( interpolationValueOne, fValue, 3 );//得到的是由小到大的
+							for(int j=1;j<4;j++){
+								color = getColor(valueInterpolation[3-j]);
+								_bmpDCTmp.getDC()->SetPixelV( horizontalSectionX, INTERPOLATION_SIZE-i*4+j-1, color );
+							}
+						}
+						interpolationValueOne=fValue;
+					}
+					if ( horizontalSectionToBreak ){
+						break;
+					}
+				}
 			}else if(m_nTrueChannelCount==15){
 				int interpolationValueOne=0;//给插值用的
 				for(int i=0;i<m_nTrueChannelCount;i++){
@@ -1575,6 +1607,89 @@ void Radar3DWnd::drawFrontView( CDC *lpDC, int channelIndex, int depthIndex ){
 				}
 			}
 		}
+	}else if(m_nTrueChannelCount==14){
+		for(int i=0;i<m_nTrueChannelCount;i++){
+			if((*it).size()<m_nTrueChannelCount){
+				continue;
+			}
+			rd = (((*it)[i]).get());
+			if ( !rd ){
+				continue;
+			}
+			
+			if (dDataCount < dFrontViewSectionHight && dDataCount > 0){////数据数量小于高度 需要补充
+				float fValueOld = 0.;//上一数据的值
+				float fValueNew = 0.;//当前数据的值
+				int lastY = m_dFrontViewSectionMinY;
+				for ( int j = 0; j < dDataCount; j ++ ){//横坐标x的这条线上的不同的i对应的y对应的值
+					fValueNew = (float)rd->getIndexData( j+m_dVecCorrection[i], NULL );
+					COLORREF color ,colorHalf;
+					if ( rd->getMark() ){
+						color = RGB( 255, 255, 255 );
+						colorHalf = RGB( 255, 255, 255 );
+					}else{
+						color = getColor(fValueNew);//根据当前值定颜色
+						colorHalf = getColor((fValueOld + fValueNew) / 2.0);//前后两个之间的颜色
+					}
+					int y = (float)j/(float)dDataCount*(float)dFrontViewSectionHight+m_dFrontViewSectionMinY;
+					
+					lpDC->SetPixelV( m_dFrontViewSectionMinX+i*4, y, color );
+					if(i>0){
+						std::vector<float> valueInterpolation=interpolation( interpolationValueOne[y-m_dFrontViewSectionMinY], fValueNew, 3 );//得到的是由值1到值2到大的
+						COLORREF colorTemp;
+						for(int k=1;k<4;k++){
+							colorTemp=getColor(valueInterpolation[3-k]);
+							lpDC->SetPixelV( m_dFrontViewSectionMinX+i*4-k, y, colorTemp );
+						}
+					}
+					interpolationValueOne[y-m_dFrontViewSectionMinY]=fValueNew;
+					if((y-lastY)>1){
+						for(int k=lastY+1;k<y;k++){
+							lpDC->SetPixelV( m_dFrontViewSectionMinX+i*4, k, colorHalf );
+							if(i>0){
+								std::vector<float> valueInterpolation=interpolation( interpolationValueOne[k-m_dFrontViewSectionMinY], (fValueOld+fValueNew)/2.0, 3 );//得到的是由值1到值2到大的
+								COLORREF colorTemp;
+								for(int l=1;l<4;l++){
+									colorTemp=getColor(valueInterpolation[3-l]);
+									lpDC->SetPixelV( m_dFrontViewSectionMinX+i*4-l, k, colorTemp );
+								}
+							}
+							interpolationValueOne[k-m_dFrontViewSectionMinY]=(fValueOld+fValueNew)/2.0;
+						}
+					}
+					
+					lastY=y;
+					fValueOld = fValueNew;
+				}
+			}else{//数据数量大于高度,需要压缩，即抽值显示，mapIndexToSectionYValue利用比例关系 i/i总数量 = y/y总数量 来求得i对应的
+				for ( int j=0; j<dDataCount; j++ ){
+					//short v = (float)rd->getIndexData( i+m_dVecCorrection[i], NULL ) * (1.0 + (float)_scaleRatio * (float)(i+1)/(float)iDataCount);//旧版用short会出现显示错误
+					//float value = (float)rd->getIndexData( i+m_dVecCorrection[i]i, NULL ) * (1.0 +  (float)_scaleRatio * (float)(i+1)/(float)dDataCount);//不要增益了
+					float fValue = (float)rd->getIndexData( j+m_dVecCorrection[i], NULL );//不要增益了
+					//int y = mapIndexToSectionYValue( i, rd->getDataCount() );//旧的
+					//int y = mapIndexToSectionYValue( j, rd->getDataCount() ) + m_dFrontViewSectionMinY;//横切面区域的y要加上起始值
+					int y = j * 1.0f * ( m_dVerticalSectionMaxY - m_dVerticalSectionMinY ) / (rd->getDataCount()) + m_dFrontViewSectionMinY;//横切面区域的y要加上起始值
+					COLORREF color;
+					if ( rd->getMark() ){
+						color = RGB( 255, 255, 255 );
+					}else{
+						color = getColor(fValue);
+					}
+					
+					lpDC->SetPixelV( m_dFrontViewSectionMinX+i*4, y, color );
+					if(i>0){
+						std::vector<float> valueInterpolation=interpolation( interpolationValueOne[j], fValue, 3 );//得到的是由小到大的
+						COLORREF colorTemp;
+						for(int k=1;k<4;k++){
+							colorTemp=getColor(valueInterpolation[3-k]);
+							lpDC->SetPixelV( m_dFrontViewSectionMinX+i*4-k, y, colorTemp );
+						}
+					}
+					
+					interpolationValueOne[j]=fValue;
+				}
+			}
+		}
 	}else if(m_nTrueChannelCount==15){
 		for(int i=0;i<m_nTrueChannelCount;i++){
 			if((*it).size()<m_nTrueChannelCount){
@@ -1768,6 +1883,8 @@ void Radar3DWnd::drawFrontView( CDC *lpDC, int channelIndex, int depthIndex ){
 		nChannelX=channelIndex*8+m_dFrontViewSectionMinX-1;
 	}else if(m_nTrueChannelCount==12){//12*1+11*4=56
 		nChannelX=channelIndex*5+m_dFrontViewSectionMinX;
+	}else if(m_nTrueChannelCount==15){//14*1+13*3=52
+		nChannelX=channelIndex*4+m_dFrontViewSectionMinX;
 	}else if(m_nTrueChannelCount==15){//15*1+14*3=56
 		nChannelX=channelIndex*4+m_dFrontViewSectionMinX;
 	}else if(m_nTrueChannelCount==16){//12*1+11*4=56

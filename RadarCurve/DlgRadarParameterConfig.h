@@ -27,7 +27,9 @@ private:
 	CString m_cstrFtpAccount;
 	CString m_cstrFtpPassword;
 
+	//CString m_cstrDeviceModel;
 	//CString m_id;
+	CComboBox m_ComboBoxDeviceModel;
 	CComboBox m_ComboBoxChannelCount;
 	CComboBox m_dielectricComboBox;
 	CComboBox m_sampleComboBox;
@@ -157,4 +159,5 @@ public:
 	afx_msg void OnBnClickedAutoCorrection();
 //	afx_msg void OnCbnSelendokComboSaveFileType();
 	afx_msg void OnCbnSelchangeComboSaveFileType();
+	afx_msg void OnCbnSelendokComboDeviceModel();
 };
