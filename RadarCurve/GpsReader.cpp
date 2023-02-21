@@ -33,6 +33,7 @@ double getDistanceFromTwoGpsPoints(double lon1, double lat1, double lon2, double
 GpsReader::GpsReader(void){
 	_lastTime = time(NULL);
 	_first = true;
+	_second = false;
 	_iCondition = 0;
 	_len = 0;
 }
@@ -47,6 +48,7 @@ bool GpsReader::open( int portNum, int baud , char parity , int databits , int s
 		return false;
 	}
 	_first = true;
+	_second = false;
 	_seriaPort.StartMonitoring();
 	_len = 0;
 	//_curData.setReceiveData(osg::Vec3d(1,1,1));
@@ -56,7 +58,7 @@ bool GpsReader::open( int portNum, int baud , char parity , int databits , int s
 	m_nGpsUpdateFailCount = 0;
 
 	ConfigureSet *cfg = RadarManager::Instance()->getConfigureSet();
-	m_fGpsSpan = 1/atoi( cfg->get("com", "frequency").c_str() );
+	m_fGpsSpan = 1.0/(float)atoi( cfg->get("com", "frequency").c_str() );
 
 	return true;
 }
@@ -387,6 +389,7 @@ void GpsReader::parseGPGGA( std::vector< std::string > valueList ){
 	bool gpsDataUpdateFlag=0;
 	if( _first ){//是否第一次记录经纬度值
 		_first = false;
+		_second = true;
 		{
 			OpenThreads::ScopedLock<OpenThreads::Mutex> lock(_mutex);
 			_curData=newData;
@@ -399,7 +402,15 @@ void GpsReader::parseGPGGA( std::vector< std::string > valueList ){
 		osg::Vec3d curXYZ;
 		osgAPEx::ConvertLongLatHeightToXYZ( _curData.getPos().x(), _curData.getPos().y(), _curData.getPos().z(), curXYZ );
 
-		osg::Vec3d supposedXYZ = (_curData.getPos()-_lastData.getPos())*(atof(utcTime.c_str())-m_fLastTime)/(m_fCurrentTime-m_fLastTime)+_lastData.getPos();//用当前时间及之前的两个点推算出的速度来推定现在的经纬度
+		GpsData supposedData;
+		osg::Vec3d supposedXYZ;
+		if(_second){
+			//newData.setReceiveData( osg::Vec3d( atof( lonDu.c_str() ) + atof( lonFen.c_str()) / 60.0f,  atof( latDu.c_str() ) + atof( latFen.c_str()) / 60.0f, atof( hightStr.c_str())));
+			supposedData.getPos()= (_curData.getPos()-_lastData.getPos())*(atof(utcTime.c_str())-m_fLastTime)/(m_fCurrentTime-m_fLastTime)+_lastData.getPos();//用当前时间及之前的两个点推算出的速度来推定现在的经纬度
+			//osg::Vec3d supposedXYZ = (_curData.getPos()-_lastData.getPos())*(atof(utcTime.c_str())-m_fLastTime)/(m_fCurrentTime-m_fLastTime)+_lastData.getPos();
+			osgAPEx::ConvertLongLatHeightToXYZ( supposedData.getPos().x(), supposedData.getPos().y(), supposedData.getPos().z(), supposedXYZ );
+		}
+		
 
 		osg::Vec3d newXYZ;
 		osgAPEx::ConvertLongLatHeightToXYZ( newData.getPos().x(), newData.getPos().y(), newData.getPos().z(), newXYZ );
@@ -429,10 +440,20 @@ void GpsReader::parseGPGGA( std::vector< std::string > valueList ){
 			gpsDataUpdateFlag=1;
 		}*/
 		float fSupposedDistance=5*(1+m_nGpsUpdateFailCount)*m_fGpsSpan;//最大速度5m每秒 
-		double length1=getDistanceFromTwoGpsPoints(newXYZ.x(),newXYZ.y(),curXYZ.x(),curXYZ.y());
-		double length2=getDistanceFromTwoGpsPoints(newXYZ.x(),newXYZ.y(),supposedXYZ.x(),supposedXYZ.y());
-		//if((newXYZ-curXYZ).length()<fSupposedDistance||(newXYZ-supposedXYZ).length()<1){//新旧距离少于15m才录入 或者超速情况下，跟预定点距离少于1m 用于筛偏离过大的点
-		if(length1<fSupposedDistance||length2<1){//新旧距离少于15m才录入 或者超速情况下，跟预定点距离少于1m 用于筛偏离过大的点
+		//double length1=getDistanceFromTwoGpsPoints(newXYZ.x(),newXYZ.y(),curXYZ.x(),curXYZ.y());
+		//double length2=getDistanceFromTwoGpsPoints(newXYZ.x(),newXYZ.y(),supposedXYZ.x(),supposedXYZ.y());
+		double length1=0.0,length2=0.0;
+		length1=sqrt(pow((newXYZ.x()-curXYZ.x()),2)+pow((newXYZ.y()-curXYZ.y()),2));//新到的点与上一次录入的点的距离
+		if(_second==false){
+			length2=sqrt(pow((newXYZ.x()-supposedXYZ.x()),2)+pow((newXYZ.y()-supposedXYZ.y()),2));//新到的点与拟合点的距离
+		}
+		
+		bool bNeedInput=false;
+		if(_second||length1<fSupposedDistance||fabs(length2-length1)<1){//新旧距离少于15m才录入,或者超速情况下，跟预定点距离少于1m   用于筛偏离过大的点
+			bNeedInput=true;
+		}
+
+		if(bNeedInput){
 			{
 				OpenThreads::ScopedLock<OpenThreads::Mutex> lock(_mutex);
 				_lastData = _curData;
@@ -444,6 +465,10 @@ void GpsReader::parseGPGGA( std::vector< std::string > valueList ){
 			}
 			_len += length1;
 			gpsDataUpdateFlag=1;
+		}
+
+		if(_second){
+			_second=false;
 		}
 	}
 
@@ -559,6 +584,7 @@ void GpsReader::parseGNGGA( std::vector< std::string > valueList ){
 	bool gpsDataUpdateFlag=0;
 	if( _first ){//是否第一次记录经纬度值
 		_first = false;
+		_second = true;
 		{
 			OpenThreads::ScopedLock<OpenThreads::Mutex> lock(_mutex);
 			_curData=newData;
@@ -571,7 +597,15 @@ void GpsReader::parseGNGGA( std::vector< std::string > valueList ){
 		osg::Vec3d curXYZ;
 		osgAPEx::ConvertLongLatHeightToXYZ( _curData.getPos().x(), _curData.getPos().y(), _curData.getPos().z(), curXYZ );
 
-		osg::Vec3d supposedXYZ = (_curData.getPos()-_lastData.getPos())*(atof(utcTime.c_str())-m_fLastTime)/(m_fCurrentTime-m_fLastTime)+_lastData.getPos();//用当前时间及之前的两个点推算出的速度来推定现在的经纬度
+		GpsData supposedData;
+		osg::Vec3d supposedXYZ;
+		if(_second){
+			//newData.setReceiveData( osg::Vec3d( atof( lonDu.c_str() ) + atof( lonFen.c_str()) / 60.0f,  atof( latDu.c_str() ) + atof( latFen.c_str()) / 60.0f, atof( hightStr.c_str())));
+			supposedData.getPos()= (_curData.getPos()-_lastData.getPos())*(atof(utcTime.c_str())-m_fLastTime)/(m_fCurrentTime-m_fLastTime)+_lastData.getPos();//用当前时间及之前的两个点推算出的速度来推定现在的经纬度
+			//osg::Vec3d supposedXYZ = (_curData.getPos()-_lastData.getPos())*(atof(utcTime.c_str())-m_fLastTime)/(m_fCurrentTime-m_fLastTime)+_lastData.getPos();
+			osgAPEx::ConvertLongLatHeightToXYZ( supposedData.getPos().x(), supposedData.getPos().y(), supposedData.getPos().z(), supposedXYZ );
+		}
+		
 
 		osg::Vec3d newXYZ;
 		osgAPEx::ConvertLongLatHeightToXYZ( newData.getPos().x(), newData.getPos().y(), newData.getPos().z(), newXYZ );
@@ -601,10 +635,20 @@ void GpsReader::parseGNGGA( std::vector< std::string > valueList ){
 			gpsDataUpdateFlag=1;
 		}*/
 		float fSupposedDistance=5*(1+m_nGpsUpdateFailCount)*m_fGpsSpan;//最大速度5m每秒 
-		double length1=getDistanceFromTwoGpsPoints(newXYZ.x(),newXYZ.y(),curXYZ.x(),curXYZ.y());
-		double length2=getDistanceFromTwoGpsPoints(newXYZ.x(),newXYZ.y(),supposedXYZ.x(),supposedXYZ.y());
-		//if((newXYZ-curXYZ).length()<fSupposedDistance||(newXYZ-supposedXYZ).length()<1){//新旧距离少于15m才录入 或者超速情况下，跟预定点距离少于1m 用于筛偏离过大的点
-		if(length1<fSupposedDistance||length2<1){//新旧距离少于15m才录入 或者超速情况下，跟预定点距离少于1m 用于筛偏离过大的点
+		//double length1=getDistanceFromTwoGpsPoints(newXYZ.x(),newXYZ.y(),curXYZ.x(),curXYZ.y());
+		//double length2=getDistanceFromTwoGpsPoints(newXYZ.x(),newXYZ.y(),supposedXYZ.x(),supposedXYZ.y());
+		double length1=0.0,length2=0.0;
+		length1=sqrt(pow((newXYZ.x()-curXYZ.x()),2)+pow((newXYZ.y()-curXYZ.y()),2));//新到的点与上一次录入的点的距离
+		if(_second==false){
+			length2=sqrt(pow((newXYZ.x()-supposedXYZ.x()),2)+pow((newXYZ.y()-supposedXYZ.y()),2));//新到的点与拟合点的距离
+		}
+		
+		bool bNeedInput=false;
+		if(_second||length1<fSupposedDistance||fabs(length2-length1)<1){//新旧距离少于15m才录入,或者超速情况下，跟预定点距离少于1m   用于筛偏离过大的点
+			bNeedInput=true;
+		}
+
+		if(bNeedInput){
 			{
 				OpenThreads::ScopedLock<OpenThreads::Mutex> lock(_mutex);
 				_lastData = _curData;
@@ -616,6 +660,10 @@ void GpsReader::parseGNGGA( std::vector< std::string > valueList ){
 			}
 			_len += length1;
 			gpsDataUpdateFlag=1;
+		}
+
+		if(_second){
+			_second=false;
 		}
 	}
 

@@ -144,6 +144,7 @@ public:
 	void AddRadarData( RadarData *lpData , int index );//hjl 20210418参数设置波形显示
 
 	void refreshControlCondition();//更新控件取值及可修改的状态
+	void SetCorrection(std::vector<int> correction);//更新延迟微调值
 public:
 	afx_msg void OnCbnSelchangeCombo1();
 public:
@@ -156,8 +157,9 @@ public:
 //	afx_msg void OnCbnEditupdateComboUploadType();
 public:
 //	afx_msg void OnCbnKillfocusComboUploadType();
-	afx_msg void OnBnClickedAutoCorrection();
 //	afx_msg void OnCbnSelendokComboSaveFileType();
 	afx_msg void OnCbnSelchangeComboSaveFileType();
 	afx_msg void OnCbnSelendokComboDeviceModel();
+	afx_msg void OnBnClickedAutoCorrection();
+	afx_msg void OnCbnSelendokComboChannelcount();
 };

@@ -306,6 +306,7 @@ RadarManager::RadarManager(void)
 {
 	_testing = false;
 	_working = false;
+	m_bIsAutoCorrecting=false;
 	m_bTERWorking=false;
 	_lpCurProject = NULL;
 	m_MPTERCurProject = NULL;
@@ -315,6 +316,7 @@ RadarManager::RadarManager(void)
 	m_configureSet = new ConfigureSet;
 
 	m_nTrueChannelCount = 8;
+	m_nSaveFileType=0;
 
 	_dbOpen = false;
 
@@ -528,9 +530,9 @@ void RadarManager::init()
 	std::string strCfgFile = W2A(m_strRadarPath);
 	strCfgFile += "\\radar.cfg";
 	m_configureSet->read(strCfgFile);
-	//setRadarChannelCount( atoi ( m_configureSet->get("radar", "channelCount").c_str() ) );
 	m_nTrueChannelCount = getTrueChannelCount(getSettingChannelCountByIndex(atoi(m_configureSet->get("radar", "channelCountIndex").c_str())));
 	m_nSettingChannelCount = getSettingChannelCountByIndex(atoi(m_configureSet->get("radar", "channelCountIndex").c_str()));
+	m_nSaveFileType=atoi(m_configureSet->get("radar", "saveFileType").c_str());
 	m_nUpload = atoi( m_configureSet->get("radar", "uploadFlag").c_str() );
 	//m_dTwelveFlag=atoi( m_configureSet->get("radar", "twelveFlag").c_str() );
 // 	if ( m_configureSet->get("db", "use" ) == "true")
@@ -568,6 +570,7 @@ void RadarManager::RefreshForCfgChange(){
 	m_configureSet->read(strCfgFile);
 	m_nTrueChannelCount = getTrueChannelCount(getSettingChannelCountByIndex(atoi(m_configureSet->get("radar", "channelCountIndex").c_str())));
 	m_nSettingChannelCount = getSettingChannelCountByIndex(atoi(m_configureSet->get("radar", "channelCountIndex").c_str()));
+	m_nSaveFileType=atoi(m_configureSet->get("radar", "saveFileType").c_str());
 	m_nUpload = atoi( m_configureSet->get("radar", "uploadFlag").c_str() );
 	//m_dTwelveFlag=atoi( m_configureSet->get("radar", "twelveFlag").c_str() );
 }
@@ -2060,7 +2063,7 @@ bool RadarManager::stopWork(){
 	}
 
 	_lpCurProject = NULL;
-
+	
 	_working = false;
 
 	removeGpsModel();
@@ -2688,6 +2691,11 @@ void RadarManager::addRadarDataToProject( RadarData *d, int index ){
 		OpenThreads::ScopedLock<OpenThreads::Mutex> lock(_lock);
 		if (_lpCurProject.valid()){
 			_lpCurProject->addData(d, index);
+			/*if(m_nSaveFileType==0){
+				_lpCurProject->addData(d, index);
+			}else if(m_nSaveFileType==1){
+				_lpCurProject->addDataToDataLossCheck(d, index);
+			}*/
 		}
 	}
 	/*
@@ -2888,6 +2896,11 @@ void RadarManager::setdbOpen(bool value)
 //参数设置界面使用情况
 bool RadarManager::testing()const{//hjl20210418
 	return _testing;
+}
+
+//自动微调情况
+bool RadarManager::AutoCorrecting()const{
+	return m_bIsAutoCorrecting;
 }
 
 //采集工作情况
@@ -4105,8 +4118,78 @@ int RadarManager::getArtificalChannelIndexFromOriginalIndex(int originalIndex)
 	return indexArray[originalIndex];
 }
 */
+void RadarManager::addRadarDataToAutoCorrection( RadarData *d, int index ){
+	{
+		//OpenThreads::ScopedLock<OpenThreads::Mutex> lock(_lock);
+		if (_lpCurProject.valid()){
+			_lpCurProject->addDataToAutoCorrection(d, index);
+		}
+	}
+}
 
+void RadarManager::AutoPeakCorrection(){
+	stopTest();
+	_radarReader.close();//20210621hjl 保证已经终止采集
+	AFX_MANAGE_STATE(AfxGetStaticModuleState());
 
+	m_bIsAutoCorrecting=true;
+
+	USES_CONVERSION;
+
+	if ( _lpCurProject ){
+		delete _lpCurProject;
+	}
+	_lpCurProject = new MeasureProject;
+	_lpCurProject->StartAutoCorrection();
+	OpenThreads::ScopedLock<OpenThreads::Mutex> lock(_lock);
+
+	if ( m_configureSet->get("net", "use") == "true"){
+		if ( !_radarReader.openForSetting(
+			m_configureSet->get("net","addr")
+			,atoi(m_configureSet->get("net","port").c_str())
+			) )
+		{
+			::AfxMessageBox(L"连接雷达设备失败，请检查设备是否正常连接或重启设备" );
+			return ;
+		}
+	}
+	_radarReader.ReadThreadStart(true);
+	
+
+	//根据所得数据填充微调
+
+	while(m_nVecAutoCorrectionResult.size()==0){
+		int a=0,b=0,c;
+		c=a+b;
+
+		Sleep(2000);
+	}
+	g_RadarParameterConfig->SetCorrection(m_nVecAutoCorrectionResult);
+
+	if ( RadarManager::Instance()->getShowGpsPos()){
+		_gpsReader.close();
+	}
+	if ( m_configureSet->get("net", "use") == "true"){
+		_radarReader.close();
+	}
+	m_bIsAutoCorrecting=false;
+
+	/*if ( _lpCurProject ){
+		delete _lpCurProject;
+	}*/
+	_lpCurProject=NULL;
+
+	::AfxMessageBox(L"延迟微调完成" );
+	//startNewTest();
+}
+
+void RadarManager::SetAutoCorrectionResult(std::vector<int> result){
+	m_nVecAutoCorrectionResult=result;
+}
+
+std::vector<int>RadarManager::GetAutoCorrectionResult(){
+	return m_nVecAutoCorrectionResult;
+}
 
 
 //std::locale loc = std::locale::global(std::locale(""));//中文路径

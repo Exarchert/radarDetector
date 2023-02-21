@@ -1,9 +1,9 @@
-﻿// Created by Microsoft (R) C/C++ Compiler Version 14.00.50727.762 (a0b7d747).
+﻿// Created by Microsoft (R) C/C++ Compiler Version 14.00.50727.762 (af320624).
 //
-// e:\radardetector16\radarcurve\debug\msado15.tli
+// e:\radardetector\radarcurve\debug\msado15.tli
 //
 // Wrapper implementations for type library C:\\Program Files\\Common Files\\system\\ado\\msado15.dll
-// compiler-generated file created 07/30/22 at 14:20:58 - DO NOT EDIT!
+// compiler-generated file created 02/14/23 at 16:07:51 - DO NOT EDIT!
 
 #pragma once
 

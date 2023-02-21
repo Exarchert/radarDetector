@@ -240,9 +240,9 @@ BOOL CDialogCurCurve::OnInitDialog()
 
 	//MoveWindow( 0, nScreenHeight*m_separateScreen + 50, nScreenWidth, nScreenHeight );
 	if (m_separateScreen==0){
-		if(m_nSaveFileType==0){
+		if(m_nSaveFileType==0){//´æsgy
 			MoveWindow( 0, nScreenHeight*m_separateScreen + 50, nScreenWidth, nScreenHeight*2 );
-		}else if(m_nSaveFileType==1){
+		}else if(m_nSaveFileType==1){//´ærd3
 			MoveWindow( -5, 50, GetSystemMetrics(SM_CXSCREEN)/2+10, nScreenHeight*2 );
 			if (RadarManager::Instance()->GetTrueChannelCount()==15){
 				MoveWindow( 0, nScreenHeight*m_separateScreen + 50, nScreenWidth, nScreenHeight*2 );

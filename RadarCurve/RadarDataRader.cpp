@@ -88,6 +88,9 @@ void ReceiveNetDataThread::run(){
 				}
 				if(RadarManager::Instance()->testing()){
 					_lpReader->parseDataToDisplay();
+				}else if(RadarManager::Instance()->AutoCorrecting()){
+					//_lpReader->parseSixteenData();
+					_lpReader->parseDataToAutoCorrection();
 				}else{
 					//_lpReader->parseSixteenData();
 					_lpReader->parseData();
@@ -166,9 +169,6 @@ void RadarDataRader::setInit(bool value)
 
 void RadarDataRader::init()
 {
-	int a=0,b=3,c=3;
-	a=b+c;
-
 	OpenThreads::ScopedLock<OpenThreads::Mutex> lock(_lock);
 	if ( _hadInit )
 	{
@@ -199,9 +199,17 @@ void RadarDataRader::init()
 	setParam( 0X04, atoi( cs->get("radar", "gainvalue").c_str()));
 	setParam( 0X07, atoi( cs->get("radar", "delay").c_str()));
 	setParam( 0X08, atoi( cs->get("radar", "addcount").c_str()));
-	setParam( 0X0A, atoi( cs->get("radar", "testtype").c_str()));
+	//setParam( 0X0A, atoi( cs->get("radar", "testtype").c_str()));
+		//m_iModeType = atoi( cs->get("radar", "testtype").c_str());
+	if(RadarManager::Instance()->working()){
+		setParam( 0X0A, atoi( cs->get("radar", "testtype").c_str()));
+		m_iModeType = atoi( cs->get("radar", "testtype").c_str());
+	}else{
+		setParam( 0X0A, 0);
+		m_iModeType = 0;
+	}
 	
-	m_iModeType = atoi( cs->get("radar", "testtype").c_str());
+
 	//int precRatio = atoi( cs->get("radar", "precratio").c_str() );
 	int precRatio = RadarManager::Instance()->getPrecRatio(atoi( cs->get("radar", "precRatio").c_str()));
 	float precLen = atof ( cs->get("radar", "preclen").c_str() );
@@ -377,6 +385,77 @@ bool RadarDataRader::openForSetting( std::string const& targetIP, unsigned int p
 // 		sendData( 0X88 );
 		//_lpReadThread = new ReceiveNetDataThread( this );
 		//_lpReadThread->start();
+		/*
+		寒气3 攻击7 看破7 超心3 弱特3 攻守3 翔虫3 防御7 磐石3 集中3 防御强化1 耐绝3 耐冲1 提供1 龙气活性5 
+		怪异克服炎王龙头
+		孔位：3+2 技能：粉尘绕1 弱特1 看破2
+		冰呪龙胸
+		孔位：4+2+1 技能：寒气1 纳刀3
+		冰呪龙手
+		孔位：3+2+1技能：寒气1 拔刀技3
+		炼化：防御-12 拔刀技-3 换 攻击3
+		冰呪龙腰
+		孔位：3+3+2技能：寒气1 集中3
+		怪异克服天彗龙脚
+		孔位：4+3 技能：超心1 耐绝3 攻击2
+		护石
+		孔位：4+1+1 技能：攻击3 看破2 
+		总孔位：4*3 3*5 2*4 1*4
+		原技能
+		寒气3 攻击5 看破4 超心1 弱特1 攻守0 翔虫3 防御0 磐石0 集中3 防御强化1 耐绝3 耐冲0 提供0 气血0 龙气活性0 
+		尚缺技能点
+		寒气0 攻击2 看破3 超心2 弱特2 攻守3 翔虫3 防御7 磐石3 集中0 防御强化1 耐绝0 耐冲1 提供1 气血1 龙气活性5
+		装饰珠
+		1级孔 提供1 磐石1 磐石1 磐石1
+		2级孔 超心1 超心1 弱特1 弱特1
+		3级孔 攻守1 气血1 攻击1 看破1 看破1
+		4级孔 防御5 攻守2 翔虫2
+		
+		尚缺技能点
+		寒气0 攻击1 看破1 超心0 弱特0 攻守0 翔虫1 防御2 磐石0 集中0 防御强化1 耐绝0 耐冲1 提供0 气血0 龙气活性5
+		怪异炼化
+		头 自带10
+		增加cost 粉尘绕-1 冰耐性-1 
+		消耗cost  防御+1 防御+1 攻击+1 1cost
+		胸 自带10
+		增加cost 纳刀-1 纳刀-1 纳刀-1
+		消耗cost 龙气活性+1 龙气活性+1 龙气活性+1 匠+1 1cost
+		手 自带10
+		增加cost 拔刀技-1 拔刀技-1 拔刀技-1 
+		消耗cost 龙气活性+1 龙气活性+1 看破+1 防御强化+1 1cost
+		腰 自带10
+		增加cost 
+		消耗cost 精灵加护+1 精灵加护+1 精灵加护+1 
+		腿 自带10
+		增加cost 冰耐性-1
+		消耗cost 翔虫+1 耐冲+1 0cost
+
+		最终
+		怪异克服炎王龙头
+		怪异炼化：粉尘绕-1 冰耐性-1 防御+1 防御+1 攻击+1 
+		装饰珠：3级孔守势珠【3】 2级孔超心珠【2】
+		冰呪龙胸
+		怪异炼化：纳刀术-1 纳刀术-1 纳刀术-1 匠+1 龙气活性+1 龙气活性+1 龙气活性+1 
+		装饰珠：4级孔防御珠V【4】 2级孔超心珠【2】 1级孔提供珠【1】
+		冰呪龙手
+		怪异炼化：拔刀术【技】-1 拔刀术【技】-1 拔刀术【技】-1 防御强化+1 看破+1 龙气活性+1 龙气活性+1  
+		装饰珠：3级孔气血珠【3】 2级孔痛击珠【2】 1级孔磐石珠【1】
+		冰呪龙腰
+		怪异炼化：精灵加护+1 精灵加护+1 精灵加护+1 
+		装饰珠：3级孔攻击珠【2】 3级孔攻击珠【2】 2级孔痛击珠【2】
+		怪异克服天彗龙脚
+		怪异炼化：冰耐性-1 翔虫使+1 减轻胆怯+1
+		装饰珠：4级孔守势珠II【4】 3级孔攻击珠【2】
+		护石
+		装饰珠：4级孔翔虫珠II【4】 1级孔磐石珠【1】 1级孔磐石珠【1】
+		武器强化到9个槽 其中8个槽放攻击+4
+
+
+		防御-6+3 -12+5
+		属性-1容量+2 -3容量+3
+		孔 1洞-6
+		最多7个词条
+		*/
 	}else{//没连接成功需要将设备编号置空
 		RadarManager::Instance()->setDeviceCode( "undefined" );
 		//RadarManager::Instance()->setDeviceCode( "3D14" );
@@ -387,11 +466,44 @@ bool RadarDataRader::openForSetting( std::string const& targetIP, unsigned int p
 	return value;
 }
 
+bool RadarDataRader::openForAutoCorrecting( std::string const& targetIP, unsigned int port )
+{
+	ConfigureSet *cs = RadarManager::Instance()->getConfigureSet();
+	for ( int i = 0 ; i < MAX_CHANNEL; i ++ )
+	{
+		_channelWheelCount[i] = -1;
+		_recordChannelWheelCount[i]=0;
+		_channelLen[i] = 0;
+	}
+	_client.setServerIP( targetIP );
+	_client.setServerPort( port );
+	bool value = _client.Connect();//创建无线网络通信是否成功
+	if ( value )
+	{
+		//init();
+		_hadInit = false;
+		if ( _lpReadThread )
+		{
+			_lpReadThread->cancel();
+			delete _lpReadThread;
+			_lpReadThread = NULL;
+		}
+		setParam( 0X00, 0X00 );//发送参数给硬件
+ 		int recvNum = 0;
+ 		while ( recvNum = _client.Recv( _recvBuff, 512 ) )//20170322 参数2为lnWantRecvLen 应该是用来调整接收时点的
+ 		{
+ 			Sleep( 10 );//20170322
+ 		}
+		_dataBuf.clear();
+	}
+	return value;
+}
+
 bool RadarDataRader::open( std::string const& targetIP, unsigned int port )
 {
 	ConfigureSet *cs = RadarManager::Instance()->getConfigureSet();
-	m_bNeed3DDisplay = atoi ( cs->get("radar", "saveFileType" ).c_str() ) ;//rd3才需要加到三视图里
-	/*m_bNeedCopyInPreview = atoi ( cs->get("radar", "saveFileType" ).c_str() ) ;//rd3三维主板才需要复制
+	m_bNeed3DDisplay = atoi ( cs->get("radar", "saveFileType" ).c_str() );//rd3才需要加到三视图里
+	/*m_bNeedCopyInPreview = atoi ( cs->get("radar", "saveFileType" ).c_str() );//rd3三维主板才需要复制
 	if(m_nChannelCount==15){
 		m_bNeedCopyInPreview=0;
 	}*/
@@ -969,6 +1081,68 @@ void RadarDataRader::parseDataToDisplay()
 	}
 	_dataBuf.remove( startPos );
 }
+
+void RadarDataRader::parseDataToAutoCorrection()
+{
+	int channelData = /*_channelCount * */_sampleCount * sizeof ( short );
+	int len = _dataBuf.getDataLen();
+
+	if ( len < channelData ){
+		return;
+	}
+	unsigned int startPos = 0;
+	
+	while ( true )
+	{
+		unsigned char *lpDataBuff = _dataBuf.getData();
+		bool findHead = false;
+
+		if ( len - startPos < channelData ){
+			break;
+		}
+		//定位到道头信息
+		for (; startPos < len - 4; startPos++){
+			if (lpDataBuff[startPos] == unsigned char(0X54) && lpDataBuff[2 + startPos] == unsigned char(0X54)
+				&& ( ( lpDataBuff[1 + startPos] >= CHANEL_INDEX_BEGIN )&& ( lpDataBuff[1 + startPos] <= CHANEL_INDEX_END ) )
+				&& ( ( lpDataBuff[3 + startPos] >= CHANEL_INDEX_BEGIN )&& ( lpDataBuff[3 + startPos] <= CHANEL_INDEX_END ) )
+				)
+			{
+				findHead = true;
+				break;
+			}
+		}
+
+		if ( !findHead ){
+			break;
+		}
+
+		if ( startPos + channelData > _dataBuf.getDataLen() ){
+			break;
+		}
+
+		osg::ref_ptr<RadarData> rd = new RadarData;
+		rd->setSampleCount( _sampleCount );
+		rd->setSampleRatio( _sampleRatio );
+		rd->setData( lpDataBuff + startPos, channelData );
+		int index = lpDataBuff[startPos + 1] - CHANEL_INDEX_BEGIN;
+
+		if(index>=m_nChannelCount){
+			startPos += channelData;
+			break;
+		}
+
+		startPos += channelData;
+
+		_recordChannelWheelCount[index]=_recordChannelWheelCount[index]+1;
+		
+		if(index<m_nChannelCount&&_recordChannelWheelCount[index]>10&&_recordChannelWheelCount[index]<211){
+			RadarManager::Instance()->addRadarDataToAutoCorrection( rd.get(), index );
+		}
+	}
+	_dataBuf.remove( startPos );
+}
+
+
 
 /*
 bool RadarDataRader::SetChannelLen(RadarData* _radar , int index)

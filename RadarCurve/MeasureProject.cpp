@@ -393,6 +393,83 @@ class SaveFileDataThread : public OpenThreads::Thread{
 //===================================================================class SaveFileDataThread 数据本地保存线程================================================================//
 
 
+//===================================================================class AutoCorrectionCmd 数据检查线程================================================================//
+//===================================================================class AutoCorrectionCmd 数据检查线程================================================================//
+class AutoCorrectionCmd : public OpenThreads::Thread{
+	public:
+		AutoCorrectionCmd(){};
+		~AutoCorrectionCmd(){};
+
+		void run(){
+			while( !testCancel() ){
+				std::vector<osg::ref_ptr<RadarData>> tempQueue;
+				{
+					OpenThreads::ScopedLock<OpenThreads::Mutex> lock(_mutex);
+					tempQueue.swap( _radarDataQueue );//swap操作实现交换两个容器内所有元素的功能
+				}
+				if ( tempQueue.size() > 0 ){
+					//unsigned long startTime = GetTickCount();
+					//std::vector<std::vector<osg::ref_ptr<RadarData>>>::reverse_iterator it;
+					//std::vector<std::vector<osg::ref_ptr<RadarData>>> m_vecRadarGroupData
+					for ( std::vector<osg::ref_ptr<RadarData>>::iterator it = tempQueue.begin(); it != tempQueue.end(); it++ ){
+						RadarData *pRadarData = (*it).get();
+						if ( pRadarData ){
+							if (_MeasureProject){
+								_MeasureProject->AutoCorrection(pRadarData);
+							}
+							pRadarData = NULL;
+						}
+					}
+				}
+				if ( _radarDataQueue.size() == 0 ){
+					_block.reset();
+					_block.block();
+				}
+				if ( !testCancel() ){
+					continue;
+				}
+			}
+		};
+
+		int cancel(){
+			OpenThreads::Thread::cancel();
+			//清空队列
+			std::vector<osg::ref_ptr<RadarData>> tempQueue;
+			{
+				OpenThreads::ScopedLock<OpenThreads::Mutex> lock(_mutex);
+				tempQueue.swap( _radarDataQueue );//swap操作实现交换两个容器内所有元素的功能
+			}
+			if ( isRunning() ){
+				_block.reset();
+				_block.release();
+				join();
+			}
+			return 0;
+		};
+
+		void addData( RadarData *data ){
+			OpenThreads::ScopedLock<OpenThreads::Mutex> lock(_mutex);
+			_radarDataQueue.push_back( data );
+
+			_block.reset();
+			_block.release();
+		};
+
+		//bool init(const char *dbsrc, const char *dbname, const char *user, const char *pass, std::string &projectName);
+	public:
+		OpenThreads::Mutex _mutex;
+		OpenThreads::Block _block;
+		//std::string _projectTab;
+		//typedef std::vector<osg::ref_ptr<SaveDataCmd> > CmdQueue;
+		//CmdQueue _dataQueue;
+		//SGYWriter* _SGYWriter;
+		MeasureProject* _MeasureProject;
+		std::vector<osg::ref_ptr<RadarData>> _radarDataQueue;
+};
+//===================================================================class AutoCorrectionCmd 数据检查线程================================================================//
+//===================================================================class AutoCorrectionCmd 数据检查线程================================================================//
+
+
 
 //===================================================================class CheckDataThread 数据检查线程================================================================//
 //===================================================================class CheckDataThread 数据检查线程================================================================//
@@ -1356,6 +1433,22 @@ MeasureProject::MeasureProject(void)
 
 	m_nCopyFinishedFlag=0;
 
+
+	m_nVecVecAutoCorrectionPointIndex.clear();
+	//m_nVecAutoCorrectionPointIndexCount.clear();
+	m_nVecAutoCorrectionResult.clear();
+	for(int i=0;i<m_nChannelCount;i++){
+		std::vector<int> vecTemp;
+		/*for(int j=0;j<100;j++){
+			vecTemp.push_back(-1);
+		}*/
+		m_nVecVecAutoCorrectionPointIndex.push_back(vecTemp);
+		//m_nVecAutoCorrectionPointIndexCount.push_back(0);
+		m_nVecAutoCorrectionResult.push_back(-1);
+	}
+	
+
+
 	for(int i=0;i<m_nChannelCount;i++){
 		_setMark[i] = false;
 		m_arrnRecordTotalWheelCount[i]=0;
@@ -1373,9 +1466,11 @@ MeasureProject::MeasureProject(void)
 
 	for(int i=0;i<m_nChannelCount;i++){
 		_lpThreadSaveFile[i] = NULL;
+		
 		m_SGYWriter[i] = NULL;
 	}
-	
+
+	_lpThreadAutoCorrection = NULL;
 	_lpThreadCopyData=NULL;
 	_lpThreadCheckData=NULL;
 	_lpThreadSaveOnline=NULL;
@@ -1525,6 +1620,12 @@ MeasureProject::~MeasureProject(void){
 				delete _lpThreadSaveFile[i];
 				_lpThreadSaveFile[i] = NULL;
 			}
+		}
+
+		if (_lpThreadAutoCorrection){
+			_lpThreadAutoCorrection->cancel();
+			delete _lpThreadAutoCorrection;
+			_lpThreadAutoCorrection = NULL;
 		}
 
 		if (true == m_bIsBegin){
@@ -1974,6 +2075,51 @@ void MeasureProject::addData( RadarData *rd, int channelIndex ){
 			lpSaveThread->addData( lpCmd.get() );
 		}
 	}
+}
+
+void MeasureProject::addDataToDataLossCheck( RadarData *rd, int channelIndex ){
+	/*if(index>=m_nTrueChannelCount){
+		return;
+	}
+	
+	m_vecRadarDataGroup.push_back(d);
+		
+	if(m_nTrueChannelCount!=15&&m_nTrueChannelCount!=14&&index==m_nTrueChannelCount-1){
+		if(m_vecRadarDataGroup.size()==m_nTrueChannelCount){
+			g_ThreeViewDlg->addGroupRadarData( m_vecRadarDataGroup );	
+		}
+		m_vecRadarDataGroup.clear();
+	}else if(m_nTrueChannelCount==15&&index==13){//15通道的传输是特例，按照1324 5768 9111012 13151416传输，所以到14才停
+		if(m_vecRadarDataGroup.size()==m_nTrueChannelCount){
+			std::vector<osg::ref_ptr<RadarData>> temp;
+			for(int i=0;i<3;i++){
+				temp.push_back(m_vecRadarDataGroup[i*4+0]);
+				temp.push_back(m_vecRadarDataGroup[i*4+2]);
+				temp.push_back(m_vecRadarDataGroup[i*4+1]);
+				temp.push_back(m_vecRadarDataGroup[i*4+3]);
+			}
+			temp.push_back(m_vecRadarDataGroup[12]);
+			temp.push_back(m_vecRadarDataGroup[14]);
+			temp.push_back(m_vecRadarDataGroup[13]);
+			g_ThreeViewDlg->addGroupRadarData( temp );
+		}
+		m_vecRadarDataGroup.clear();
+	}else if(m_nTrueChannelCount==14&&index==13){//14通道的传输也是特例，按照1324 5768 9111012 13151416传输，所以到14才停
+		if(m_vecRadarDataGroup.size()==m_nTrueChannelCount){
+			std::vector<osg::ref_ptr<RadarData>> temp;
+			for(int i=0;i<3;i++){
+				temp.push_back(m_vecRadarDataGroup[i*4+0]);
+				temp.push_back(m_vecRadarDataGroup[i*4+2]);
+				temp.push_back(m_vecRadarDataGroup[i*4+1]);
+				temp.push_back(m_vecRadarDataGroup[i*4+3]);
+			}
+			temp.push_back(m_vecRadarDataGroup[12]);
+			temp.push_back(m_vecRadarDataGroup[14]);
+			//temp.push_back(m_vecRadarDataGroup[13]);
+			g_ThreeViewDlg->addGroupRadarData( temp );
+		}
+		m_vecRadarDataGroup.clear();
+	}*/
 }
 
 //20200306 hjl 用于测量轮回滚删除数据
@@ -3774,39 +3920,40 @@ void MeasureProject::writeTxtFile(){
 		ofile<<"Y向数据距离间隔(厘米):"<<"0,14,28,42,56,70,84,98,112,126,140,154"<<endl;
 		ofile<<"直达波起点:"<<"0,0,0,0,0,0,0,0,0,0,0,0"<<endl;
 	}else*/ 
-	if(m_nChannelCount==16){
-		ofile<<"Y向数据通道数:"<<16<<endl;
-		ofile<<"Y向数据距离间隔(厘米):"<<"0,14,28,42,56,70,84,98,112,126,140,154,155,156,157,158"<<endl;
-		ofile<<"直达波起点:"<<"0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0"<<endl;
-	}else if(m_nChannelCount==12){
-		ofile<<"Y向数据通道数:"<<12<<endl;
-		ofile<<"Y向数据距离间隔(厘米):"<<"0,14,28,42,56,70,84,98,112,126,140,154"<<endl;
-		ofile<<"直达波起点:"<<"0,0,0,0,0,0,0,0,0,0,0,0"<<endl;
-	}else if(m_nChannelCount==7){
-		ofile<<"Y向数据通道数:"<<7<<endl;
-		ofile<<"Y向数据距离间隔(厘米):"<<"0,24,48,72,96,120,144"<<endl;
-		//ofile<<"直达波起点:"<<"0,0,0,0,0,0"<<endl;
-		ofile<<"直达波起点:"<<"0,0,0,0,0,0,0"<<endl;
+
+	if(m_nChannelCount==4){
+		ofile<<"Y向数据通道数:"<<4<<endl;
+		ofile<<"Y向数据距离间隔(厘米):"<<"0,24,48,72"<<endl;
+		ofile<<"直达波起点:"<<"0,0,0,0"<<endl;
+		//ofile<<"直达波起点:"<<startingPoint<<endl;
 	}else if(m_nChannelCount==6){
 		ofile<<"Y向数据通道数:"<<6<<endl;
 		ofile<<"Y向数据距离间隔(厘米):"<<"0,24,48,72,96,120"<<endl;
 		//ofile<<"直达波起点:"<<"0,0,0,0,0,0"<<endl;
 		ofile<<"直达波起点:"<<startingPoint<<endl;
+	}else if(m_nChannelCount==7){
+		ofile<<"Y向数据通道数:"<<7<<endl;
+		ofile<<"Y向数据距离间隔(厘米):"<<"0,24,48,72,96,120,144"<<endl;
+		//ofile<<"直达波起点:"<<"0,0,0,0,0,0"<<endl;
+		ofile<<"直达波起点:"<<"0,0,0,0,0,0,0"<<endl;
 	}else if(m_nChannelCount==8){
 		ofile<<"Y向数据通道数:"<<8<<endl;
-		ofile<<"Y向数据距离间隔(厘米):"<<"0,24,48,72,96,120,144,168"<<endl;
+		ofile<<"Y向数据距离p间隔(厘米):"<<"0,24,48,72,96,120,144,168"<<endl;
 		ofile<<"直达波起点:"<<"0,0,0,0,0,0,0,0"<<endl;
 		//ofile<<"直达波起点:"<<startingPoint<<endl;
-	}else if(m_nChannelCount==4){
-		ofile<<"Y向数据通道数:"<<4<<endl;
-		ofile<<"Y向数据距离间隔(厘米):"<<"0,24,48,72"<<endl;
-		ofile<<"直达波起点:"<<"0,0,0,0"<<endl;
-		//ofile<<"直达波起点:"<<startingPoint<<endl;
+	}else if(m_nChannelCount==12){
+		ofile<<"Y向数据通道数:"<<12<<endl;
+		ofile<<"Y向数据距离间隔(厘米):"<<"0,14,28,42,56,70,84,98,112,126,140,154"<<endl;
+		ofile<<"直达波起点:"<<"0,0,0,0,0,0,0,0,0,0,0,0"<<endl;
 	}else if(m_nChannelCount==15){
 		ofile<<"Y向数据通道数:"<<15<<endl;
 		ofile<<"Y向数据距离间隔(厘米):"<<"0,12,24,36,48,60,72,84,96,108,120,132,144,156,168"<<endl;
 		ofile<<"直达波起点:"<<"0,0,0,0,0,0,0,0,0,0,0,0,0,0,0"<<endl;
 		//ofile<<"直达波起点:"<<startingPoint<<endl;
+	}else if(m_nChannelCount==16){
+		ofile<<"Y向数据通道数:"<<16<<endl;
+		ofile<<"Y向数据距离间隔(厘米):"<<"0,14,28,42,56,70,84,98,112,126,140,154,155,156,157,158"<<endl;
+		ofile<<"直达波起点:"<<"0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0"<<endl;
 	}else{
 		ofile<<"Y向数据通道数:"<<6<<endl;
 		ofile<<"Y向数据距离间隔(厘米):"<<"0,24,48,72,96,120"<<endl;
@@ -4467,6 +4614,134 @@ void MeasureProject::copyTxtFileForPart(int part){
 	ofile.close();
 }
 
+void MeasureProject::StartAutoCorrection(){
+	m_nVecVecAutoCorrectionPointIndex.clear();
+	//m_nVecAutoCorrectionPointIndexCount.clear();
+	m_nVecAutoCorrectionResult.clear();
+	for(int i=0;i<m_nChannelCount;i++){
+		std::vector<int> vecTemp;
+		/*for(int j=0;j<100;j++){
+			vecTemp.push_back(-1);
+		}*/
+		m_nVecVecAutoCorrectionPointIndex.push_back(vecTemp);
+		//m_nVecAutoCorrectionPointIndexCount.push_back(0);
+		m_nVecAutoCorrectionResult.push_back(-1);
+	}
+	if (_lpThreadAutoCorrection){
+		delete _lpThreadAutoCorrection;
+		_lpThreadAutoCorrection = NULL;
+	}
+	_lpThreadAutoCorrection = new AutoCorrectionCmd;
+	((AutoCorrectionCmd*)_lpThreadAutoCorrection)->_MeasureProject = this;
+	_lpThreadAutoCorrection->start();
+}
+
+//按通道号添加雷达数据添加数据到自动微调延迟线程
+void MeasureProject::addDataToAutoCorrection( RadarData *rd, int channelIndex ){
+	if(channelIndex>=m_nChannelCount){
+		return;
+	}
+
+	((AutoCorrectionCmd*)_lpThreadAutoCorrection)->addData(rd);
+		
+}
+
+void MeasureProject::AutoCorrection(RadarData *rd ){
+	//算好起跳点放至vector相应位置中
+	short sWaveStartThresHold=2000;
+	short sPeakValue=sWaveStartThresHold;
+	int nPeakIndex=-1;
+	//获取通道序号index
+	int len = 0;//用于查看采样点数
+	unsigned char *tempBuff = ( unsigned char *)(rd->getData( len ));
+	int index = tempBuff[1] - 114; //TrTr的r的ascii码是114
+	//转成short并寻找波峰
+	short *lpBuff = ( short *)(rd->getData( len ));//转成short
+	if ( !lpBuff ){
+		return;
+	}
+	int nSampleCount=len/2;
+	int nWaveOverwhelmIndex=0;//用于记录过饱和时开始的index
+	bool bIsWaveOverwhelm=false;//判断过饱和
+	/*short arrTemp[512];
+	for(int i=0;i<512;i++){
+
+	}*/
+	for(int i=4;i<nSampleCount-4;i++){//开头的8个字节是用来记录信息的
+		if(lpBuff[i]<sWaveStartThresHold){
+			continue;
+		}
+		if(lpBuff[i]>sPeakValue){
+			sPeakValue=lpBuff[i];
+		}else if(lpBuff[i]==sPeakValue&&sPeakValue==32767&&bIsWaveOverwhelm==false){//记录过饱和时开始的index
+			nWaveOverwhelmIndex=i;
+			bIsWaveOverwhelm=true;
+		}else if(lpBuff[i]<sPeakValue&&sPeakValue==32767&&bIsWaveOverwhelm==true){//记录过饱和时结束的下一道index
+			if((i+(nWaveOverwhelmIndex-1))%2==0){//波峰index刚好在中间就直接求
+				nPeakIndex=(i+nWaveOverwhelmIndex-1)/2;
+			}
+			//比较过饱和开始前一道与结束下一道的值得出波峰index
+			if(lpBuff[nWaveOverwhelmIndex-1]>=lpBuff[i]){
+				nPeakIndex=(i+nWaveOverwhelmIndex-1-1)/2;
+			}else{
+				nPeakIndex=(i+nWaveOverwhelmIndex-1+1)/2;
+			}
+			break;
+		}else{
+			nPeakIndex=i-1;
+			break;
+		}
+	}
+	if(m_nVecVecAutoCorrectionPointIndex[index].size()>99){//防止多次计算
+		return;
+	}
+	m_nVecVecAutoCorrectionPointIndex[index].push_back(nPeakIndex);	
+	//m_nVecVecAutoCorrectionPointIndex[index][m_nVecAutoCorrectionPointIndexCount[index]]=nPeakIndex;
+	//m_nVecAutoCorrectionPointIndexCount[index]+=1;
+
+	//该index通道的数据量够了 可以算平均值了
+	if(m_nVecVecAutoCorrectionPointIndex[index].size()>99){
+	//if(m_nVecAutoCorrectionPointIndexCount[index]>99){
+		for(int i=0;i<m_nVecVecAutoCorrectionPointIndex[index].size();i++){
+			m_nVecAutoCorrectionResult[index]=m_nVecAutoCorrectionResult[index]+m_nVecVecAutoCorrectionPointIndex[index][i];
+		}
+		m_nVecAutoCorrectionResult[index]=m_nVecAutoCorrectionResult[index]/m_nVecVecAutoCorrectionPointIndex[index].size();
+	}
+
+	//所有通道的峰值索引值都好了就计算并发送结果
+	bool bFinished=true;
+	for(int i=0;i<m_nChannelCount;i++){
+		if(m_nVecAutoCorrectionResult[i]==-1){
+			bFinished=false;
+			break;
+		}
+	}
+	if(bFinished){
+		int nMinPeakIndex=nSampleCount;
+		for(int i=0;i<m_nChannelCount;i++){//找出所有波峰所在位置的最小值
+			if(m_nVecAutoCorrectionResult[i]!=0){
+				if(nMinPeakIndex>m_nVecAutoCorrectionResult[i]){
+					nMinPeakIndex=m_nVecAutoCorrectionResult[i];
+				}
+			}
+		}
+		vector<int> nVecResult;
+		for(int i=0;i<m_nChannelCount;i++){//获取每个通道的校正值
+			nVecResult.push_back(m_nVecAutoCorrectionResult[i]-nMinPeakIndex);
+		}
+		for(int i=0;i<m_nChannelCount;i++){//获取每个通道的校正值
+			if(nVecResult[i]>nSampleCount-4){
+				nVecResult[i]=0;
+			}
+		}
+
+		//发送结果给RadarManager
+		RadarManager::Instance()->SetAutoCorrectionResult(nVecResult);
+		//清内存
+		//m_nVecVecAutoCorrectionPointIndex.clear();
+		//m_nVecAutoCorrectionResult.clear();
+	}
+}
 /*
 //组成ftp端文件路径
 void MeasureProject::getOnlinePath(){

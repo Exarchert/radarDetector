@@ -60,13 +60,13 @@ void DlgRadarParameterConfig::DoDataExchange(CDataExchange* pDX)
 	//DDX_Control(pDX, IDC_COMBO_ADD_COUNT, m_addCountComboBox);//累加次数
 	
 	DDX_Text(pDX, IDC_EDIT_SCREEN_0, m_screenFirstChannels);
-	DDV_MaxChars(pDX, m_screenFirstChannels, 40);
+	DDV_MaxChars(pDX, m_screenFirstChannels, 50);
 	DDX_Text(pDX, IDC_EDIT_SCREEN_1, m_screenSecondChannels);
-	DDV_MaxChars(pDX, m_screenSecondChannels, 40);
+	DDV_MaxChars(pDX, m_screenSecondChannels, 50);
 	DDX_Text(pDX, IDC_EDIT_SCREEN_2, m_screenThirdChannels);
-	DDV_MaxChars(pDX, m_screenThirdChannels, 40);
+	DDV_MaxChars(pDX, m_screenThirdChannels, 50);
 	DDX_Text(pDX, IDC_EDIT_SCREEN_3, m_screenFourthChannels);
-	DDV_MaxChars(pDX, m_screenFourthChannels, 40);
+	DDV_MaxChars(pDX, m_screenFourthChannels, 50);
 
 	//DDX_Control( pDX, IDC_SPECTRUM_1, _spectrumWnd[0]);
 	//DDX_Control( pDX, IDC_SPECTRUM_2, _spectrumWnd[1]);
@@ -228,6 +228,8 @@ BEGIN_MESSAGE_MAP(DlgRadarParameterConfig, CDialog)
 //	ON_CBN_SELENDOK(IDC_COMBO_SAVE_FILE_TYPE, &DlgRadarParameterConfig::OnCbnSelendokComboSaveFileType)
 	ON_CBN_SELCHANGE(IDC_COMBO_SAVE_FILE_TYPE, &DlgRadarParameterConfig::OnCbnSelchangeComboSaveFileType)
 	ON_CBN_SELENDOK(IDC_COMBO_DEVICE_MODEL, &DlgRadarParameterConfig::OnCbnSelendokComboDeviceModel)
+	ON_BN_CLICKED(IDC_AUTO_CORRECTION, &DlgRadarParameterConfig::OnBnClickedAutoCorrection)
+	ON_CBN_SELENDOK(IDC_COMBO_CHANNELCOUNT, &DlgRadarParameterConfig::OnCbnSelendokComboChannelcount)
 END_MESSAGE_MAP()
 
 
@@ -1040,7 +1042,7 @@ void DlgRadarParameterConfig::OnBnClickedButtonApply()
 void DlgRadarParameterConfig::OnBnClickedButtonWaveFormTest()
 {
 	OnBnClickedButtonApply();
-	m_pConfigureSet->set("radar", "testtype", "0");//z暂时设为时间采集
+	//m_pConfigureSet->set("radar", "testtype", "0");//z暂时设为时间采集
 
 	//更新波形显示窗口的采样率和采样点
 	/*
@@ -1369,7 +1371,7 @@ void DlgRadarParameterConfig::refreshControlCondition(){
 		m_ComboBoxSaveFileType.SetCurSel(0);
 	}
 
-	//sgy用二维，rd3用三维
+	//sgy用二维，rd3用三维并自动切屏幕设置
 	if(m_ComboBoxSaveFileType.GetCurSel()==0){
 		m_ComboBoxChannelCount.EnableWindow(false);
 		for(int i=0;i<8;i++){
@@ -1377,11 +1379,24 @@ void DlgRadarParameterConfig::refreshControlCondition(){
 		}
 	}else if(m_ComboBoxSaveFileType.GetCurSel()==1){
 		m_ComboBoxChannelCount.EnableWindow(true);
+		std::stringstream ss;
+		ss <<m_ComboBoxChannelCount.GetCurSel();
+		USES_CONVERSION;
+		m_screenFirstChannels = A2W(m_pConfigureSet->get("recommendFirstScreen",ss.str()).c_str());
+		m_screenSecondChannels = A2W(m_pConfigureSet->get("recommendSecondScreen",ss.str()).c_str());
+		UpdateData( FALSE );
 		for(int i=0;i<8;i++){
 			m_CheckBox_Channel[i].EnableWindow(false);
 		}
 	}
 	//GetDlgItem(IDC_EDIT1)->EnableWindow(false);
+}
+
+void DlgRadarParameterConfig::SetCorrection(std::vector<int> correction){
+	for(int i=0;i<correction.size();i++){
+		m_dCorrection[i] = correction[i];
+	}	
+	UpdateData( FALSE );
 }
 
 //void DlgRadarParameterConfig::OnCbnCloseupComboUploadType()
@@ -1419,4 +1434,15 @@ void DlgRadarParameterConfig::OnCbnSelchangeComboSaveFileType()
 void DlgRadarParameterConfig::OnCbnSelendokComboDeviceModel()
 {
 	refreshControlCondition();
+}
+
+void DlgRadarParameterConfig::OnCbnSelendokComboChannelcount()
+{
+	refreshControlCondition();
+}
+
+void DlgRadarParameterConfig::OnBnClickedAutoCorrection()
+{
+	RadarManager::Instance()->AutoPeakCorrection();
+	OnBnClickedButtonWaveFormTest();
 }
