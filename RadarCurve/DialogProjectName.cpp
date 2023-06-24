@@ -158,6 +158,17 @@ BOOL CDialogProjectName::OnInitDialog()
 	// 异常: OCX 属性页应返回 FALSE
 }
 
+std::string deleteCharString(std::string sourceString, char chElemData){
+	std::string resultString = "";
+    for (int i = 0; i < sourceString.length(); i++) {
+        if (sourceString[i] != chElemData) {
+            resultString += sourceString[i];
+        }
+    }
+    return resultString;
+}
+
+
 void CDialogProjectName::OnBnClickedOk()
 {
 	// TODO: 在此添加控件通知处理程序代码
@@ -195,6 +206,17 @@ void CDialogProjectName::OnBnClickedOk()
 
 	//m_daohao.GetLBText ( m_daohao.GetCurSel(), m_strDaohao );、//不用commbox了
 	//m_strDaohao = m_cstrRoadNumber;
+	//去空格
+	std::string strRoadName,strRoadSection,strRoadNumber;
+	strRoadName = CT2A(m_cstrRoadName.GetString()); 
+	strRoadSection = CT2A(m_cstrRoadSection.GetString()); 
+	strRoadNumber = CT2A(m_cstrRoadNumber.GetString()); 
+	strRoadName=deleteCharString(strRoadName,' ');
+	strRoadSection=deleteCharString(strRoadSection,' ');
+	strRoadNumber=deleteCharString(strRoadNumber,' ');
+	m_cstrRoadName=strRoadName.c_str();
+	m_cstrRoadSection=strRoadSection.c_str();
+	m_cstrRoadNumber=strRoadNumber.c_str();
 	
 	m_ccomboboxDirection.GetLBText ( m_ccomboboxDirection.GetCurSel(), m_cstrDirection );
 
@@ -253,6 +275,9 @@ void CDialogProjectName::OnBnClickedOk()
 	}
 	inum += 1 * (*tcP - '0');
 	m_startLen = inum * 1000 + m_fDistance;
+
+
+
 
 	USES_CONVERSION;
 	m_pConfigureSet->set( "projectname", "roadname", W2A( m_cstrRoadName ) );

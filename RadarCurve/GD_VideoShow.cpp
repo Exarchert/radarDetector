@@ -250,10 +250,10 @@ GD_VideoShow::GD_VideoShow(CWnd* pParent /*=NULL*/)
 	ZeroMemory(szKeyVal,256*sizeof(TCHAR));
 	::GetPrivateProfileString(_T("VIDEOSOURCE"),_T("SHOWWINDOWUNM"),_T(""), szKeyVal, MAX_PATH, strIni);
 	m_iShowWindowNum = _ttoi(szKeyVal);
-	if (m_iShowWindowNum != 2 && m_iShowWindowNum != 4)
+	/*if (m_iShowWindowNum != 2 && m_iShowWindowNum != 4)
 	{
 		m_iShowWindowNum = SHOW_WINDW_SUM_2;
-	}
+	}*/ //hjl 20230425
 
 
 }
@@ -521,6 +521,8 @@ void GD_VideoShow::CalculateTime(int iWindow)
 	} 
 }
 
+
+
 void GD_VideoShow::OnTimer(UINT_PTR nIDEvent)
 {
 	// TODO: 在此添加消息处理程序代码和/或调用默认值
@@ -530,7 +532,7 @@ void GD_VideoShow::OnTimer(UINT_PTR nIDEvent)
 		ShowWindow(false);
 	}
 
-	if (nIDEvent == TIMER_ID && (*m_mapHProperty)[1] != NULL) {
+	/*if (nIDEvent == TIMER_ID && (*m_mapHProperty)[1] != NULL) {
 		XI_DEVICE_TYPE devType = XIP_GetDeviceType((*m_mapHProperty)[1]);
 		BOOL bChanged = FALSE;
 
@@ -612,7 +614,7 @@ void GD_VideoShow::OnTimer(UINT_PTR nIDEvent)
 			}
 			SaveData(I_WINDOW_4);
 		}
-	}
+	}*/
 	CDialog::OnTimer(nIDEvent);
 }
 
@@ -649,7 +651,7 @@ void GD_VideoShow::OnPaint()
 	CPaintDC dc(this); // device context for painting
 	// TODO: 在此处添加消息处理程序代码
 
-	if ((*m_mapHRenderer)[1]) {
+	/*if ((*m_mapHRenderer)[1]) {
 		XIS_VideoRendererRepaintRect((*m_mapHRenderer)[1], NULL);
 	}
 	if ((*m_mapHRenderer)[2]) {
@@ -664,6 +666,11 @@ void GD_VideoShow::OnPaint()
 		if ((*m_mapHRenderer)[4]) {
 			XIS_VideoRendererRepaintRect((*m_mapHRenderer)[4], NULL);
 		}		
+	}*/
+	for(int i=0;i<m_iShowWindowNum;i++){
+		if ((*m_mapHRenderer)[i+1]) {
+			XIS_VideoRendererRepaintRect((*m_mapHRenderer)[i+1], NULL);
+		}
 	}
 }
 
@@ -713,12 +720,16 @@ void GD_VideoShow::OnMove(int x, int y)
 	CDialog::OnMove(x, y);
 
 	// TODO: 在此处添加消息处理程序代码
-	UpdateRenderer(I_WINDOW_1);
+	
+	/*UpdateRenderer(I_WINDOW_1);
 	UpdateRenderer(I_WINDOW_2);
 	if (SHOW_WINDW_SUM_4 == m_iShowWindowNum)
 	{
 		UpdateRenderer(I_WINDOW_3);
 		UpdateRenderer(I_WINDOW_4);
+	}*/
+	for(int i=0;i<m_iShowWindowNum;i++){
+		UpdateRenderer(i+1);
 	}
 }
 
@@ -732,7 +743,215 @@ void GD_VideoShow::OnSize(UINT nType, int cx, int cy)
 		m_iCountTimeOne++;
 		return;
 	}
-	if (SHOW_WINDW_SUM_2 == m_iShowWindowNum)
+	
+	if (m_iShowWindowNum<4){
+		if (300 < cx  && 200 < cy){
+			CWnd* lWnd = NULL;
+			int nEachX = cx / m_iShowWindowNum;
+			int nEachY = cy / m_iShowWindowNum;
+			int nIntervalX = 10;
+			int nIntervalY = 20;
+			int nIntervalMap = 3;
+
+			int btnSpaceY = 50;
+			int btnHeight = cy - 40;
+
+			for(int i=0;i<m_iShowWindowNum;i++){
+				lWnd = (*m_mapStaticWindow)[i+1];
+				lWnd->SetWindowPos( NULL,nIntervalX+nEachX*i,nIntervalY,nEachX - nIntervalX*2,cy - nIntervalY - btnSpaceY, 
+					SWP_NOZORDER );
+				lWnd->UpdateWindow();
+				lWnd->UpdateData();
+				
+				lWnd = (*m_mapWStaticTite)[i+1];
+				lWnd->SetWindowPos( NULL,nIntervalMap+nEachX*i,nIntervalMap,nEachX - nIntervalMap*2, cy - nIntervalMap*2, 
+					SWP_NOZORDER );
+				lWnd->UpdateWindow();
+				
+				lWnd = (*m_mapStaticLineRoud)[i+1];
+				lWnd->SetWindowPos( NULL,nEachX*(i+1) - 190,btnHeight + 5,0 ,0, 
+					SWP_NOZORDER | SWP_NOSIZE);
+				lWnd->UpdateWindow();
+				
+				lWnd = (*m_mapEditIn)[i+1];
+				lWnd->SetWindowPos( NULL,nEachX*(i+1) - 160,btnHeight,0 ,0, 
+					SWP_NOZORDER  | SWP_NOSIZE);
+				lWnd->UpdateWindow();
+				
+				lWnd = (*m_mapBtnOK)[i+1];
+				lWnd->SetWindowPos( NULL,nEachX*(i+1) - 100,btnHeight,0 ,0, 
+					SWP_NOZORDER  | SWP_NOSIZE);
+				lWnd->UpdateWindow();
+			}
+			for(int i=0;i<m_iShowWindowNum;i++){
+				UpdateRenderer(i+1);
+			}
+		}
+	}else if (SHOW_WINDW_SUM_4 == m_iShowWindowNum){
+		if (400 < cx  && 250 < cy){
+			CWnd* lWnd = NULL;
+			int halfX = cx / 2;
+			int halfY = cy / 2;
+			int jiangeX = 10;
+			int jiangeY = 20;
+			int jiamMap = 3;
+
+			int btnSpaceY = 50;
+			int btnHeight = halfY - 40;
+
+			
+			lWnd = (*m_mapStaticWindow)[1];
+			lWnd->SetWindowPos( NULL,jiangeX,jiangeY,halfX - jiangeX - jiangeX ,halfY - jiangeY - btnSpaceY,
+				SWP_NOZORDER );
+			lWnd->UpdateWindow();
+			lWnd->UpdateData();
+			
+			lWnd = (*m_mapWStaticTite)[1];
+			lWnd->SetWindowPos( NULL,jiamMap,jiamMap,halfX - jiamMap - jiamMap ,halfY - jiamMap - jiamMap,
+				SWP_NOZORDER );
+			lWnd->UpdateWindow();
+			
+			lWnd = (*m_mapStaticLineRoud)[1];
+			lWnd->SetWindowPos( NULL,halfX - 190,btnHeight + 5,0 ,0,
+				SWP_NOZORDER | SWP_NOSIZE);
+			lWnd->UpdateWindow();
+			
+			lWnd = (*m_mapEditIn)[1];
+			lWnd->SetWindowPos( NULL,halfX - 160,btnHeight,0 ,0,
+				SWP_NOZORDER  | SWP_NOSIZE);
+			lWnd->UpdateWindow();
+			
+			lWnd = (*m_mapBtnOK)[1];
+			lWnd->SetWindowPos( NULL,halfX - 100,btnHeight,0 ,0,
+				SWP_NOZORDER  | SWP_NOSIZE);
+			lWnd->UpdateWindow();
+			lWnd = (*m_mapStaticWindow)[2];
+			lWnd->SetWindowPos( NULL,jiangeX + halfX,jiangeY,halfX - jiangeX - jiangeX ,halfY - jiangeY - btnSpaceY,
+				SWP_NOZORDER );
+			lWnd->UpdateWindow();
+			lWnd->UpdateData();
+			
+			lWnd = (*m_mapWStaticTite)[2];
+			lWnd->SetWindowPos( NULL,jiamMap + halfX,jiamMap,halfX - jiamMap - jiamMap ,halfY - jiamMap - jiamMap,
+				SWP_NOZORDER );
+			lWnd->UpdateWindow();
+			
+			lWnd = (*m_mapStaticLineRoud)[2];
+			lWnd->SetWindowPos( NULL,cx - 190,btnHeight + 5,0 ,0,
+				SWP_NOZORDER  | SWP_NOSIZE);
+			lWnd->UpdateWindow();
+			
+			lWnd = (*m_mapEditIn)[2];
+			lWnd->SetWindowPos( NULL,cx - 160,btnHeight,0 ,0,
+				SWP_NOZORDER  | SWP_NOSIZE);
+			lWnd->UpdateWindow();
+			
+			lWnd = (*m_mapBtnOK)[2];
+			lWnd->SetWindowPos( NULL,cx - 100,btnHeight,0 ,0,
+				SWP_NOZORDER  | SWP_NOSIZE);
+			lWnd->UpdateWindow();
+
+			
+			lWnd = (*m_mapStaticWindow)[3];
+			lWnd->SetWindowPos( NULL,jiangeX,jiangeY + halfY,halfX - jiangeX - jiangeX ,halfY - jiangeY - btnSpaceY,
+				SWP_NOZORDER );
+			lWnd->UpdateWindow();
+			lWnd->UpdateData();
+			
+			lWnd = (*m_mapWStaticTite)[3];
+			lWnd->SetWindowPos( NULL,jiamMap,jiamMap + halfY,halfX - jiamMap - jiamMap ,halfY - jiamMap - jiamMap,
+				SWP_NOZORDER );
+			lWnd->UpdateWindow();
+			
+			lWnd = (*m_mapStaticLineRoud)[3];
+			lWnd->SetWindowPos( NULL,halfX - 190,btnHeight + halfY + 5,0 ,0,
+				SWP_NOZORDER | SWP_NOSIZE);
+			lWnd->UpdateWindow();
+			
+			lWnd = (*m_mapEditIn)[3];
+			lWnd->SetWindowPos( NULL,halfX - 160,btnHeight + halfY,0 ,0,
+				SWP_NOZORDER  | SWP_NOSIZE);
+			lWnd->UpdateWindow();
+			
+			lWnd = (*m_mapBtnOK)[3];
+			lWnd->SetWindowPos( NULL,halfX - 100,btnHeight + halfY,0 ,0,
+				SWP_NOZORDER  | SWP_NOSIZE);
+			lWnd->UpdateWindow();
+
+			lWnd = (*m_mapStaticWindow)[4];
+			lWnd->SetWindowPos( NULL,jiangeX + halfX,jiangeY + halfY,halfX - jiangeX - jiangeX ,halfY - jiangeY - btnSpaceY,
+				SWP_NOZORDER );
+			lWnd->UpdateWindow();
+			lWnd->UpdateData();
+			lWnd = (*m_mapWStaticTite)[4];
+			lWnd->SetWindowPos( NULL,jiamMap + halfX,jiamMap + halfY,halfX - jiamMap - jiamMap ,halfY - jiamMap - jiamMap,
+				SWP_NOZORDER );
+			lWnd->UpdateWindow();
+			lWnd = (*m_mapStaticLineRoud)[4];
+			lWnd->SetWindowPos( NULL,cx - 190,btnHeight + halfY + 5,0 ,0,
+				SWP_NOZORDER  | SWP_NOSIZE);
+			lWnd->UpdateWindow();
+			lWnd = (*m_mapEditIn)[4];
+			lWnd->SetWindowPos( NULL,cx - 160,btnHeight + halfY,0 ,0,
+				SWP_NOZORDER  | SWP_NOSIZE);
+			lWnd->UpdateWindow();
+			lWnd = (*m_mapBtnOK)[4];
+			lWnd->SetWindowPos( NULL,cx - 100,btnHeight + halfY,0 ,0,
+				SWP_NOZORDER  | SWP_NOSIZE);
+			lWnd->UpdateWindow();
+			UpdateWindow();
+		}
+		UpdateRenderer(I_WINDOW_1);
+		UpdateRenderer(I_WINDOW_2);
+		UpdateRenderer(I_WINDOW_3);
+		UpdateRenderer(I_WINDOW_4);
+	}
+
+	/*if (m_iShowWindowNum==1)
+	{
+		if (400 < cx  && 200 < cy)
+		{
+			CWnd* lWnd = NULL;
+			int nEachX = cx / m_iShowWindowNum;
+			int nEachY = cy / m_iShowWindowNum;
+			int nIntervalX = 10;
+			int nIntervalY = 20;
+			int nIntervalMap = 3;
+
+			int btnSpaceY = 50;
+			int btnHeight = cy - 40;
+
+			lWnd = (*m_mapStaticWindow)[1];
+			lWnd->SetWindowPos( NULL,jiangeX,jiangeY,cx - jiangeX - jiangeX,cy - jiangeY - btnSpaceY,
+				SWP_NOZORDER );
+			lWnd->UpdateWindow();
+			lWnd->UpdateData();
+			
+			lWnd = (*m_mapWStaticTite)[1];
+			lWnd->SetWindowPos( NULL,jiamMap,jiamMap,cx  - jiamMap - jiamMap,cy - jiamMap - jiamMap,
+				SWP_NOZORDER );
+			lWnd->UpdateWindow();
+			
+			lWnd = (*m_mapStaticLineRoud)[1];
+			lWnd->SetWindowPos( NULL,cx - 190,btnHeight + 5,0 ,0,
+				SWP_NOZORDER | SWP_NOSIZE);
+			lWnd->UpdateWindow();
+			
+			lWnd = (*m_mapEditIn)[1];
+			lWnd->SetWindowPos( NULL,cx - 160,btnHeight,0 ,0,
+				SWP_NOZORDER  | SWP_NOSIZE);
+			lWnd->UpdateWindow();
+			
+			lWnd = (*m_mapBtnOK)[1];
+			lWnd->SetWindowPos( NULL,cx - 100,btnHeight,0 ,0,
+				SWP_NOZORDER  | SWP_NOSIZE);
+			lWnd->UpdateWindow();
+
+			UpdateWindow();
+		}
+		UpdateRenderer(I_WINDOW_1);
+	}
+	else if (SHOW_WINDW_SUM_2 == m_iShowWindowNum)
 	{
 		if (400 < cx  && 200 < cy)
 		{
@@ -922,7 +1141,7 @@ void GD_VideoShow::OnSize(UINT nType, int cx, int cy)
 		UpdateRenderer(I_WINDOW_2);
 		UpdateRenderer(I_WINDOW_3);
 		UpdateRenderer(I_WINDOW_4);
-	}
+	}*/
 }
 
 void GD_VideoShow::OnBnClickedButtonPlayleft()
@@ -1027,6 +1246,60 @@ void GD_VideoShow::SaveData(int iWindow)
 	RadarManager::Instance()->savePicPath( strPng,iWindow);
 }
 
+void GD_VideoShow::SaveData(int iWindow,std::string strOriginalName,int nQuality)
+{
+	if (!(*m_mapBBigenSaveImage)[iWindow])
+	{
+		return;
+	}
+
+	CalculateTime(iWindow);
+
+	USES_CONVERSION;
+	CString strFileName; 
+	strFileName = strOriginalName.c_str();//A2W(strProPath.c_str());
+	CString strPath;
+	if(I_WINDOW_1 == iWindow){
+		strPath.Format(_T("%s_A.png"),strFileName);
+	}else if(I_WINDOW_2 == iWindow){
+		strPath.Format(_T("%s_B.png"),strFileName);
+	}else if(I_WINDOW_3 == iWindow){
+		strPath.Format(_T("%s_C.png"),strFileName);
+	}else if(I_WINDOW_4 == iWindow){
+		strPath.Format(_T("%s_D.png"),strFileName);
+	}
+	
+	//XIS_VideoCaptureCreateSnapShot((*m_mapHVideoDevice)[iWindow], strPath, 75);
+	XIS_VideoCaptureCreateSnapShot((*m_mapHVideoDevice)[iWindow], strPath, nQuality);
+	
+
+	//std::string strPng = W2A(strName);
+	//RadarManager::Instance()->savePicPath( strPng,iWindow);
+}
+
+void GD_VideoShow::SaveAllData(std::string strOriginalName, int nQuality){
+	for(int i=1;i<4;i++){
+		if ((*m_mapHProperty)[i] != NULL) {
+			XI_DEVICE_TYPE devType = XIP_GetDeviceType((*m_mapHProperty)[i]);
+			BOOL bChanged = FALSE;
+
+			if (XI_DEVICE_HDVIDEO_CAPTURE == devType) {
+				bChanged = (XIPHD_IsSignalChanged((*m_mapHProperty)[i]) == S_OK);
+			}
+			else {
+				bChanged = (XIPCVBS_IsSignalChanged((*m_mapHProperty)[i]) == S_OK);
+			}
+			if (bChanged) {
+				if ((*m_mapHMP4Muxer)[i] != NULL) {
+					OnFileStop(i);
+				}
+				ResizeWindow(i);
+			}
+			SaveData(i,strOriginalName,nQuality);
+		}
+	}
+}
+
 CString GD_VideoShow::GetSysTimeYMDHMS()
 {
 	SYSTEMTIME lpTime;
@@ -1104,8 +1377,27 @@ void GD_VideoShow::VideoShow()
 	OnSize(0,wndRect.Width(),wndRect.Height());
 	ShowWindow(SW_SHOW);
 
-	if (SHOW_WINDW_SUM_2 == m_iShowWindowNum)
-	{
+	if(m_iShowWindowNum==1){
+		GetDlgItem(IDC_STATIC_PLAY_TOPL2)->ShowWindow(false);
+		GetDlgItem(IDC_STATIC_PLAY_TOPL3)->ShowWindow(false);
+		GetDlgItem(IDC_STATIC_PLAY_TOPL4)->ShowWindow(false);
+
+		GetDlgItem(IDC_STATIC_VIDEO_2)->ShowWindow(false);
+		GetDlgItem(IDC_STATIC_VIDEO_3)->ShowWindow(false);
+		GetDlgItem(IDC_STATIC_VIDEO_4)->ShowWindow(false);
+
+		GetDlgItem(IDC_STATIC_LINE2)->ShowWindow(false);
+		GetDlgItem(IDC_STATIC_LINE3)->ShowWindow(false);
+		GetDlgItem(IDC_STATIC_LINE4)->ShowWindow(false);
+
+		GetDlgItem(IDC_EDIT_PART2)->ShowWindow(false);
+		GetDlgItem(IDC_EDIT_PART3)->ShowWindow(false);
+		GetDlgItem(IDC_EDIT_PART4)->ShowWindow(false);
+
+		GetDlgItem(IDC_BUTTON_PLAYLEFT2)->ShowWindow(false);
+		GetDlgItem(IDC_BUTTON_PLAYLEFT3)->ShowWindow(false);
+		GetDlgItem(IDC_BUTTON_PLAYLEFT4)->ShowWindow(false);
+	}else if(m_iShowWindowNum==2){
 		GetDlgItem(IDC_STATIC_PLAY_TOPL3)->ShowWindow(false);
 		GetDlgItem(IDC_STATIC_PLAY_TOPL4)->ShowWindow(false);
 
@@ -1120,9 +1412,21 @@ void GD_VideoShow::VideoShow()
 
 		GetDlgItem(IDC_BUTTON_PLAYLEFT3)->ShowWindow(false);
 		GetDlgItem(IDC_BUTTON_PLAYLEFT4)->ShowWindow(false);
+	}else if(m_iShowWindowNum==3){
+		GetDlgItem(IDC_STATIC_PLAY_TOPL4)->ShowWindow(false);
+
+		GetDlgItem(IDC_STATIC_VIDEO_4)->ShowWindow(false);
+
+		GetDlgItem(IDC_STATIC_LINE4)->ShowWindow(false);
+
+		GetDlgItem(IDC_EDIT_PART4)->ShowWindow(false);
+
+		GetDlgItem(IDC_BUTTON_PLAYLEFT4)->ShowWindow(false);
 	}
 
-	if (false == (*m_mapBOpenDevice)[1])
+
+
+	/*if (false == (*m_mapBOpenDevice)[1])
 	{
 		(*m_mapBOpenDevice)[1] = true;
 		OpenDevice((*(*m_mapEditValue)[1]) - 1,I_WINDOW_1);
@@ -1145,7 +1449,15 @@ void GD_VideoShow::VideoShow()
 			(*m_mapBOpenDevice)[4] = true;
 			OpenDevice((*(*m_mapEditValue)[4]) - 1,I_WINDOW_4);
 		}
+	}*/
+	for(int i=0;i<m_iShowWindowNum;i++){
+		if (false == (*m_mapBOpenDevice)[i+1])
+		{
+			(*m_mapBOpenDevice)[i+1] = true;
+			OpenDevice((*(*m_mapEditValue)[i+1]) - 1,i+1);
+		}
 	}
+
 	this->SendMessage(WM_SIZE,0,0);
 	UpdateWindow();
 	UpdateData();
@@ -1153,7 +1465,7 @@ void GD_VideoShow::VideoShow()
 
 void GD_VideoShow::StartSaveImage( bool bSaveImage )
 {
-	if (false == (*m_mapBOpenDevice)[1])
+	/*if (false == (*m_mapBOpenDevice)[1])
 	{
 		(*m_mapBOpenDevice)[1] = true;
 		OpenDevice((*(*m_mapEditValue)[1]) - 1,I_WINDOW_1);
@@ -1186,20 +1498,33 @@ void GD_VideoShow::StartSaveImage( bool bSaveImage )
 	(*m_mapBSaveImageFirst)[1] = true;
 	(*m_mapBSaveImageFirst)[2] = true;
 	(*m_mapBBigenSaveImage)[1] = true;
-	(*m_mapBBigenSaveImage)[2] = true;
+	(*m_mapBBigenSaveImage)[2] = true;*/
+
+	for(int i=0;i<m_iShowWindowNum;i++){
+		if (false == (*m_mapBOpenDevice)[i+1])
+		{
+			(*m_mapBOpenDevice)[i+1] = true;
+			OpenDevice((*(*m_mapEditValue)[1]) - 1,i+1);
+		}
+		(*m_mapBSaveImageFirst)[i+1] = true;
+		(*m_mapBBigenSaveImage)[i+1] = true;
+	}
 
 }
 
 
 void GD_VideoShow::StopSaveImage( bool bSaveImage /*= true*/ )
 {
-	(*m_mapBBigenSaveImage)[1] = false;
+	/*(*m_mapBBigenSaveImage)[1] = false;
 	(*m_mapBBigenSaveImage)[2] = false;
 
 	if (SHOW_WINDW_SUM_4 == m_iShowWindowNum)
 	{
 		(*m_mapBBigenSaveImage)[3] = false;
 		(*m_mapBBigenSaveImage)[4] = false;
+	}*/
+	for(int i=0;i<m_iShowWindowNum;i++){
+		(*m_mapBBigenSaveImage)[i+1] = false;
 	}
 }
 

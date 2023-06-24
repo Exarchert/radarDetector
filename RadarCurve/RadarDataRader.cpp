@@ -109,7 +109,7 @@ RadarDataRader::RadarDataRader(void)
 	_lpReadThread = NULL;
 
 	_channelCount = MAX_CHANNEL;
-	m_nChannelCount = MAX_CHANNEL;
+	m_nTrueChannelCount = MAX_CHANNEL;
 	_sampleCount = 512;
 	_sampleRatio = 51.2f;
 	_hadInit = false;
@@ -185,7 +185,7 @@ void RadarDataRader::init()
 	_sampleCount = RadarManager::Instance()->getSampCount( atoi ( cs->get("radar", "sample" ).c_str() ) );
 	_sampleRatio = RadarManager::Instance()->getSampRatio( atoi( cs->get("radar", "sampleratio").c_str()), 0 );
 	
-	m_nChannelCount = RadarManager::Instance()->GetTrueChannelCount();
+	m_nTrueChannelCount = RadarManager::Instance()->GetTrueChannelCount();
 
 	_channelCount = atoi( cs->get("radar", "count").c_str() );
 	if ( _channelCount == 0 )
@@ -332,11 +332,16 @@ bool RadarDataRader::open(int iType)
 bool RadarDataRader::openForSetting( std::string const& targetIP, unsigned int port )
 {
 	ConfigureSet *cs = RadarManager::Instance()->getConfigureSet();
-	m_bNeed3DDisplay = atoi ( cs->get("radar", "saveFileType" ).c_str() ) ;//rd3才需要加到三视图里
+	m_nSaveFileType = atoi ( cs->get("radar", "saveFileType" ).c_str() ) ;//rd3才需要加到三视图里
 	/*m_bNeedCopyInPreview = atoi ( cs->get("radar", "saveFileType" ).c_str() ) ;//rd3三维主板才需要复制
-	if(m_nChannelCount==15){
+	if(m_nTrueChannelCount==15){
 		m_bNeedCopyInPreview=0;
 	}*/
+	for(int i=0;i<8;i++){
+		std::stringstream ss;
+		ss << i;
+		m_nArr2DChannel[i]=atoi(cs->get("2DchannelCheckBox", ss.str()).c_str());
+	}
 
 	for ( int i = 0 ; i < MAX_CHANNEL; i ++ )
 	{
@@ -385,77 +390,6 @@ bool RadarDataRader::openForSetting( std::string const& targetIP, unsigned int p
 // 		sendData( 0X88 );
 		//_lpReadThread = new ReceiveNetDataThread( this );
 		//_lpReadThread->start();
-		/*
-		寒气3 攻击7 看破7 超心3 弱特3 攻守3 翔虫3 防御7 磐石3 集中3 防御强化1 耐绝3 耐冲1 提供1 龙气活性5 
-		怪异克服炎王龙头
-		孔位：3+2 技能：粉尘绕1 弱特1 看破2
-		冰呪龙胸
-		孔位：4+2+1 技能：寒气1 纳刀3
-		冰呪龙手
-		孔位：3+2+1技能：寒气1 拔刀技3
-		炼化：防御-12 拔刀技-3 换 攻击3
-		冰呪龙腰
-		孔位：3+3+2技能：寒气1 集中3
-		怪异克服天彗龙脚
-		孔位：4+3 技能：超心1 耐绝3 攻击2
-		护石
-		孔位：4+1+1 技能：攻击3 看破2 
-		总孔位：4*3 3*5 2*4 1*4
-		原技能
-		寒气3 攻击5 看破4 超心1 弱特1 攻守0 翔虫3 防御0 磐石0 集中3 防御强化1 耐绝3 耐冲0 提供0 气血0 龙气活性0 
-		尚缺技能点
-		寒气0 攻击2 看破3 超心2 弱特2 攻守3 翔虫3 防御7 磐石3 集中0 防御强化1 耐绝0 耐冲1 提供1 气血1 龙气活性5
-		装饰珠
-		1级孔 提供1 磐石1 磐石1 磐石1
-		2级孔 超心1 超心1 弱特1 弱特1
-		3级孔 攻守1 气血1 攻击1 看破1 看破1
-		4级孔 防御5 攻守2 翔虫2
-		
-		尚缺技能点
-		寒气0 攻击1 看破1 超心0 弱特0 攻守0 翔虫1 防御2 磐石0 集中0 防御强化1 耐绝0 耐冲1 提供0 气血0 龙气活性5
-		怪异炼化
-		头 自带10
-		增加cost 粉尘绕-1 冰耐性-1 
-		消耗cost  防御+1 防御+1 攻击+1 1cost
-		胸 自带10
-		增加cost 纳刀-1 纳刀-1 纳刀-1
-		消耗cost 龙气活性+1 龙气活性+1 龙气活性+1 匠+1 1cost
-		手 自带10
-		增加cost 拔刀技-1 拔刀技-1 拔刀技-1 
-		消耗cost 龙气活性+1 龙气活性+1 看破+1 防御强化+1 1cost
-		腰 自带10
-		增加cost 
-		消耗cost 精灵加护+1 精灵加护+1 精灵加护+1 
-		腿 自带10
-		增加cost 冰耐性-1
-		消耗cost 翔虫+1 耐冲+1 0cost
-
-		最终
-		怪异克服炎王龙头
-		怪异炼化：粉尘绕-1 冰耐性-1 防御+1 防御+1 攻击+1 
-		装饰珠：3级孔守势珠【3】 2级孔超心珠【2】
-		冰呪龙胸
-		怪异炼化：纳刀术-1 纳刀术-1 纳刀术-1 匠+1 龙气活性+1 龙气活性+1 龙气活性+1 
-		装饰珠：4级孔防御珠V【4】 2级孔超心珠【2】 1级孔提供珠【1】
-		冰呪龙手
-		怪异炼化：拔刀术【技】-1 拔刀术【技】-1 拔刀术【技】-1 防御强化+1 看破+1 龙气活性+1 龙气活性+1  
-		装饰珠：3级孔气血珠【3】 2级孔痛击珠【2】 1级孔磐石珠【1】
-		冰呪龙腰
-		怪异炼化：精灵加护+1 精灵加护+1 精灵加护+1 
-		装饰珠：3级孔攻击珠【2】 3级孔攻击珠【2】 2级孔痛击珠【2】
-		怪异克服天彗龙脚
-		怪异炼化：冰耐性-1 翔虫使+1 减轻胆怯+1
-		装饰珠：4级孔守势珠II【4】 3级孔攻击珠【2】
-		护石
-		装饰珠：4级孔翔虫珠II【4】 1级孔磐石珠【1】 1级孔磐石珠【1】
-		武器强化到9个槽 其中8个槽放攻击+4
-
-
-		防御-6+3 -12+5
-		属性-1容量+2 -3容量+3
-		孔 1洞-6
-		最多7个词条
-		*/
 	}else{//没连接成功需要将设备编号置空
 		RadarManager::Instance()->setDeviceCode( "undefined" );
 		//RadarManager::Instance()->setDeviceCode( "3D14" );
@@ -502,11 +436,17 @@ bool RadarDataRader::openForAutoCorrecting( std::string const& targetIP, unsigne
 bool RadarDataRader::open( std::string const& targetIP, unsigned int port )
 {
 	ConfigureSet *cs = RadarManager::Instance()->getConfigureSet();
-	m_bNeed3DDisplay = atoi ( cs->get("radar", "saveFileType" ).c_str() );//rd3才需要加到三视图里
+	m_nSaveFileType = atoi ( cs->get("radar", "saveFileType" ).c_str() );//rd3才需要加到三视图里
 	/*m_bNeedCopyInPreview = atoi ( cs->get("radar", "saveFileType" ).c_str() );//rd3三维主板才需要复制
-	if(m_nChannelCount==15){
+	if(m_nTrueChannelCount==15){
 		m_bNeedCopyInPreview=0;
 	}*/
+	for(int i=0;i<8;i++){
+		std::stringstream ss;
+		ss << i;
+		m_nArr2DChannel[i]=atoi(cs->get("2DchannelCheckBox", ss.str()).c_str());
+	}
+
 	for ( int i = 0 ; i < MAX_CHANNEL; i ++ )
 	{
 		_channelWheelCount[i] = -1;
@@ -586,7 +526,7 @@ void RadarDataRader::parseHeadData( char *buff, int len )
 {
 	RadarManager *lpManager = RadarManager::Instance();
 	ConfigureSet *cfg = RadarManager::Instance()->getConfigureSet();
-	m_nChannelCount = RadarManager::Instance()->GetTrueChannelCount();
+	m_nTrueChannelCount = RadarManager::Instance()->GetTrueChannelCount();
 	if ( !lpManager )
 	{
 		return;
@@ -681,9 +621,9 @@ void RadarDataRader::parseHeadData( char *buff, int len )
 				if(atoi( cfg->get("radar", "saveFileType").c_str())){//1是rd3 即三维主板 
 					lpManager->setChannelName( name, index*2 );//三维主板里一个表示两个
 					lpManager->setChannelName( name, index*2+1 );//三维主板里一个表示两个
-					if(index<6&&m_nChannelCount==16){
-						lpManager->setChannelName( name, index*2+m_nChannelCount );//前12个存在复制的可能 1-12会复制到17-28
-						lpManager->setChannelName( name, index*2+m_nChannelCount+1 );//前12个存在复制的可能
+					if(index<6&&m_nTrueChannelCount==16){
+						lpManager->setChannelName( name, index*2+m_nTrueChannelCount );//前12个存在复制的可能 1-12会复制到17-28
+						lpManager->setChannelName( name, index*2+m_nTrueChannelCount+1 );//前12个存在复制的可能
 					}
 				}else{//sgy 多通道主板
 					lpManager->setChannelName( name, index );
@@ -828,7 +768,23 @@ int RadarDataRader::readData()
 	if ( recvNum == -1 )
 	{
 		_hadInit = false;
-		_client.ReConnect();
+		if(RadarManager::Instance()->working()){
+			bool bIsReconnectSucess=false;
+			int nReconnectCount=0;
+			while(!bIsReconnectSucess){
+				bIsReconnectSucess=_client.ReConnect();
+				nReconnectCount=nReconnectCount+1;
+				if(nReconnectCount>50){
+					AfxMessageBox(_T("硬件连接中断且重连失败"));
+					break;
+				}
+			}
+			if(bIsReconnectSucess){
+				_hadInit=true;
+			}
+		}else{
+			_client.ReConnect();
+		}
 		return recvNum;
 	}
 
@@ -894,7 +850,7 @@ void RadarDataRader::parseData()
 		rd->setData( lpDataBuff + startPos, channelData );
 		int index = lpDataBuff[startPos + 1] - CHANEL_INDEX_BEGIN;
 
-		if(index>=m_nChannelCount){
+		if((m_nSaveFileType==1&&m_nTrueChannelCount!=15&&m_nTrueChannelCount!=14&&index>=m_nTrueChannelCount)||(m_nSaveFileType==0&&m_nArr2DChannel[index]==0)){
 			startPos += channelData;
 			break;
 		}
@@ -943,24 +899,19 @@ void RadarDataRader::parseData()
 			}else{
 				RadarManager::Instance()->addRadarDataToProject( rd.get(), index+12 );
 			}*/
-			if(m_bNeed3DDisplay){
-				if(m_nChannelCount==16){
+			if(m_nSaveFileType==1){//存rd3 显三视图
+				/*if(m_nTrueChannelCount==16){
 					RadarManager::Instance()->addRadarDataToProject( rd.get(), index );
 					RadarManager::Instance()->addRadarDataToThreeViewDialog( rd.get(), index );
 					if(index<12){
 						RadarManager::Instance()->addRadarDataToDisplay( rd.get(), index+16 );
 					}
-				}/*else if(m_nChannelCount==4||m_nChannelCount==7||m_nChannelCount==8){
-					if(index<m_nChannelCount){
-						RadarManager::Instance()->addRadarDataToProject( rd.get(), index );
-						RadarManager::Instance()->addRadarDataToThreeViewDialog( rd.get(), index );
-						RadarManager::Instance()->addRadarDataToDisplay( rd.get(), index+m_nChannelCount );
-					}
-				}*/else{
+				}else{
 					RadarManager::Instance()->addRadarDataToProject( rd.get(), index );
 					RadarManager::Instance()->addRadarDataToThreeViewDialog( rd.get(), index );
-				}
-			}else{
+				}*/
+				RadarManager::Instance()->addRadarDataTo3DProject( rd.get(), index );
+			}else{//存sgy 用旧的
 				RadarManager::Instance()->addRadarDataToProject( rd.get(), index );
 			}
 		}
@@ -1040,40 +991,16 @@ void RadarDataRader::parseDataToDisplay()
 		rd->setData( lpDataBuff + startPos, channelData );
 		int index = lpDataBuff[startPos + 1] - CHANEL_INDEX_BEGIN;
 
-		if(index>=m_nChannelCount){
+		if((m_nSaveFileType==1&&index>=m_nTrueChannelCount)||(m_nSaveFileType==0&&m_nArr2DChannel[index]==0)){
 			startPos += channelData;
 			break;
 		}
 
 		//int wheelCount = rd->getPrec();//测量轮道数
 		startPos += channelData;
-		/*
-		if ( _channelWheelCount[index] < 0 )//第一轮初始化
-		{
-			_channelWheelCount[index] = wheelCount;//记录当前道数
-			_recordChannelWheelCount[index] = 0;//储存道数归0
-			_channelLen[index] = 0;//总长度归0
-			rd->setPrecLen( 0.0f );//雷达数据总长度信息设0
-			rd->setPrec(0);//雷达数据道数储存为0
-		}else{
-			int count ;
-			if ( wheelCount < _channelWheelCount[index]&& _channelWheelCount[index]>65500){//转满65535重新归0
-				count = wheelCount + 65535 - _channelWheelCount[index];
-			}else{
-				count = wheelCount  - _channelWheelCount[index];
-			}
-			_channelWheelCount[index] = wheelCount;
-			_channelLen[index] += _precValue * count;
-			_recordChannelWheelCount[index] += count;
-			rd->setPrecLen ( _channelLen[index] );
-			rd->setPrec(_recordChannelWheelCount[index]);
-		}
-		*/
-		if(index<m_nChannelCount){
+		
+		if((m_nSaveFileType==1&&index<m_nTrueChannelCount)||(m_nSaveFileType==0&&m_nArr2DChannel[index]==1)){
 			RadarManager::Instance()->addRadarDataToParameterConfig( rd.get(), index );
-			/*if(m_bNeedCopyInPreview&&m_nChannelCount!=15&&index+m_nChannelCount<16){
-				RadarManager::Instance()->addRadarDataToParameterConfig( rd.get(), index+m_nChannelCount );
-			}*/
 		}
 
 		//RadarManager::Instance()->addRadarDataToParameterConfig( rd.get(), index );
@@ -1126,7 +1053,7 @@ void RadarDataRader::parseDataToAutoCorrection()
 		rd->setData( lpDataBuff + startPos, channelData );
 		int index = lpDataBuff[startPos + 1] - CHANEL_INDEX_BEGIN;
 
-		if(index>=m_nChannelCount){
+		if(index>=m_nTrueChannelCount){
 			startPos += channelData;
 			break;
 		}
@@ -1135,7 +1062,7 @@ void RadarDataRader::parseDataToAutoCorrection()
 
 		_recordChannelWheelCount[index]=_recordChannelWheelCount[index]+1;
 		
-		if(index<m_nChannelCount&&_recordChannelWheelCount[index]>10&&_recordChannelWheelCount[index]<211){
+		if(index<m_nTrueChannelCount&&_recordChannelWheelCount[index]>10&&_recordChannelWheelCount[index]<211){
 			RadarManager::Instance()->addRadarDataToAutoCorrection( rd.get(), index );
 		}
 	}
@@ -1774,7 +1701,7 @@ void RadarDataRader::ParseUsbFourChannelData(){
 		//{
 		//	rdB->AddDataToEnd(&lpDataBuff[ startPos ],channelData);
 		//}
-		//		
+			
 		startPos += channelData;
 
 		if (1 == m_iModeType){//测量轮触发
@@ -2154,9 +2081,9 @@ void RadarDataRader::Mark(int markValue){
 						}
 					}
 				}else if(nSaveFileType==1){
-					for (int index=0;index<m_nChannelCount;index++){//13-24是由1-12复制的 所以在标记的时候不用管13-24
+					for (int index=0;index<m_nTrueChannelCount;index++){//13-24是由1-12复制的 所以在标记的时候不用管13-24
 						RadarManager::Instance()->addRadarDataToProject( rd.get(), index );
-						if(m_nChannelCount==16&&index<12){
+						if(m_nTrueChannelCount==16&&index<12){
 							RadarManager::Instance()->addRadarDataToDisplay( rd.get(), index+16 );
 						}
 					}

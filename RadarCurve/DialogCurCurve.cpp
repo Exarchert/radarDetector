@@ -59,7 +59,7 @@ CDialogCurCurve::CDialogCurCurve(separateScreen pScreenType, CWnd* pParent /*=NU
 		m_channelCount = m_channelVec.size();
 	}
 	//hjl20210408以下为计算推荐速度
-	m_nChannelCount=RadarManager::Instance()->GetTrueChannelCount();
+	m_nTrueChannelCount=RadarManager::Instance()->GetTrueChannelCount();
 	float precLen = atoi ( cfg->get("radar", "preclen").c_str() );
 	float fJihuaAccuracy = (float)atoi( cfg->get("radar", "precision").c_str() );
 	float fwheelPrecise = RadarManager::Instance()->GetTrueAccuracyFromPreclenAndPrecindex(precLen,fJihuaAccuracy);//实际道间距
@@ -68,7 +68,7 @@ CDialogCurCurve::CDialogCurCurve(separateScreen pScreenType, CWnd* pParent /*=NU
 	//float temp=((float)iSampleCount*20/3);
 	//float temp2=1/temp;
 	//_fRecommendableSpeed=fwheelPricise*10000*temp2*3.6;
-	_fRecommendableSpeed=(float)29400/m_nChannelCount*fwheelPrecise/(float)iSampleCount;
+	_fRecommendableSpeed=(float)29400/m_nTrueChannelCount*fwheelPrecise/(float)iSampleCount;
 	if(_fRecommendableSpeed>20){
 		_fRecommendableSpeed=20+0.4*(_fRecommendableSpeed-20);
 	}

@@ -57,7 +57,7 @@ public:
 	void setServerIP( std::string const& serverIP );
 	void setServerPort( unsigned int port );
 	bool Connect();
-	void ReConnect();
+	bool ReConnect();
 	int CreateRadarSocketClient();
 
 

@@ -25,6 +25,7 @@ public:
 	int readData();
 	void parseData();
 	void parseDataToDisplay();
+	void ProcessData(unsigned char *lpDataBuff);
 
 	void sendData( unsigned char *buff, int len );
 
@@ -41,6 +42,8 @@ public:
 
 	void ReadThreadStart(bool flag = true);
 
+	void SocketConnect( std::string const& targetIP, unsigned int port );
+	void SocketDisconnect();
 	bool SetSenderFree();
 	bool SetSenderParameter();
 	bool SetSenderReady();
@@ -57,17 +60,21 @@ protected:
 	//bool SetChannelLenNew(RadarData* _radar , int index , int &flag);
 
 protected:
-	OpenThreads::Thread *_lpReadThread;
+	OpenThreads::Thread *_lpTERReceiveThread;
+	OpenThreads::Thread *_lpTERProcessThread;
+	
 	CRadarSocketClient _client;
+	bool m_bIsConnected;
 
 	unsigned char *_recvBuff;
 
 	CharDataBuf _dataBuf;
 
 	int m_nSampleCount;
-	float m_fSampleRatio;
-	int m_nDataCount;
-	float m_fInterval;
+	int m_nSampleRatioIndex;
+	int m_nTERDataCount;
+	float m_fSettingInterval;//单位是厘米
+	float m_fTrueInterval;//单位是米
 
 
 	int _sampleCount;

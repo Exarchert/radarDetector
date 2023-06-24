@@ -82,6 +82,7 @@
 #define IDD_DIALOG_TER_DISPLAY          1024
 #define IDC_COMBO_DIELECTRIC            1025
 #define IDC_STATIC_CHANNEL_05           1025
+#define IDD_DIALOG_TER_PARA             1025
 #define IDC_STATIC_CHANNEL_06           1026
 #define IDC_STATIC_CHANNEL_07           1027
 #define IDC_STATIC_CHANNEL_08           1028
@@ -272,6 +273,7 @@
 #define IDC_CURVE_16                    1118
 #define IDC_3D                          1118
 #define IDC_TER_DISPLAY                 1118
+#define IDC_TER_PARA_WND                1118
 #define IDC_CUSTOM3                     1119
 #define IDC_WAVEFORM2                   1119
 #define IDC_CURVE_18                    1119
@@ -413,15 +415,27 @@
 #define IDC_READYSEND_BUTTON            1209
 #define IDC_STARTSEND_BUTTON            1210
 #define IDC_SYNRECEIVE_BUTTON           1211
+#define IDC_EDIT_RECEIVERDELAY          1211
 #define IDC_STOPRECEIVE_BUTTON          1212
+#define IDC_BUTTON_RECEIVE_SYN          1212
 #define IDC_COMBO_PRECRATIO             1213
+#define IDC_BUTTON_RECEIVE_STOP         1213
 #define IDC_STOPSEND_BUTTON             1214
 #define IDC_TER_LONLAT                  1215
 #define IDC_TER_DATAMISSING             1216
 #define IDC_TER_DISTANCE                1217
 #define IDC_TER_SPEED                   1218
-#define IDC_EDIT_DEVICE_MODEL           1222
 #define IDC_COMBO_DEVICE_MODEL          1223
+#define IDC_COMBO_SENDER_WAVE           1224
+#define IDC_EDIT_SENDERDELAY            1225
+#define IDC_BUTTON_TER_SOCKETDISCONNECT 1226
+#define IDC_BUTTON_TER_SAVEPARA         1228
+#define IDC_BUTTON_TER_SOCKETCONNECT    1229
+#define IDC_COMBO_TER_WHEELPULSE        1230
+#define IDC_EDIT_IMG_INTERVAL           1231
+#define IDC_BUTTON_TIMEWINDOW           1232
+#define IDC_EDIT27                      1233
+#define IDC_EDIT_IMG_QUALITY            1233
 #define ID_SHOW_CHANNEL_00              32780
 #define ID_SHOW_CHANNEL_01              32781
 #define ID_SHOW_CHANNEL_02              32782
@@ -489,9 +503,9 @@
 // 
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
-#define _APS_NEXT_RESOURCE_VALUE        1025
+#define _APS_NEXT_RESOURCE_VALUE        1026
 #define _APS_NEXT_COMMAND_VALUE         32834
-#define _APS_NEXT_CONTROL_VALUE         1224
+#define _APS_NEXT_CONTROL_VALUE         1234
 #define _APS_NEXT_SYMED_VALUE           1070
 #endif
 #endif

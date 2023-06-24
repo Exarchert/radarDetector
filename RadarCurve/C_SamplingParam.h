@@ -263,17 +263,17 @@ public:
 	float				m_elec_end_longitude;		//经度
 	unsigned short		m_elec_end_EW_longitude;	//东西经
 	float				m_elec_end_latitude;		//纬度
-	unsigned short		m_elec_end_SN_latitude;	//南北纬
+	unsigned short		m_elec_end_SN_latitude;		//南北纬
 
 	//测量轮参数设置 57
-	bool				m_enable_trigger_wheel;			//是否使用测量轮触发
-	unsigned int		m_trigger_wheel_com_id;			//测量轮所在串口ID
-	unsigned int		m_pluses_per_trigger;				//测量轮多少脉冲触发一次
+	bool				m_enable_trigger_wheel;		//是否使用测量轮触发
+	unsigned int		m_trigger_wheel_com_id;		//测量轮所在串口ID
+	unsigned int		m_pluses_per_trigger;		//测量轮多少脉冲触发一次
 	unsigned int		m_sample_times_per_trigger;	//测量轮触发一次要长传多少个采集请求
 	float				m_wheel_forward_length;		//测量轮前进的长度
 	float				m_wheel_radius;				//测量轮的半径
 
-	float				m_eq_velocity;			//电磁波速度
+	float				m_eq_velocity;				//电磁波速度
 	float				m_elec_current;				//电磁线圈电流
 
 	unsigned char		m_loop_type;				//电磁线圈类型
@@ -291,7 +291,14 @@ public:
 
 	//设备类型
 	int					m_device_type;				//设备类型
-	int					m_device_childtype;				//设备类型
+	int					m_device_childtype;			//设备类型
+
+	float               m_eq_velocity_vs;
+	float				m_uep_velocity;
+	float               m_wheel_step_length_per_trigger; //道间距
+
+
+
 
 };// 参数 
 

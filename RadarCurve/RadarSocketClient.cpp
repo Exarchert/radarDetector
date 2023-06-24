@@ -51,7 +51,7 @@ bool CRadarSocketClient::Connect()
 	return m_bConnected;
 }
 
-void CRadarSocketClient::ReConnect()
+bool CRadarSocketClient::ReConnect()
 {
 	if (m_sSocket != INVALID_SOCKET)
 	{
@@ -61,10 +61,10 @@ void CRadarSocketClient::ReConnect()
 	
 	WSACleanup();
 
-
 	Sleep(200);
 
-	Connect();
+	bool bTemp=Connect();
+	return bTemp;
 }
 
 int CRadarSocketClient::SocketStartUp()

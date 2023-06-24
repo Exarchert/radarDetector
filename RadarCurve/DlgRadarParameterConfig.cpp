@@ -94,6 +94,9 @@ void DlgRadarParameterConfig::DoDataExchange(CDataExchange* pDX)
 	DDX_Text(pDX, IDC_EDIT_WARNING_INTERVAL, m_dWarningInterval );//监测间隔
 	DDX_Text(pDX, IDC_EDIT_WARNING_THRESHOLD, m_dWarningThreshold );//阈值
 
+	DDX_Text(pDX, IDC_EDIT_IMG_INTERVAL, m_nImgInterval);//图片保存间隔
+	DDX_Text(pDX, IDC_EDIT_IMG_QUALITY, m_nImgQuality);//图片质量
+
 	//2维通道选择
 	DDX_Control(pDX, IDC_CHECK_CHANNEL1, m_CheckBox_Channel[0]);
 	DDX_Control(pDX, IDC_CHECK_CHANNEL2, m_CheckBox_Channel[1]);
@@ -509,6 +512,24 @@ void DlgRadarParameterConfig::InitByRadarConfig()
 	m_dWarningInterval = atoi( m_pConfigureSet->get("waveWarning", "warningInterval").c_str() );//监测间隔
 	m_dWarningThreshold = atoi( m_pConfigureSet->get("waveWarning", "warningThreshold").c_str() );//阈值 
 
+	/*m_nImgInterval = atoi ( m_pConfigureSet->get("image", "interval").c_str() );//图片保存道数间隔
+	if(m_nImgInterval<=0){
+		m_nImgInterval==500;
+	}
+	
+	m_nImgQuality = atoi ( m_pConfigureSet->get("image", "quality").c_str() );//图片质量
+	if(m_nImgQuality<=0){
+		m_nImgQuality==75;
+	}*/
+	int nTemp=0;
+	nTemp = atoi ( m_pConfigureSet->get("image", "interval").c_str() );//图片保存道数间隔
+	m_nImgInterval = (nTemp>0)? nTemp:100;
+	nTemp = atoi ( m_pConfigureSet->get("image", "quality").c_str() );//图片质量
+	m_nImgQuality = (nTemp>0)? nTemp:75;
+
+
+
+
 	//探测时窗=采样点数/频率
 	m_timeWindow = getSampleCountValue(atoi(m_pConfigureSet->get("radar", "sample").c_str()))/getSampleRationValue(atoi(m_pConfigureSet->get("radar", "sampleratio").c_str()));
 	//最大深度=采样点数/（采样频率*根号下介电常数）*0.15
@@ -564,6 +585,8 @@ void DlgRadarParameterConfig::OnBnClickedBtnsetOk()
 	RadarManager::Instance()->stopTest();//停止测试
 
 	OpenThreads::ScopedLock<OpenThreads::Mutex> lock(_lock);
+
+	int nTemp;
 
 	//修改cfg对象
 	UpdateData( TRUE );
@@ -763,6 +786,25 @@ void DlgRadarParameterConfig::OnBnClickedBtnsetOk()
 		m_pConfigureSet->set("radar", "saveFileType", ss.str());//文件保存类型
 	}
 
+	{
+		/*if(m_nImgInterval<=0){
+			m_nImgInterval==500;
+		}*/
+		nTemp=(m_nImgInterval>0)? m_nImgInterval:100;
+		std::stringstream ss;
+		ss << nTemp;
+		m_pConfigureSet->set("image", "interval", ss.str());//图片保存道数间隔
+	}
+	{
+		/*if(m_nImgQuality<=0){
+			m_nImgQuality==75;
+		}*/
+		nTemp=(m_nImgQuality>0)? m_nImgQuality:75;
+		std::stringstream ss;
+		ss << nTemp;
+		m_pConfigureSet->set("image", "quality", ss.str());//图片品质
+	}
+
 	for (int i=0;i<8;i++){
 		{
 			std::stringstream ss1;
@@ -812,6 +854,8 @@ void DlgRadarParameterConfig::OnBnClickedButtonApply()
 	// TODO: 在此添加控件通知处理程序代码
 	// TODO: 在此添加控件通知处理程序代码
 	UpdateData( TRUE );
+
+	int nTemp;
 
 	if ( !m_pConfigureSet )
 	{
@@ -1000,6 +1044,25 @@ void DlgRadarParameterConfig::OnBnClickedButtonApply()
 		std::stringstream ss;
 		ss << m_ComboBoxSaveFileType.GetCurSel();
 		m_pConfigureSet->set("radar", "saveFileType", ss.str());//文件保存类型
+	}
+
+	{
+		/*if(m_nImgInterval<=0){
+			m_nImgInterval==500;
+		}*/
+		nTemp=(m_nImgInterval>0)? m_nImgInterval:100;
+		std::stringstream ss;
+		ss << nTemp;
+		m_pConfigureSet->set("image", "interval", ss.str());//图片保存道数间隔
+	}
+	{
+		/*if(m_nImgQuality<=0){
+			m_nImgQuality==75;
+		}*/
+		nTemp=(m_nImgQuality>0)? m_nImgQuality:75;
+		std::stringstream ss;
+		ss << nTemp;
+		m_pConfigureSet->set("image", "quality", ss.str());//图片品质
 	}
 
 	for (int i=0;i<8;i++){

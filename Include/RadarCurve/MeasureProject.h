@@ -40,8 +40,10 @@ class RADAR_EXPORT MeasureProject : public osg::Referenced{
 		int m_dRoadPart;//记录自动分割储存时的第几道
 		//int m_nFinishedPart;//记录保存到第几道
 
+		void CompleteData( RadarData *rd );//给radarData赋上gps等信息
 		void addData( RadarData *rd, int channelIndex );//按照通道序号把新数据分配进相应线程
-		void addDataToDataLossCheck( RadarData *rd, int channelIndex );//先把各通道一组数据完整接收完再逐个addData
+		void addGroupData( std::vector<osg::ref_ptr<RadarData>> radarDataGroup );//先把各通道一组数据完整接收完再逐个addData
+		void AddEachDataForGroup( RadarData *rd, int channelIndex );//按照通道序号把新数据分配进相应线程 没有更新radarData信息
 		void deleteData( int index );//用于测量轮回滚删除数据
 		void addSaveCmd(SaveDataCmd *lpCMD );
 
@@ -111,7 +113,7 @@ class RADAR_EXPORT MeasureProject : public osg::Referenced{
 	protected:
 		FILE *m_fpLog;//log文件
 		FILE *m_fpLogForRepairment;//重新上传部分的log文件
-		int m_nChannelCount;
+		int m_nTrueChannelCount;
 		int m_nChannelCountForUpload;
 		int m_nSaveFileType;//储存文件类型
 		int m_nUpload;//是否需要上传
@@ -196,6 +198,7 @@ class RADAR_EXPORT MeasureProject : public osg::Referenced{
 		OpenThreads::Thread *_lpThreadPostFinishedMessage;//分段上传文件线程
 		OpenThreads::Thread *_lpThreadSaveOnlineForRepairment;//失败部分重新上传文件线程
 		OpenThreads::Thread *_lpThreadCheckData;//波形起伏过低的警告模块
+		OpenThreads::Thread *_lpThreadGroupDataProcess;//三维数据组处理线程
 		OpenThreads::Thread *_lpThreadSaveFile[CHANNELCOUNT];//保存文件线程
 		OpenThreads::Thread *_lpThreadAutoCorrection;//自动微调线程
 		OpenThreads::Thread *_lpThreadCopyData;//分段模式下的复制数据

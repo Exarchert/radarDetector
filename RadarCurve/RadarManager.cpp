@@ -45,6 +45,7 @@
 #include "DialogCurCurve.h"
 #include "DlgRadarParameterConfig.h"
 #include "DialogThreeView.h"
+#include "DlgTERParameterConfig.h"
 #include "SheetBase.h"
 #include "DialogTERDisplay.h"
 
@@ -56,6 +57,7 @@ CDialogCurCurve *g_CurCurveThirdDlg = NULL;
 CDialogCurCurve *g_CurCurveFourthDlg = NULL;
 CDialogThreeView *g_ThreeViewDlg = NULL;
 CDialogTERDisplay *g_TERDisplayDlg = NULL;
+//DlgTERParameterConfig *g_TERParameterConfig=NULL;
 DlgRadarParameterConfig *g_RadarParameterConfig=NULL;
 CDialogProject *g_HistoryProjectDlg = NULL;
 
@@ -308,6 +310,7 @@ RadarManager::RadarManager(void)
 	_working = false;
 	m_bIsAutoCorrecting=false;
 	m_bTERWorking=false;
+	m_bIsGpsConnected=false;
 	_lpCurProject = NULL;
 	m_MPTERCurProject = NULL;
 
@@ -340,6 +343,10 @@ RadarManager::RadarManager(void)
 
 	m_gdVideoPlay = NULL;
 	m_gdVideoBack = NULL;
+	m_strImageSaveDocumentPath="";
+	m_nAddDataCount=0;
+	m_nImageSaveInterval=100;
+	m_nImageSaveQuality=75;
 	m_dlgPromptNULL = NULL;
 
 	for(int i=8;i<28;i++){//暂时20210203
@@ -1370,6 +1377,16 @@ bool RadarManager::startNewWork(){
 		stopTest();
 	}
 
+	m_nImageSaveInterval = atoi(m_configureSet->get("image","interval").c_str());
+	if(m_nImageSaveInterval<=0){
+		m_nImageSaveInterval==500;
+	}
+
+	m_nImageSaveQuality = atoi(m_configureSet->get("image","quality").c_str());
+	if(m_nImageSaveQuality<=0){
+		m_nImageSaveQuality==75;
+	}
+
 	_radarReader.close();//20210621hjl 保证已经终止采集
 
 	if (NULL == m_dlgPromptNULL){
@@ -1532,20 +1549,20 @@ bool RadarManager::startNewWork(){
 
 		case RADAR_WORK_TYPE_EIGHT:
 			//if ( m_configureSet->get("com", "use") == "true"){
-			if ( RadarManager::Instance()->getShowGpsPos()){
-				/*if ( !_gpsReader.open( 
-					atoi(m_configureSet->get("com","port").c_str())
-					,atoi(m_configureSet->get("com","baud").c_str())
-					,m_configureSet->get("com","parity").length() > 0 ? getParityBit(atoi(m_configureSet->get("com","parity").c_str())) : 'N'
-					,atoi(m_configureSet->get("com","databits").c_str())
-					,atoi(m_configureSet->get("com","stopbits").c_str())
-					) )
-				{
-					//正规是下面两行------------
-					::AfxMessageBox(L"连接GPS串口失败!" );
-					_gpsReader.close();
-					//------------
-				}*/
+			/*if ( RadarManager::Instance()->getShowGpsPos()){
+				//if ( !_gpsReader.open( 
+				//	atoi(m_configureSet->get("com","port").c_str())
+				//	,atoi(m_configureSet->get("com","baud").c_str())
+				//	,m_configureSet->get("com","parity").length() > 0 ? getParityBit(atoi(m_configureSet->get("com","parity").c_str())) : 'N'
+				//	,atoi(m_configureSet->get("com","databits").c_str())
+				//	,atoi(m_configureSet->get("com","stopbits").c_str())
+				//	) )
+				//{
+				//	//正规是下面两行------------
+				//	::AfxMessageBox(L"连接GPS串口失败!" );
+				//	_gpsReader.close();
+				//	//------------
+				//}
 				_gpsReader.close();//确保上次已关闭
 				int connectGpsFailCount=0;//偶尔出现连接不上的情况 可用多次连接来解决 所以自动连接10次
 				while ( !_gpsReader.open(//gps硬件连接
@@ -1564,7 +1581,35 @@ bool RadarManager::startNewWork(){
 					}
 					Sleep(100);
 				}
+			}*/
+			
+
+			if ( RadarManager::Instance()->getShowGpsPos()){
+				if(!m_bIsGpsConnected){
+					_gpsReader.close();//确保上次已关闭
+					int connectGpsFailCount=0;//偶尔出现连接不上的情况 可用多次连接来解决 所以自动连接10次
+					bool bConnectSucceed=true;
+					while ( !_gpsReader.open(//gps硬件连接
+						atoi(m_configureSet->get("com","port").c_str())
+						,atoi(m_configureSet->get("com","baud").c_str())
+						,m_configureSet->get("com","parity").length() > 0 ? getParityBit(atoi(m_configureSet->get("com","parity").c_str())) : 'N'
+						,atoi(m_configureSet->get("com","databits").c_str())
+						,atoi(m_configureSet->get("com","stopbits").c_str())
+						) )
+					{
+						connectGpsFailCount=connectGpsFailCount+1;
+						_gpsReader.close();
+						if(connectGpsFailCount>10){
+							bConnectSucceed=false;
+							::AfxMessageBox(L"连接GPS串口失败!" );
+							break;
+						}
+						Sleep(100);
+					}
+					m_bIsGpsConnected=bConnectSucceed;
+				}
 			}
+
 			if ( m_configureSet->get("net", "use") == "true"){
 				/*if ( !_radarReader.open(
 					m_configureSet->get("net","addr")
@@ -1583,7 +1628,10 @@ bool RadarManager::startNewWork(){
 				{
 					connectRadarFailCount=connectRadarFailCount+1;
 					if(connectRadarFailCount>10){
-						_gpsReader.close();
+						if(!m_bTERWorking){
+							_gpsReader.close();
+							m_bIsGpsConnected=false;
+						}
 						::AfxMessageBox(L"连接雷达设备失败，请检查设备是否正常连接或重启设备" );
 						return false;
 					}
@@ -1656,6 +1704,15 @@ bool RadarManager::startNewWorkWithoutProjectName()
 
 	if ( _testing ){
 		stopTest();
+	}
+
+	m_nImageSaveInterval = atoi(m_configureSet->get("image","interval").c_str());
+	if(m_nImageSaveInterval<=0){
+		m_nImageSaveInterval==500;
+	}
+	m_nImageSaveQuality = atoi(m_configureSet->get("image","quality").c_str());
+	if(m_nImageSaveQuality<=0){
+		m_nImageSaveQuality==75;
 	}
 
 	_radarReader.close();//20210621hjl 保证已经终止采集
@@ -1865,23 +1922,29 @@ bool RadarManager::startNewWorkWithoutProjectName()
 
 		case RADAR_WORK_TYPE_EIGHT:
 			//if ( m_configureSet->get("com", "use") == "true"){
-			if (RadarManager::Instance()->getShowGpsPos()){
-				int connectGpsFailCount=0;
-				while ( !_gpsReader.open( 
-					atoi(m_configureSet->get("com","port").c_str())
-					,atoi(m_configureSet->get("com","baud").c_str())
-					,m_configureSet->get("com","parity").length() > 0 ? getParityBit(atoi(m_configureSet->get("com","parity").c_str())) : 'N'
-					,atoi(m_configureSet->get("com","databits").c_str())
-					,atoi(m_configureSet->get("com","stopbits").c_str())
-					) )
-				{
-					connectGpsFailCount=connectGpsFailCount+1;
-					_gpsReader.close();
-					if(connectGpsFailCount>10){
-						::AfxMessageBox(L"连接GPS串口失败!" );
-						break;
+			if ( RadarManager::Instance()->getShowGpsPos()){
+				if(!m_bIsGpsConnected){
+					_gpsReader.close();//确保上次已关闭
+					int connectGpsFailCount=0;//偶尔出现连接不上的情况 可用多次连接来解决 所以自动连接10次
+					bool bConnectSucceed=true;
+					while ( !_gpsReader.open(//gps硬件连接
+						atoi(m_configureSet->get("com","port").c_str())
+						,atoi(m_configureSet->get("com","baud").c_str())
+						,m_configureSet->get("com","parity").length() > 0 ? getParityBit(atoi(m_configureSet->get("com","parity").c_str())) : 'N'
+						,atoi(m_configureSet->get("com","databits").c_str())
+						,atoi(m_configureSet->get("com","stopbits").c_str())
+						) )
+					{
+						connectGpsFailCount=connectGpsFailCount+1;
+						_gpsReader.close();
+						if(connectGpsFailCount>10){
+							bConnectSucceed=false;
+							::AfxMessageBox(L"连接GPS串口失败!" );
+							break;
+						}
+						Sleep(100);
 					}
-					Sleep(100);
+					m_bIsGpsConnected=bConnectSucceed;
 				}
 			}
 			if ( m_configureSet->get("net", "use") == "true"){
@@ -1893,7 +1956,10 @@ bool RadarManager::startNewWorkWithoutProjectName()
 				{
 					connectRadarFailCount=connectRadarFailCount+1;
 					if(connectRadarFailCount>10){
-						_gpsReader.close();
+						if(!m_bTERWorking){
+							_gpsReader.close();
+							m_bIsGpsConnected=false;
+						}
 						::AfxMessageBox(L"连接雷达设备失败，请检查设备是否正常连接或重启设备" );
 						return false;
 					}
@@ -1971,7 +2037,7 @@ bool RadarManager::startNewTest()
 	//float curLen = dlg.m_selectLen;
 	std::string strPath;*/
 	OpenThreads::ScopedLock<OpenThreads::Mutex> lock(_lock);
-	if ( RadarManager::Instance()->getShowGpsPos()){
+	/*if ( RadarManager::Instance()->getShowGpsPos()){
 		if ( !_gpsReader.open( 
 			atoi(m_configureSet->get("com","port").c_str())
 			,atoi(m_configureSet->get("com","baud").c_str())
@@ -1985,6 +2051,31 @@ bool RadarManager::startNewTest()
 			_gpsReader.close();
 			//------------
 		}
+	}*/
+	if ( RadarManager::Instance()->getShowGpsPos()){
+		if(!m_bIsGpsConnected){
+			_gpsReader.close();//确保上次已关闭
+			int connectGpsFailCount=0;//偶尔出现连接不上的情况 可用多次连接来解决 所以自动连接10次
+			bool bConnectSucceed=true;
+			while ( !_gpsReader.open(//gps硬件连接
+				atoi(m_configureSet->get("com","port").c_str())
+				,atoi(m_configureSet->get("com","baud").c_str())
+				,m_configureSet->get("com","parity").length() > 0 ? getParityBit(atoi(m_configureSet->get("com","parity").c_str())) : 'N'
+				,atoi(m_configureSet->get("com","databits").c_str())
+				,atoi(m_configureSet->get("com","stopbits").c_str())
+				) )
+			{
+				connectGpsFailCount=connectGpsFailCount+1;
+				_gpsReader.close();
+				if(connectGpsFailCount>10){
+					bConnectSucceed=false;
+					::AfxMessageBox(L"连接GPS串口失败!" );
+					break;
+				}
+				Sleep(100);
+			}
+			m_bIsGpsConnected=bConnectSucceed;
+		}
 	}
 	if ( m_configureSet->get("net", "use") == "true"){
 		if ( !_radarReader.openForSetting(
@@ -1993,7 +2084,10 @@ bool RadarManager::startNewTest()
 			) )
 		{
 			::AfxMessageBox(L"连接雷达设备失败，请检查设备是否正常连接或重启设备" );
-			_gpsReader.close();
+			if(!m_bTERWorking){
+				_gpsReader.close();
+				m_bIsGpsConnected=false;
+			}
 			return false;
 		}
 	}
@@ -2019,7 +2113,10 @@ bool RadarManager::stopWork(){
 
 	//if ( m_configureSet->get("com", "use") == "true")
 	if ( RadarManager::Instance()->getShowGpsPos()){
-		_gpsReader.close();
+		if(!m_bTERWorking){//关之前先看看另一边是否还在工作
+			_gpsReader.close();
+			m_bIsGpsConnected=false;
+		}
 	}
 	if ( m_configureSet->get("net", "use") == "true"){
 		_radarReader.close();
@@ -2067,6 +2164,8 @@ bool RadarManager::stopWork(){
 	_working = false;
 
 	removeGpsModel();
+
+	m_nAddDataCount=0;
 	return true;
 
 }
@@ -2086,7 +2185,10 @@ bool RadarManager::stopTest()
 
 	
 	if ( RadarManager::Instance()->getShowGpsPos()){
-		_gpsReader.close();
+		if(!m_bTERWorking){
+			_gpsReader.close();
+			m_bIsGpsConnected=false;
+		}
 	}
 	if ( m_configureSet->get("net", "use") == "true"){
 		_radarReader.close();
@@ -2691,30 +2793,8 @@ void RadarManager::addRadarDataToProject( RadarData *d, int index ){
 		OpenThreads::ScopedLock<OpenThreads::Mutex> lock(_lock);
 		if (_lpCurProject.valid()){
 			_lpCurProject->addData(d, index);
-			/*if(m_nSaveFileType==0){
-				_lpCurProject->addData(d, index);
-			}else if(m_nSaveFileType==1){
-				_lpCurProject->addDataToDataLossCheck(d, index);
-			}*/
 		}
 	}
-	/*
-	//往一号显示窗口添加数据
-	if ( g_CurCurveFirstDlg ){
-		g_CurCurveFirstDlg->AddRadarData( d, index );
-	}
-	//往二号显示窗口添加数据
-	if ( g_CurCurveSecondDlg ){
-		g_CurCurveSecondDlg->AddRadarData( d, index );
-	}
-	//往三号显示窗口添加数据
-	if ( g_CurCurveThirdDlg ){
-		g_CurCurveThirdDlg->AddRadarData( d, index );
-	}
-	//往四号显示窗口添加数据
-	if ( g_CurCurveFourthDlg ){
-		g_CurCurveFourthDlg->AddRadarData( d, index );
-	}*/
 	
 	//往一号显示窗口添加数据
 	if ( g_CurCurveFirstDlg ){
@@ -2747,6 +2827,107 @@ void RadarManager::addRadarDataToProject( RadarData *d, int index ){
 		//g_ThreeViewDlg->AddRadarData( d, index );
 	}*/
 }
+
+void RadarManager::addRadarDataTo3DProject( RadarData *rd, int index ){
+	if(m_nTrueChannelCount!=15&&m_nTrueChannelCount!=14&&index>=m_nTrueChannelCount){
+		return;
+	}
+
+	{
+		OpenThreads::ScopedLock<OpenThreads::Mutex> lock(_lock);
+		if (_lpCurProject.valid()){
+			_lpCurProject->CompleteData(rd);
+		}
+	}
+
+	//实时曲线窗口 //需放在rd被赋gps值之后
+	RadarManager::Instance()->addRadarDataToDisplay( rd, index );
+	if(m_nTrueChannelCount==16&&index<12){
+		RadarManager::Instance()->addRadarDataToDisplay( rd, index+16 );
+	}
+	
+	m_vec3DRadarDataGroup.push_back(rd);
+		
+	if(m_nTrueChannelCount==15&&index==16-1){//15通道的传输是特例，按照1324 5768 9111012 13151416传输，所以到14才停
+		if(m_vec3DRadarDataGroup.size()==16){
+			std::vector<osg::ref_ptr<RadarData>> temp;
+			for(int i=0;i<3;i++){
+				temp.push_back(m_vec3DRadarDataGroup[i*4+0]);
+				temp.push_back(m_vec3DRadarDataGroup[i*4+2]);
+				temp.push_back(m_vec3DRadarDataGroup[i*4+1]);
+				temp.push_back(m_vec3DRadarDataGroup[i*4+3]);
+			}
+			temp.push_back(m_vec3DRadarDataGroup[12]);
+			temp.push_back(m_vec3DRadarDataGroup[14]);
+			temp.push_back(m_vec3DRadarDataGroup[13]);
+			if(g_ThreeViewDlg){
+				g_ThreeViewDlg->addGroupRadarData( temp );
+			}
+			{
+				OpenThreads::ScopedLock<OpenThreads::Mutex> lock(_lock);
+				if (_lpCurProject.valid()){
+					_lpCurProject->addGroupData( temp );
+					m_nAddDataCount=m_nAddDataCount+1;
+					if(m_nAddDataCount%m_nImageSaveInterval==0){
+						std::stringstream ss;
+						ss<<m_nAddDataCount;
+						m_gdVideoPlay->SaveAllData(m_strImageSaveDocumentPath+"\\"+ss.str(),m_nImageSaveQuality);
+					}
+				}
+			}
+		}
+		m_vec3DRadarDataGroup.clear();
+	}else if(m_nTrueChannelCount==14&&index==16-1){//14通道的传输也是特例，按照1324 5768 9111012 13151416传输，所以到14才停
+		if(m_vec3DRadarDataGroup.size()==16){//特例1324 5768 9111012 13151416 传第14通道数据的时候已经有14个了
+			std::vector<osg::ref_ptr<RadarData>> temp;
+			for(int i=0;i<3;i++){
+				temp.push_back(m_vec3DRadarDataGroup[i*4+0]);
+				temp.push_back(m_vec3DRadarDataGroup[i*4+2]);
+				temp.push_back(m_vec3DRadarDataGroup[i*4+1]);
+				temp.push_back(m_vec3DRadarDataGroup[i*4+3]);
+			}
+			temp.push_back(m_vec3DRadarDataGroup[12]);
+			temp.push_back(m_vec3DRadarDataGroup[14]);
+			//temp.push_back(m_vec3DRadarDataGroup[13]);
+			if(g_ThreeViewDlg){
+				g_ThreeViewDlg->addGroupRadarData( temp );
+			}
+			{
+				OpenThreads::ScopedLock<OpenThreads::Mutex> lock(_lock);
+				if (_lpCurProject.valid()){
+					_lpCurProject->addGroupData( temp );
+					m_nAddDataCount=m_nAddDataCount+1;
+					if(m_nAddDataCount%m_nImageSaveInterval==0){
+						std::stringstream ss;
+						ss<<m_nAddDataCount;
+						m_gdVideoPlay->SaveAllData(m_strImageSaveDocumentPath+"\\"+ss.str(),m_nImageSaveQuality);
+					}
+				}
+			}
+		}
+		m_vec3DRadarDataGroup.clear();
+	}else if(m_nTrueChannelCount!=15&&m_nTrueChannelCount!=14&&index==m_nTrueChannelCount-1){
+		if(m_vec3DRadarDataGroup.size()==m_nTrueChannelCount){
+			if(g_ThreeViewDlg){
+				g_ThreeViewDlg->addGroupRadarData( m_vec3DRadarDataGroup );	
+			}
+			{
+				OpenThreads::ScopedLock<OpenThreads::Mutex> lock(_lock);
+				if (_lpCurProject.valid()){
+					_lpCurProject->addGroupData( m_vec3DRadarDataGroup );
+					m_nAddDataCount=m_nAddDataCount+1;
+					if(m_nAddDataCount%m_nImageSaveInterval==0){
+						std::stringstream ss;
+						ss<<m_nAddDataCount;
+						m_gdVideoPlay->SaveAllData(m_strImageSaveDocumentPath+"\\"+ss.str(),m_nImageSaveQuality);
+					}
+				}
+			}
+		}
+		m_vec3DRadarDataGroup.clear();
+	}
+}
+
 
 //把数据加入三视图中
 void RadarManager::addRadarDataToThreeViewDialog( RadarData *d, int index ){
@@ -3646,6 +3827,13 @@ float RadarManager::GetTrueAccuracyFromPreclenAndPrecindex(float fCLen,float fAc
 	return fNum;
 }
 
+//获取真实精度
+float RadarManager::GetTrueInterval(float fWheelCircumference, float fSettingInterval, int nWheelPulse){
+	int nTruePulseInterval = fSettingInterval / fWheelCircumference * (float)nWheelPulse +1;//实际脉冲间隔 = 设置精度 / 测量轮周长 * 总脉冲（取整）
+	float fTrueInterval = (float)nTruePulseInterval / (float)nWheelPulse * fWheelCircumference;//实际精度 = 实际脉冲间隔 / 总脉冲 * 测量轮周长
+	return fTrueInterval;
+}
+
 bool RadarManager::Workdetection()
 {
 	//AfxMessageBox(L"zheliangjianche");
@@ -4165,10 +4353,13 @@ void RadarManager::AutoPeakCorrection(){
 		Sleep(2000);
 	}
 	g_RadarParameterConfig->SetCorrection(m_nVecAutoCorrectionResult);
+	m_nVecAutoCorrectionResult.clear();
 
-	if ( RadarManager::Instance()->getShowGpsPos()){
+	/*if ( RadarManager::Instance()->getShowGpsPos()){
 		_gpsReader.close();
-	}
+		m_bIsGpsConnected=false;
+	}*/
+	
 	if ( m_configureSet->get("net", "use") == "true"){
 		_radarReader.close();
 	}
@@ -4193,6 +4384,20 @@ std::vector<int>RadarManager::GetAutoCorrectionResult(){
 
 
 //std::locale loc = std::locale::global(std::locale(""));//中文路径
+//雷达参数配置
+void RadarManager::TERParameterConfiguration(){
+	AFX_MANAGE_STATE(AfxGetStaticModuleState());
+	DlgTERParameterConfig* pDlgTERParameterConfig = new DlgTERParameterConfig;
+	//g_TERParameterConfig=pDlgTERParameterConfig;
+	if(!pDlgTERParameterConfig->GetSafeHwnd())
+	{
+		pDlgTERParameterConfig->Create(DlgTERParameterConfig::IDD);
+	}
+	pDlgTERParameterConfig->ShowWindow(SW_NORMAL);
+}
+
+
+
 void RadarManager::TERSetting(){
 	//WinExec("C:\\Users\\msi-pc\\Desktop\\electromagnetic\\USEP21地质超前预报采集系统.exe",SW_SHOWNORMAL);
 	//WinExec("C:\\Users\\msi-pc\\Desktop\\electromagnetic.bat",SW_HIDE);
@@ -4270,23 +4475,28 @@ bool RadarManager::TERStartWork(){
 	std::string strPath;
 	OpenThreads::ScopedLock<OpenThreads::Mutex> lock(_lock);
 	if ( RadarManager::Instance()->getShowGpsPos()){
-		_gpsReader.close();//确保上次已关闭
-		int connectGpsFailCount=0;//偶尔出现连接不上的情况 可用多次连接来解决 所以自动连接10次
-		while ( !_gpsReader.open(//gps硬件连接
-			atoi(m_configureSet->get("com","port").c_str())
-			,atoi(m_configureSet->get("com","baud").c_str())
-			,m_configureSet->get("com","parity").length() > 0 ? getParityBit(atoi(m_configureSet->get("com","parity").c_str())) : 'N'
-			,atoi(m_configureSet->get("com","databits").c_str())
-			,atoi(m_configureSet->get("com","stopbits").c_str())
-			) )
-		{
-			connectGpsFailCount=connectGpsFailCount+1;
-			_gpsReader.close();
-			if(connectGpsFailCount>10){
-				::AfxMessageBox(L"连接GPS串口失败!" );
-				break;
+		if(!m_bIsGpsConnected){
+			_gpsReader.close();//确保上次已关闭
+			int connectGpsFailCount=0;//偶尔出现连接不上的情况 可用多次连接来解决 所以自动连接10次
+			bool bConnectSucceed=true;
+			while ( !_gpsReader.open(//gps硬件连接
+				atoi(m_configureSet->get("com","port").c_str())
+				,atoi(m_configureSet->get("com","baud").c_str())
+				,m_configureSet->get("com","parity").length() > 0 ? getParityBit(atoi(m_configureSet->get("com","parity").c_str())) : 'N'
+				,atoi(m_configureSet->get("com","databits").c_str())
+				,atoi(m_configureSet->get("com","stopbits").c_str())
+				) )
+			{
+				connectGpsFailCount=connectGpsFailCount+1;
+				_gpsReader.close();
+				if(connectGpsFailCount>10){
+					bConnectSucceed=false;
+					::AfxMessageBox(L"连接GPS串口失败!" );
+					break;
+				}
+				Sleep(100);
 			}
-			Sleep(100);
+			m_bIsGpsConnected=bConnectSucceed;
 		}
 	}
 	{//连接TER硬件
@@ -4298,6 +4508,10 @@ bool RadarManager::TERStartWork(){
 		{
 			connectRadarFailCount=connectRadarFailCount+1;
 			if(connectRadarFailCount>10){
+				if(!_working&&!_testing){
+					_gpsReader.close();
+					m_bIsGpsConnected=false;
+				}
 				::AfxMessageBox(L"连接雷达设备失败，请检查设备是否正常连接或重启设备" );
 				return false;
 			}
@@ -4362,8 +4576,12 @@ bool RadarManager::TERStopWork(){
 	m_TERReader.close();
 
 	if ( RadarManager::Instance()->getShowGpsPos()){
-		_gpsReader.close();
+		if(!_working&&!_testing){//关之前先看看另一边是否还在工作
+			_gpsReader.close();
+			m_bIsGpsConnected=false;
+		}
 	}
+	
 
 	if (g_TERDisplayDlg ){
 		delete g_TERDisplayDlg;
@@ -4375,11 +4593,19 @@ bool RadarManager::TERStopWork(){
 	return true;
 }
 
+void RadarManager::TERSocketConnect(){
+	m_TERReader.SocketConnect(m_configureSet->get("TER","addr"),atoi(m_configureSet->get("TER","port").c_str()));
+}
+
+void RadarManager::TERSocketDisconnect(){
+	m_TERReader.SocketDisconnect();
+}
+
 void RadarManager::TERSendParameter(int index){
-	if(!m_MPTERCurProject){
+	/*if(!m_MPTERCurProject){
 		::AfxMessageBox(L"请先点击开始工作。");
 		return;
-	}
+	}*/
 	switch(index){
 		case 0:
 			m_TERReader.SetSenderFree();

@@ -41,6 +41,7 @@ public:
 		GD_BackPlay,//
 	};
 
+
 protected:
 
 	map<int,GUID>* m_mapGuidMonitor;
@@ -146,6 +147,8 @@ public:
 	void OnFileStop(int iWindow);
 	//void OnFileStop2();
 	void SaveData(int iWindow);
+	void SaveData(int iWindow,std::string strOriginalName,int nQuality);
+	void SaveAllData(std::string strOriginalName,int nQuality);
 	//void SaveData2();
 	void OpenData();
 	void OpenData2();

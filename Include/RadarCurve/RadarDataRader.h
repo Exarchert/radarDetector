@@ -62,7 +62,7 @@ protected:
 	OpenThreads::Thread *_lpReadThread;
 	CRadarSocketClient _client;
 
-	int m_nChannelCount;
+	int m_nTrueChannelCount;
 
 	unsigned char *_recvBuff;
 
@@ -72,8 +72,9 @@ protected:
 	float _sampleRatio;
 	int _channelCount;
 
-	bool m_bNeed3DDisplay;
+	bool m_nSaveFileType;
 	bool m_bNeedCopyInPreview;
+	int m_nArr2DChannel[8];//用于记录2维主机用哪些通道
 
 	int m_iModeType;//是否测量轮
 	bool _hadInit;

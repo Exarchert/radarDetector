@@ -393,6 +393,87 @@ class SaveFileDataThread : public OpenThreads::Thread{
 //===================================================================class SaveFileDataThread 数据本地保存线程================================================================//
 
 
+//===================================================================class GroupDataProcessThread 数据检查线程================================================================//
+//===================================================================class GroupDataProcessThread 数据检查线程================================================================//
+class GroupDataProcessThread : public OpenThreads::Thread{
+	public:
+		GroupDataProcessThread(){};
+		~GroupDataProcessThread(){};
+
+		void run(){
+			while( !testCancel() ){
+				std::vector<std::vector<osg::ref_ptr<RadarData>>> tempQueue;
+				{
+					OpenThreads::ScopedLock<OpenThreads::Mutex> lock(_mutex);
+					tempQueue.swap( _groupRadarDataQueue );//swap操作实现交换两个容器内所有元素的功能
+				}
+				if ( tempQueue.size() > 0 ){
+					//unsigned long startTime = GetTickCount();
+					//std::vector<std::vector<osg::ref_ptr<RadarData>>>::reverse_iterator it;
+					//std::vector<std::vector<osg::ref_ptr<RadarData>>> m_vecRadarGroupData
+					for ( std::vector<std::vector<osg::ref_ptr<RadarData>>>::iterator it = tempQueue.begin(); it != tempQueue.end(); it++ ){
+;						std::vector<osg::ref_ptr<RadarData>> vecGroupData=*it;
+						//RadarData *pRadarData = (*it).get();
+						for(int i=0;i<_nChannelCount;i++){
+							if ( vecGroupData[i].get() ){
+								if (_MeasureProject){
+									_MeasureProject->AddEachDataForGroup(vecGroupData[i].get(),i);
+								}
+							}
+						}
+						vecGroupData.clear();
+					}
+				}
+				if ( _groupRadarDataQueue.size() == 0 ){
+					_block.reset();
+					_block.block();
+				}
+				if ( !testCancel() ){
+					continue;
+				}
+			}
+		};
+
+		int cancel(){
+			OpenThreads::Thread::cancel();
+			//清空队列
+			std::vector<std::vector<osg::ref_ptr<RadarData>>> tempQueue;
+			{
+				OpenThreads::ScopedLock<OpenThreads::Mutex> lock(_mutex);
+				tempQueue.swap( _groupRadarDataQueue );//swap操作实现交换两个容器内所有元素的功能
+			}
+			if ( isRunning() ){
+				_block.reset();
+				_block.release();
+				join();
+			}
+			return 0;
+		};
+
+		void addGroupData( std::vector<osg::ref_ptr<RadarData>> groupRadarData ){
+			OpenThreads::ScopedLock<OpenThreads::Mutex> lock(_mutex);
+			_groupRadarDataQueue.push_back( groupRadarData );
+
+			_block.reset();
+			_block.release();
+		};
+
+		//bool init(const char *dbsrc, const char *dbname, const char *user, const char *pass, std::string &projectName);
+	public:
+		OpenThreads::Mutex _mutex;
+		OpenThreads::Block _block;
+		//std::string _projectTab;
+		//typedef std::vector<osg::ref_ptr<SaveDataCmd> > CmdQueue;
+		//CmdQueue _dataQueue;
+		//SGYWriter* _SGYWriter;
+		MeasureProject* _MeasureProject;
+		int _nChannelCount;
+		std::vector<std::vector<osg::ref_ptr<RadarData>>> _groupRadarDataQueue;
+};
+//===================================================================class GroupDataProcessThread 数据检查线程================================================================//
+//===================================================================class GroupDataProcessThread 数据检查线程================================================================//
+
+
 //===================================================================class AutoCorrectionCmd 数据检查线程================================================================//
 //===================================================================class AutoCorrectionCmd 数据检查线程================================================================//
 class AutoCorrectionCmd : public OpenThreads::Thread{
@@ -1189,8 +1270,7 @@ class CopyLocalThread : public OpenThreads::Thread{
 //===================================================================class CopyLocalThread 上传线程================================================================//
 
 
-//===========================================================================获取网络时间=====================================================================//
-//===========================================================================获取网络时间=====================================================================//
+
 class SaveRadarDataCmd : public SaveDataCmd{
 	public:
 
@@ -1244,6 +1324,9 @@ class UpdateProjectInfoCmd : public SaveDataCmd
 		}
 		osg::ref_ptr<ProjectNameTab::ProjectNameRow> _lpRow;
 };
+
+//===========================================================================获取网络时间=====================================================================//
+//===========================================================================获取网络时间=====================================================================//
 
 SYSTEMTIME FormatServerTime(DWORD serverTime){
 	FILETIME      ftNew;
@@ -1409,8 +1492,8 @@ MeasureProject::MeasureProject(void)
 	m_dRoadPart = 1;
 	//m_nFinishedPart = 1;
 	ConfigureSet *cfg = RadarManager::Instance()->getConfigureSet();
-	m_nChannelCount = RadarManager::Instance()->GetTrueChannelCount();
-	m_nChannelCountForUpload = atoi( cfg->get("radar", "channelCountForUpload").c_str() );
+	m_nTrueChannelCount = RadarManager::Instance()->GetTrueChannelCount();
+	//m_nChannelCountForUpload = atoi( cfg->get("radar", "channelCountForUpload").c_str() );
 	m_nTimeInterval = atoi( cfg->get("radar", "timeInterval").c_str() );
 	m_nWheelCountInterval = atoi( cfg->get("radar", "wheelCountInterval").c_str() );
 	m_nUpload = atoi( cfg->get("radar", "uploadFlag").c_str() );
@@ -1437,7 +1520,7 @@ MeasureProject::MeasureProject(void)
 	m_nVecVecAutoCorrectionPointIndex.clear();
 	//m_nVecAutoCorrectionPointIndexCount.clear();
 	m_nVecAutoCorrectionResult.clear();
-	for(int i=0;i<m_nChannelCount;i++){
+	for(int i=0;i<m_nTrueChannelCount;i++){
 		std::vector<int> vecTemp;
 		/*for(int j=0;j<100;j++){
 			vecTemp.push_back(-1);
@@ -1447,14 +1530,6 @@ MeasureProject::MeasureProject(void)
 		m_nVecAutoCorrectionResult.push_back(-1);
 	}
 	
-
-
-	for(int i=0;i<m_nChannelCount;i++){
-		_setMark[i] = false;
-		m_arrnRecordTotalWheelCount[i]=0;
-		m_arrnRealTotalWheelCount[i]=0;
-	}
-
 	_maxID = 0;
 	m_bIsBegin = false;
 
@@ -1464,15 +1539,43 @@ MeasureProject::MeasureProject(void)
 	m_iSaveOracle = 1;//
 	m_strSavePath = L"c:\\";
 
-	for(int i=0;i<m_nChannelCount;i++){
+	/*for(int i=0;i<m_nTrueChannelCount;i++){
+		_setMark[i] = false;
+		m_arrnRecordTotalWheelCount[i]=0;
+		m_arrnRealTotalWheelCount[i]=0;
+	}
+
+	for(int i=0;i<m_nTrueChannelCount;i++){
 		_lpThreadSaveFile[i] = NULL;
 		
 		m_SGYWriter[i] = NULL;
+	}*/
+	
+	if(m_nSaveFileType==0){
+		for(int i=0;i<8;i++){
+			if(m_nArr2DChannel[i]==1){
+				_setMark[i] = false;
+				m_arrnRecordTotalWheelCount[i]=0;
+				m_arrnRealTotalWheelCount[i]=0;
+				_lpThreadSaveFile[i] = NULL;
+				m_SGYWriter[i] = NULL;
+			}
+		}
+	}else if(m_nSaveFileType==1){
+		for(int i=0;i<m_nTrueChannelCount;i++){
+			_setMark[i] = false;
+			m_arrnRecordTotalWheelCount[i]=0;
+			m_arrnRealTotalWheelCount[i]=0;
+			_lpThreadSaveFile[i] = NULL;
+			m_SGYWriter[i] = NULL;
+		}
 	}
+
 
 	_lpThreadAutoCorrection = NULL;
 	_lpThreadCopyData=NULL;
 	_lpThreadCheckData=NULL;
+	_lpThreadGroupDataProcess=NULL;
 	_lpThreadSaveOnline=NULL;
 	_lpThreadPostFinishedMessage=NULL;
 	_lpThreadSaveOnlineForRepairment=NULL;
@@ -1551,11 +1654,20 @@ MeasureProject::~MeasureProject(void){
 		}
 		_threadVector.clear();
 
-		for(int i =0;i<m_nChannelCount;i++){
+		/*for(int i =0;i<m_nTrueChannelCount;i++){
 			if (_lpThreadSaveFile[i]){
 				_lpThreadSaveFile[i]->cancel();
 				delete _lpThreadSaveFile[i];
 				_lpThreadSaveFile[i] = NULL;
+			}
+		}*/
+		for(int i=0;i<8;i++){
+			if(m_nArr2DChannel[i]==1){
+				if (_lpThreadSaveFile[i]){
+					_lpThreadSaveFile[i]->cancel();
+					delete _lpThreadSaveFile[i];
+					_lpThreadSaveFile[i] = NULL;
+				}
 			}
 		}
 		
@@ -1574,7 +1686,7 @@ MeasureProject::~MeasureProject(void){
 		
 
 		if (true == m_bIsBegin){
-			for(int i =0;i<m_nChannelCount;i++){
+			/*for(int i =0;i<m_nTrueChannelCount;i++){
 				if (m_SGYWriter[i]){
 					m_SGYWriter[i]->closeSGY();
 					if ( RadarManager::Instance()->getExportGpsPos() ){
@@ -1591,9 +1703,33 @@ MeasureProject::~MeasureProject(void){
 				}
 			}
 			
-			for(int i=0; i<m_nChannelCount; i++){
+			for(int i=0; i<m_nTrueChannelCount; i++){
 				delete m_SGYWriter[i];
 				m_SGYWriter[i] = NULL;
+			}*/
+			for(int i=0;i<8;i++){
+				if(m_nArr2DChannel[i]==1){
+					if (m_SGYWriter[i]){
+						m_SGYWriter[i]->closeSGY();
+						if ( RadarManager::Instance()->getExportGpsPos() ){
+							if(useIt(i)){
+								m_SGYWriter[i]->closeGPS();
+							}
+						}
+						if ( RadarManager::Instance()->getExportKml() ){
+							if(useIt(i)){
+								m_SGYWriter[i]->writeKmlEnding();
+								m_SGYWriter[i]->closeKml();
+							}
+						}
+					}
+				}
+			}
+			for(int i=0;i<8;i++){
+				if(m_nArr2DChannel[i]==1){
+					delete m_SGYWriter[i];
+					m_SGYWriter[i] = NULL;
+				}
 			}
 			
 			//writeDocumentFile();
@@ -1614,7 +1750,7 @@ MeasureProject::~MeasureProject(void){
 		}
 		_threadVector.clear();
 
-		for(int i =0;i<m_nChannelCount;i++){
+		for(int i =0;i<m_nTrueChannelCount;i++){
 			if (_lpThreadSaveFile[i]){
 				_lpThreadSaveFile[i]->cancel();
 				delete _lpThreadSaveFile[i];
@@ -1629,7 +1765,7 @@ MeasureProject::~MeasureProject(void){
 		}
 
 		if (true == m_bIsBegin){
-			for(int i =0;i<m_nChannelCount;i++){
+			for(int i =0;i<m_nTrueChannelCount;i++){
 				if (m_SGYWriter[i]){
 					m_SGYWriter[i]->closeSGY();
 					if ( RadarManager::Instance()->getExportGpsPos() ){
@@ -1645,7 +1781,7 @@ MeasureProject::~MeasureProject(void){
 				}
 			}
 
-			for(int i=0; i<m_nChannelCount; i++){
+			for(int i=0; i<m_nTrueChannelCount; i++){
 				if (m_SGYWriter[i]){
 					delete m_SGYWriter[i];
 					m_SGYWriter[i] = NULL;
@@ -1658,20 +1794,26 @@ MeasureProject::~MeasureProject(void){
 				_lpThreadCheckData = NULL;
 			}
 
+			if(_lpThreadGroupDataProcess){
+				_lpThreadGroupDataProcess->cancel();
+				delete _lpThreadGroupDataProcess;
+				_lpThreadGroupDataProcess = NULL;
+			}
+
 			if(m_dSeperateType==0){
 				writeRadFile();
 			}
 			writeNameCsvFile();
 
-			/*if(m_dSeperateType==0&&m_nChannelCount==16){
+			/*if(m_dSeperateType==0&&m_nTrueChannelCount==16){
 				copyRadarData();
-			}else if(m_dSeperateType==0&&m_nChannelCount==7){
+			}else if(m_dSeperateType==0&&m_nTrueChannelCount==7){
 				copyRadarDataForSevenChannel();
 			}*/
-			/*if(m_dSeperateType==0&&(m_nChannelCount==16||m_nChannelCount==8||m_nChannelCount==7||m_nChannelCount==4)){
+			/*if(m_dSeperateType==0&&(m_nTrueChannelCount==16||m_nTrueChannelCount==8||m_nTrueChannelCount==7||m_nTrueChannelCount==4)){
 				copyRadarData();
 			}*/
-			if(m_dSeperateType==0&&m_nChannelCount==16){
+			if(m_dSeperateType==0&&m_nTrueChannelCount==16){
 				copyRadarData();
 			}
 
@@ -1681,14 +1823,14 @@ MeasureProject::~MeasureProject(void){
 					m_nVecOriginWheelCountForPart.push_back(m_arrnRealTotalWheelCount[0]);
 					writeRadFileForPart(m_dRoadPart);
 					copyTxtFileForPart(m_dRoadPart);
-					if(m_nChannelCount==16){
+					if(m_nTrueChannelCount==16){
 						((CopyLocalThread*)_lpThreadCopyData)->addPart(m_dRoadPart);
 					}
 				}
 				//copyRadarDataForPart();
-				while(m_nCopyFinishedFlag!=m_dRoadPart){//确保复制完成
+				/*while(m_nCopyFinishedFlag!=m_dRoadPart){//确保复制完成
 					Sleep(2000);
-				}
+				}*/
 			}
 
 
@@ -1717,12 +1859,12 @@ MeasureProject::~MeasureProject(void){
 				//增加最新的一段
 				m_nVecOriginWheelCountForPart.push_back(m_arrnRealTotalWheelCount[0]);//更新道数
 				std::vector<bool> vecTempForSuccess;//用来判断是否上传成功的
-				for(int i=0;i<15;i++){//一共15项 txt cor csv rad*6 rd3*6
+				for(int i=0;i<m_nTrueChannelCount*2+3;i++){//一共m_nTrueChannelCount*2+3项 txt cor csv rad*通道数 rd3*通道数
 					vecTempForSuccess.push_back(true);
 				}
 				m_vecVecUploadSuccessFlag.push_back(vecTempForSuccess);
 				std::vector<bool> vecTempForProcess;//用来处理过程是否完成
-				for(int i=0;i<15;i++){//一共15项 txt cor csv rad*6 rd3*6
+				for(int i=0;i<m_nTrueChannelCount*2+3;i++){//一共m_nTrueChannelCount*2+3项 txt cor csv rad*通道数 rd3*通道数
 					vecTempForProcess.push_back(false);
 				}
 				m_vecVecProcessFinishedFlag.push_back(vecTempForProcess);
@@ -1780,7 +1922,7 @@ MeasureProject::~MeasureProject(void){
 
 			//_recordTotalWheelCount = 0;
 			//_realTotalWheelCount = 0;
-			for(int i=0;i<m_nChannelCount;i++){
+			for(int i=0;i<m_nTrueChannelCount;i++){
 				m_arrnRecordTotalWheelCount[i]=0;
 				m_arrnRealTotalWheelCount[i]=0;
 			}
@@ -1844,6 +1986,24 @@ void test(){
 	AfxMessageBox(L"test");
 }*/
 
+//给radarData赋上gps等信息
+void MeasureProject::CompleteData( RadarData *rd ){
+	//非网口模式且以文件保存
+	/*osg::ref_ptr<SaveRadarFileDataCmd> lpCmd = new SaveRadarFileDataCmd;//osg库的线程
+	RadarData *tmpRD = rd;
+	lpCmd->_lpData = tmpRD;*/
+
+	osg::Vec3d pos;
+	std::vector< std::string > vecStrGPGGA;
+	RadarManager::Instance()->getGpsReader()->getCurrentGpsImformation(pos,vecStrGPGGA);
+	float curLen = RadarManager::Instance()->getGpsReader()->getCurLen() + _lastLen;//获取当前总数据距离长度
+	
+	//补全雷达数据
+	rd->setPosition( pos );
+	rd->setGPGGA( vecStrGPGGA );
+	rd->setTime( time(NULL)/*GetTickCount()*/ );
+	rd->setLen( curLen );	
+}
 
 //按通道号添加雷达数据添加数据
 void MeasureProject::addData( RadarData *rd, int channelIndex ){
@@ -1883,19 +2043,20 @@ void MeasureProject::addData( RadarData *rd, int channelIndex ){
 
 		((SaveFileDataThread*)_lpThreadSaveFile[channelIndex])->addData(lpCmd.get());
 	}else if (m_iRadarWorkType == RADAR_WORK_TYPE_EIGHT && m_iSaveOracle == 0){//网口模式且以文件保存
-		if(channelIndex>=m_nChannelCount){
+		if(m_nSaveFileType==1&&channelIndex>=m_nTrueChannelCount){//3维雷达筛选通道
 			return;
-		}
-		if(m_nUpload==1){
-			if(channelIndex>=6){
-				return;
-			}
 		}
 		if(m_nSaveFileType==0){//2维雷达筛选通道
 			if(m_nArr2DChannel[channelIndex]==0){
 				return;
 			}
 		}
+
+		/*if(m_nUpload==1){
+			if(channelIndex>=6){
+				return;
+			}
+		}*/
 
 		if(m_nUpload==0){
 			if((rd->getPrec()+1)%m_dWaveWaringInterval==0){
@@ -1923,18 +2084,18 @@ void MeasureProject::addData( RadarData *rd, int channelIndex ){
 			//if(index==0&&_realTotalWheelCount>m_nThreshold&&(_realTotalWheelCount-9)%m_nThreshold==0){
 			int currentSecond = clock();
 			if(channelIndex==0&&(currentSecond-m_nLastSecond)>m_nTimeInterval&&(m_arrnRealTotalWheelCount[0]-m_nVecOriginWheelCountForPart[m_nVecOriginWheelCountForPart.size()-1])>500){
-				for(int i=0;i<m_nChannelCountForUpload;i++){
+				for(int i=0;i<m_nTrueChannelCount;i++){
 					m_SGYWriter[i]->setDataCountThreshold(m_arrnRealTotalWheelCount[0]);//后面的索引是0，因为进这里的判断是channelIndex=0，所以其他几个没变完
 					m_SGYWriter[i]->setNeedToChange(true);//符合分段判断就改储存路径
 				}
 				m_nVecOriginWheelCountForPart.push_back(m_arrnRealTotalWheelCount[0]);
 				std::vector<bool> vecTempForSuccess;//用来判断是否上传成功的
-				for(int i=0;i<15;i++){//一共15项 txt cor csv rad*6 rd3*6
+				for(int i=0;i<m_nTrueChannelCount*2+3;i++){//一共m_nTrueChannelCount*2+3项 txt cor csv rad*通道数 rd3*通道数
 					vecTempForSuccess.push_back(true);
 				}
 				m_vecVecUploadSuccessFlag.push_back(vecTempForSuccess);
 				std::vector<bool> vecTempForProcess;//用来处理过程是否完成
-				for(int i=0;i<15;i++){//一共15项 txt cor csv rad*6 rd3*6
+				for(int i=0;i<m_nTrueChannelCount*2+3;i++){//一共m_nTrueChannelCount*2+3项 txt cor csv rad*通道数 rd3*通道数
 					vecTempForProcess.push_back(false);
 				}
 				m_vecVecProcessFinishedFlag.push_back(vecTempForProcess);
@@ -1946,7 +2107,7 @@ void MeasureProject::addData( RadarData *rd, int channelIndex ){
 		}else if(m_dSeperateType==1){
 			int currentSecond = clock();
 			if(channelIndex==0&&(currentSecond-m_nLastSecond)>m_nTimeInterval&&(m_arrnRealTotalWheelCount[0]-m_nVecOriginWheelCountForPart[m_nVecOriginWheelCountForPart.size()-1])>500){
-				for(int i=0;i<m_nChannelCount;i++){
+				for(int i=0;i<m_nTrueChannelCount;i++){
 					m_SGYWriter[i]->setDataCountThreshold(m_arrnRealTotalWheelCount[0]);//后面的索引是0，因为进这里的判断是channelIndex=0，所以其他几个没变完
 					m_SGYWriter[i]->setNeedToChange(true);//符合分段判断就改储存路径
 				}
@@ -1954,7 +2115,7 @@ void MeasureProject::addData( RadarData *rd, int channelIndex ){
 				if(m_nSaveFileType==1){
 					writeRadFileForPart(m_dRoadPart);
 					copyTxtFileForPart(m_dRoadPart);
-					if(m_nChannelCount==16){
+					if(m_nTrueChannelCount==16){
 						((CopyLocalThread*)_lpThreadCopyData)->addPart(m_dRoadPart);
 					}
 				}
@@ -1972,7 +2133,7 @@ void MeasureProject::addData( RadarData *rd, int channelIndex ){
 				if(m_nSaveFileType==1){
 					writeRadFileForPart(m_dRoadPart);
 					copyTxtFileForPart(m_dRoadPart);
-					if(m_nChannelCount==16){
+					if(m_nTrueChannelCount==16){
 						((CopyLocalThread*)_lpThreadCopyData)->addPart(m_dRoadPart);
 					}
 				}
@@ -2043,7 +2204,7 @@ void MeasureProject::addData( RadarData *rd, int channelIndex ){
 		if ( !RadarManager::Instance()->dbOpen() ){
 			return;
 		}
-		if ( channelIndex >= m_nChannelCount ){
+		if ( channelIndex >= m_nTrueChannelCount ){
 			return;
 		}
 		_maxID ++;
@@ -2077,7 +2238,8 @@ void MeasureProject::addData( RadarData *rd, int channelIndex ){
 	}
 }
 
-void MeasureProject::addDataToDataLossCheck( RadarData *rd, int channelIndex ){
+void MeasureProject::addGroupData( std::vector<osg::ref_ptr<RadarData>> radarDataGroup ){
+	((GroupDataProcessThread*)_lpThreadGroupDataProcess)->addGroupData(radarDataGroup);
 	/*if(index>=m_nTrueChannelCount){
 		return;
 	}
@@ -2120,6 +2282,131 @@ void MeasureProject::addDataToDataLossCheck( RadarData *rd, int channelIndex ){
 		}
 		m_vecRadarDataGroup.clear();
 	}*/
+}
+
+//按通道号添加雷达数据添加数据
+void MeasureProject::AddEachDataForGroup( RadarData *rd, int channelIndex ){
+	//非网口模式且以文件保存	
+	if(channelIndex>=m_nTrueChannelCount){
+		return;
+	}
+
+	if(m_nUpload==0){
+		if((rd->getPrec()+1)%m_dWaveWaringInterval==0){
+			((CheckDataThread*)_lpThreadCheckData)->addData(rd);
+		}
+	}
+	
+	osg::ref_ptr<SaveRadarFileDataCmd> lpCmd = new SaveRadarFileDataCmd;//线程指令的指针
+	RadarData *tmpRD = rd;
+	lpCmd->_lpData = tmpRD;
+	if(m_arrnRecordTotalWheelCount[channelIndex] == rd->getRealWheelCount()){
+		return;
+	}
+	m_arrnRecordTotalWheelCount[channelIndex] = rd->getRealWheelCount();
+	m_arrnRealTotalWheelCount[channelIndex] = m_arrnRealTotalWheelCount[channelIndex]+1;
+	if(m_arrnRealTotalWheelCount[channelIndex]==1){//不要第一个数据，第一个数据总是上一次采集的，原因不明
+		return;
+	}
+	//处理上传时的分段判断
+	if(m_nUpload==1){
+		//if(index==0&&_realTotalWheelCount>m_nThreshold&&(_realTotalWheelCount-9)%m_nThreshold==0){
+		int currentSecond = clock();
+		if(channelIndex==0&&(currentSecond-m_nLastSecond)>m_nTimeInterval&&(m_arrnRealTotalWheelCount[0]-m_nVecOriginWheelCountForPart[m_nVecOriginWheelCountForPart.size()-1])>500){
+			for(int i=0;i<m_nTrueChannelCount;i++){
+				m_SGYWriter[i]->setDataCountThreshold(m_arrnRealTotalWheelCount[0]);//后面的索引是0，因为进这里的判断是channelIndex=0，所以其他几个没变完
+				m_SGYWriter[i]->setNeedToChange(true);//符合分段判断就改储存路径
+			}
+			m_nVecOriginWheelCountForPart.push_back(m_arrnRealTotalWheelCount[0]);
+			std::vector<bool> vecTempForSuccess;//用来判断是否上传成功的
+			for(int i=0;i<m_nTrueChannelCount*2+3;i++){//一共m_nTrueChannelCount*2+3项 txt cor csv rad*通道数 rd3*通道数
+				vecTempForSuccess.push_back(true);
+			}
+			m_vecVecUploadSuccessFlag.push_back(vecTempForSuccess);
+			std::vector<bool> vecTempForProcess;//用来处理过程是否完成
+			for(int i=0;i<m_nTrueChannelCount*2+3;i++){//一共m_nTrueChannelCount*2+3项 txt cor csv rad*通道数 rd3*通道数
+				vecTempForProcess.push_back(false);
+			}
+			m_vecVecProcessFinishedFlag.push_back(vecTempForProcess);
+			m_vecbUploadConditionForEachPart.push_back(false);
+			((SaveOnlineThread*)_lpThreadSaveOnline)->addPart(m_dRoadPart);//把刚刚完成的这一段发到上传线程 开始上传
+			m_nLastSecond=m_nLastSecond+m_nTimeInterval;
+			m_dRoadPart=m_dRoadPart+1;//更新路段号
+		}
+	}else if(m_dSeperateType==1){
+		int currentSecond = clock();
+		if(channelIndex==0&&(currentSecond-m_nLastSecond)>m_nTimeInterval&&(m_arrnRealTotalWheelCount[0]-m_nVecOriginWheelCountForPart[m_nVecOriginWheelCountForPart.size()-1])>500){
+			for(int i=0;i<m_nTrueChannelCount;i++){
+				m_SGYWriter[i]->setDataCountThreshold(m_arrnRealTotalWheelCount[0]);//后面的索引是0，因为进这里的判断是channelIndex=0，所以其他几个没变完
+				m_SGYWriter[i]->setNeedToChange(true);//符合分段判断就改储存路径
+			}
+			m_nVecOriginWheelCountForPart.push_back(m_arrnRealTotalWheelCount[0]);
+			if(m_nSaveFileType==1){
+				writeRadFileForPart(m_dRoadPart);
+				copyTxtFileForPart(m_dRoadPart);
+				if(m_nTrueChannelCount==16){
+					((CopyLocalThread*)_lpThreadCopyData)->addPart(m_dRoadPart);
+				}
+			}
+			m_nLastSecond=m_nLastSecond+m_nTimeInterval;
+			m_dRoadPart=m_dRoadPart+1;//更新路段号
+		}
+	}else if(m_dSeperateType==2){
+		//if(index==0&&_realTotalWheelCount>m_nThreshold&&(_realTotalWheelCount-9)%m_nThreshold==0){
+		if(channelIndex==0&&m_arrnRealTotalWheelCount[0]>=m_nWheelCountInterval&&m_arrnRealTotalWheelCount[0]%m_nWheelCountInterval==0){
+			//for(int i=0;i<CHANNELCOUNT;i++){//距离会自行判断，不需要这里控制
+				//m_SGYWriter[i]->setDataCountThreshold(m_arrnRealTotalWheelCount[0]);//后面的索引是0，因为进这里的判断是channelIndex=0，所以其他几个没变完
+				//m_SGYWriter[i]->setNeedToChange(true);
+			//}
+			m_nVecOriginWheelCountForPart.push_back(m_arrnRealTotalWheelCount[0]);
+			if(m_nSaveFileType==1){
+				writeRadFileForPart(m_dRoadPart);
+				copyTxtFileForPart(m_dRoadPart);
+				if(m_nTrueChannelCount==16){
+					((CopyLocalThread*)_lpThreadCopyData)->addPart(m_dRoadPart);
+				}
+			}
+			//m_nLastSecond=m_nLastSecond+m_nTimeInterval;
+			m_dRoadPart=m_dRoadPart+1;//更新路段号
+		}
+	}
+
+	float fCurLen=tmpRD->getLen();
+
+	//上传模式下实时上传gpsData
+	if(m_nUpload==1){
+		if(channelIndex == 0){
+			if(fCurLen>m_fLastGpsLen||m_fLastGpsLen==0){
+				/*std::vector< std::string > strGpsData(RadarManager::Instance()->getGpsReader()->getCurrentGpsDataBuff());
+				if (!( _currentGps.size()!=15 || _currentGps[14].size()<3 || _currentGps[2]=="" || _currentGps[4]=="" )){//第二个判断是确保最后一项有换行符 三四判断经纬度不为零
+					std::string strUploadGpsData=
+					((UploadGpsOnlineThread*)_lpThreadUploadGps)->addData(pos);
+				}*/
+				if(m_fLastPostedGpsLen!=m_fLastGpsLen){
+					time_t mytime = time(NULL);
+					int dTemp=mytime;
+					if(dTemp>m_dGpsTimeStamp||m_fLastGpsLen==0){//每一秒传一个
+						m_dGpsTimeStamp=dTemp;
+						((UploadGpsOnlineThread*)_lpThreadUploadGps)->addData(m_pLastPos);//线程加任务
+					}
+				}
+				m_fLastPostedGpsLen=m_fLastGpsLen;
+				m_pLastPos=tmpRD->getPosition();
+				m_fLastGpsLen=fCurLen;
+			}
+		}
+	}
+	
+	//判断该数据是否被注释
+	if ( _setMark[channelIndex] ){
+		tmpRD->setMark( true );
+		_setMark[channelIndex] = false;
+	}else{
+		tmpRD->setMark( false );
+	}
+
+	//按index分配到对应的雷达数据储存线程中
+	((SaveFileDataThread*)_lpThreadSaveFile[channelIndex])->addData(lpCmd.get());
 }
 
 //20200306 hjl 用于测量轮回滚删除数据
@@ -2196,7 +2483,7 @@ void MeasureProject::setProjectRow( DBRow *lpRow ){
 	}else{
 		_lastLen = 0;
 	}
-	for(int i=0;i<m_nChannelCount;i++){
+	for(int i=0;i<m_nTrueChannelCount;i++){
 		m_arrnRecordTotalWheelCount[i]=0;
 		m_arrnRealTotalWheelCount[i]=0;
 	}
@@ -2219,7 +2506,7 @@ void MeasureProject::updateProjectInfo( float curLen ){
 //下一道数据置为标记
 void MeasureProject::setMark(){
 	OpenThreads::ScopedLock<OpenThreads::Mutex> lock(_dataMutex);
-	for ( int i = 0; i < m_nChannelCount; i ++ ){
+	for ( int i = 0; i < m_nTrueChannelCount; i ++ ){
 		_setMark[i] = true;
 	}
 }
@@ -2357,7 +2644,7 @@ void MeasureProject::SetSaveOracleOrFile( int iRadarWorkType,int isaveOracle,CSt
 						strPathOrigin += _projectTab;
 						
 						std::vector<std::string> vecStrSGYPath;
-						for(int i=0;i<m_nChannelCount;i++){
+						/*for(int i=0;i<m_nTrueChannelCount;i++){
 							std::string strPath;
 							strPath=strPathOrigin;
 							strPath+="_";
@@ -2368,6 +2655,22 @@ void MeasureProject::SetSaveOracleOrFile( int iRadarWorkType,int isaveOracle,CSt
 							strPath+=strTemp;
 							strPath+=".SGY";
 							vecStrSGYPath.push_back(strPath);
+						}*/
+						for(int i=0;i<8;i++){
+							if(m_nArr2DChannel[i]==1){
+								std::string strPath;
+								strPath=strPathOrigin;
+								strPath+="_";
+								//int转char*
+								stringstream ssTemp;
+								ssTemp << (i+1);
+								string strTemp = ssTemp.str();
+								strPath+=strTemp;
+								strPath+=".SGY";
+								vecStrSGYPath.push_back(strPath);
+							}else{
+								vecStrSGYPath.push_back("");
+							}
 						}
 
 						std::string strPathGPS = W2A( strPath );
@@ -2457,7 +2760,7 @@ void MeasureProject::SetSaveOracleOrFile( int iRadarWorkType,int isaveOracle,CSt
 						//strPathOrigin += _projectTab;
 						
 						std::vector<std::string> vecStrSGYPath;
-						for(int i=0;i<m_nChannelCount;i++){
+						/*for(int i=0;i<m_nTrueChannelCount;i++){
 							std::string strPath;
 							strPath=strPathOrigin;
 							strPath+=_projectName;
@@ -2471,6 +2774,25 @@ void MeasureProject::SetSaveOracleOrFile( int iRadarWorkType,int isaveOracle,CSt
 							strPath+=strTemp;
 							strPath+=".SGY";
 							vecStrSGYPath.push_back(strPath);
+						}*/
+						for(int i=0;i<8;i++){
+							if(m_nArr2DChannel[i]){
+								std::string strPath;
+								strPath=strPathOrigin;
+								strPath+=_projectName;
+								strPath+=_projectTab;
+								strPath+="_1";
+								strPath+="_";
+								//int转char*
+								stringstream ssTemp;
+								ssTemp << (i+1);
+								string strTemp = ssTemp.str();
+								strPath+=strTemp;
+								strPath+=".SGY";
+								vecStrSGYPath.push_back(strPath);
+							}else{
+								vecStrSGYPath.push_back("");
+							}
 						}
 
 						std::string strPathGPSCsv = strPathOrigin;
@@ -2601,7 +2923,7 @@ void MeasureProject::SetSaveOracleOrFile( int iRadarWorkType,int isaveOracle,CSt
 						strPathOrigin += _projectTab;
 						strPathOrigin+="_1";
 
-						std::string strPathOriginForHide = W2A( strPath );
+						/*std::string strPathOriginForHide = W2A( strPath );
 						strPathOriginForHide += _projectName;
 						strPathOriginForHide += _projectTab;
 						strPathOriginForHide+="\\";
@@ -2616,31 +2938,25 @@ void MeasureProject::SetSaveOracleOrFile( int iRadarWorkType,int isaveOracle,CSt
 						strPathOriginForHide += "\\";
 						strPathOriginForHide += _projectName;
 						strPathOriginForHide += _projectTab;
-						strPathOriginForHide += "_1";
+						strPathOriginForHide += "_1";*/
 						
 						
 						/*
 						//char strPathSGY[CHANNELCOUNT][300];//文件路径字节量
-						char **strPathSGY = new char*[m_nChannelCountForUpload];
+						char **strPathSGY = new char*[m_nTrueChannelCount];
 						for(int i=0;i<m_nChannelCountForUpload;i++){
 							strPathSGY[i] = new char[300];
 						}
 						for(int i=0;i<m_nChannelCountForUpload;i++){//使后面的strcat生效
 							strPathSGY[i][0]='\0';
 						}*/
-						for(int i=0;i<m_nChannelCountForUpload;i++){//使后面的strcat生效
+						for(int i=0;i<m_nTrueChannelCount;i++){//使后面的strcat生效
 							_strLocalRadarDataPath[i][0]='\0';
 						}
 						
-						for(int i=0;i<m_nChannelCountForUpload;i++){
+						for(int i=0;i<m_nTrueChannelCount;i++){
 							//strcat(strPathSGY[i],strPathOrigin.c_str());
 							strcat(_strLocalRadarDataPath[i],strPathOrigin.c_str());
-							/*
-							if(i<12){
-								strcat(_strLocalRadarDataPath[i],strPathOrigin.c_str());
-							}else{
-								strcat(_strLocalRadarDataPath[i],strPathOriginForHide.c_str());
-							}*/
 							strcat(_strLocalRadarDataPath[i],"_");
 						
 							//int转char*
@@ -2655,8 +2971,13 @@ void MeasureProject::SetSaveOracleOrFile( int iRadarWorkType,int isaveOracle,CSt
 							//strcat(_strLocalRadarDataPath[i],".gdd");
 						}
 
-						for(int i=0;i<m_nChannelCountForUpload;i++){//字符串结尾补个终止符
-							_strLocalRadarDataPath[i][strPathOrigin.length()+6]='\0';
+						for(int i=0;i<m_nTrueChannelCount;i++){//字符串结尾补个终止符
+							if(i<9){
+								_strLocalRadarDataPath[i][strPathOrigin.length()+6]='\0';
+							}else{
+								_strLocalRadarDataPath[i][strPathOrigin.length()+7]='\0';
+							}
+
 						}
 
 						_strLocalGPSCorPath ="";
@@ -2691,7 +3012,7 @@ void MeasureProject::SetSaveOracleOrFile( int iRadarWorkType,int isaveOracle,CSt
 							return;
 						}
 
-						for(int i=0;i<m_nChannelCountForUpload;i++){
+						for(int i=0;i<m_nTrueChannelCount;i++){
 							if (_lpThreadSaveFile[i]){
 								delete _lpThreadSaveFile[i];
 								_lpThreadSaveFile[i] = NULL;
@@ -2761,6 +3082,16 @@ void MeasureProject::SetSaveOracleOrFile( int iRadarWorkType,int isaveOracle,CSt
 						_lpThreadUploadGps = new UploadGpsOnlineThread;
 						((UploadGpsOnlineThread*)_lpThreadUploadGps)->_MeasureProject = this;
 						_lpThreadUploadGps->start();
+
+						//三维数据组线程
+						if (_lpThreadGroupDataProcess){
+							delete _lpThreadGroupDataProcess;
+							_lpThreadGroupDataProcess = NULL;
+						}
+						_lpThreadGroupDataProcess = new GroupDataProcessThread;
+						((GroupDataProcessThread*)_lpThreadGroupDataProcess)->_MeasureProject = this;
+						((GroupDataProcessThread*)_lpThreadGroupDataProcess)->_nChannelCount = m_nTrueChannelCount;
+						_lpThreadGroupDataProcess->start();
 					}else if(m_nUpload==0){
 						if(m_dSeperateType==0){//不分段
 							m_bIsBegin = true;
@@ -2779,10 +3110,19 @@ void MeasureProject::SetSaveOracleOrFile( int iRadarWorkType,int isaveOracle,CSt
 								// if this folder not exist, create a new one.
 								mkdir(strPathOrigin.c_str());   // 返回 0 表示创建成功，-1 表示失败
 							}
+							//创建image的文件夹
+							{
+								std::string strImageDocument=strPathOrigin+"\\"+"Image";
+								RadarManager::Instance()->m_strImageSaveDocumentPath=strImageDocument;
+								if (0 != access(strImageDocument.c_str(), 0)){
+									mkdir(strImageDocument.c_str());   
+								}
+							}
 							strPathOrigin += "\\";
 							strPathOrigin += _projectName;
 							strPathOrigin += _projectTab;
 
+							
 							//m_fpLog=fopen( (strPathOrigin+"\\log.txt").c_str(), "a" );
 
 							/*
@@ -2800,15 +3140,15 @@ void MeasureProject::SetSaveOracleOrFile( int iRadarWorkType,int isaveOracle,CSt
 							*/
 
 							//char strPathSGY[CHANNELCOUNT][300];//文件路径字节量
-							char **strPathSGY = new char*[m_nChannelCount];
-							for(int i=0;i<m_nChannelCount;i++){
+							char **strPathSGY = new char*[m_nTrueChannelCount];
+							for(int i=0;i<m_nTrueChannelCount;i++){
 								strPathSGY[i] = new char[300];
 							}
-							for(int i=0;i<m_nChannelCount;i++){
+							for(int i=0;i<m_nTrueChannelCount;i++){
 								strPathSGY[i][0]='\0';
 							}
 
-							for(int i=0;i<m_nChannelCount;i++){
+							for(int i=0;i<m_nTrueChannelCount;i++){
 								/*if(i<16){
 									strcat(strPathSGY[i],strPathOrigin.c_str());
 								}else{
@@ -2856,7 +3196,7 @@ void MeasureProject::SetSaveOracleOrFile( int iRadarWorkType,int isaveOracle,CSt
 								return;
 							}
 
-							for(int i=0;i<m_nChannelCount;i++){
+							for(int i=0;i<m_nTrueChannelCount;i++){
 								if (_lpThreadSaveFile[i]){
 									delete _lpThreadSaveFile[i];
 									_lpThreadSaveFile[i] = NULL;
@@ -2895,6 +3235,15 @@ void MeasureProject::SetSaveOracleOrFile( int iRadarWorkType,int isaveOracle,CSt
 							_lpThreadCheckData = new CheckDataThread;
 							((CheckDataThread*)_lpThreadCheckData)->_MeasureProject = this;
 							_lpThreadCheckData->start();
+							//三维数据组线程
+							if (_lpThreadGroupDataProcess){
+								delete _lpThreadGroupDataProcess;
+								_lpThreadGroupDataProcess = NULL;
+							}
+							_lpThreadGroupDataProcess = new GroupDataProcessThread;
+							((GroupDataProcessThread*)_lpThreadGroupDataProcess)->_MeasureProject = this;
+							((GroupDataProcessThread*)_lpThreadGroupDataProcess)->_nChannelCount = m_nTrueChannelCount;
+							_lpThreadGroupDataProcess->start();
 						}else if(m_dSeperateType!=0){//分段
 							m_bIsBegin = true;
 							_maxID = 0;
@@ -2913,6 +3262,15 @@ void MeasureProject::SetSaveOracleOrFile( int iRadarWorkType,int isaveOracle,CSt
 							if (0 != access(strPathOrigin.c_str(), 0)){
 								// if this folder not exist, create a new one.
 								mkdir(strPathOrigin.c_str());   // 返回 0 表示创建成功，-1 表示失败
+							}
+
+							//创建image的文件夹
+							{
+								std::string strImageDocument=strPathOrigin+"\\"+"Image";
+								RadarManager::Instance()->m_strImageSaveDocumentPath=strImageDocument;
+								if (0 != access(strImageDocument.c_str(), 0)){
+									mkdir(strImageDocument.c_str());   
+								}
 							}
 
 							m_fpLog = fopen( (strPathOrigin+"\\log.txt").c_str(), "a" );//正常流程的log文件
@@ -2950,10 +3308,10 @@ void MeasureProject::SetSaveOracleOrFile( int iRadarWorkType,int isaveOracle,CSt
 							
 							
 						
-							for(int i=0;i<m_nChannelCount;i++){//使后面的strcat生效
+							for(int i=0;i<m_nTrueChannelCount;i++){//使后面的strcat生效-
 								_strLocalRadarDataPath[i][0]='\0';
 							}
-							for(int i=0;i<m_nChannelCount;i++){
+							for(int i=0;i<m_nTrueChannelCount;i++){
 								strcat(_strLocalRadarDataPath[i],strPathOrigin.c_str());
 								/*if(i<16){
 									strcat(_strLocalRadarDataPath[i],strPathOrigin.c_str());
@@ -2972,7 +3330,7 @@ void MeasureProject::SetSaveOracleOrFile( int iRadarWorkType,int isaveOracle,CSt
 								strcat(_strLocalRadarDataPath[i],".rd3");
 								//strcat(_strLocalRadarDataPath[i],".gdd");
 							}
-							for(int i=0;i<m_nChannelCount;i++){//字符串结尾补个终止符
+							for(int i=0;i<m_nTrueChannelCount;i++){//字符串结尾补个终止符
 								if(i<9){
 									_strLocalRadarDataPath[i][strPathOrigin.length()+6]='\0';
 								}else/* if(i<16)*/{
@@ -3004,7 +3362,7 @@ void MeasureProject::SetSaveOracleOrFile( int iRadarWorkType,int isaveOracle,CSt
 								return;
 							}
 
-							for(int i=0;i<m_nChannelCount;i++){
+							for(int i=0;i<m_nTrueChannelCount;i++){
 								if (_lpThreadSaveFile[i]){
 									delete _lpThreadSaveFile[i];
 									_lpThreadSaveFile[i] = NULL;
@@ -3052,6 +3410,16 @@ void MeasureProject::SetSaveOracleOrFile( int iRadarWorkType,int isaveOracle,CSt
 							_lpThreadCopyData = new CopyLocalThread;
 							((CopyLocalThread*)_lpThreadCopyData)->_MeasureProject = this;
 							_lpThreadCopyData->start();
+
+							//三维数据组线程
+							if (_lpThreadGroupDataProcess){
+								delete _lpThreadGroupDataProcess;
+								_lpThreadGroupDataProcess = NULL;
+							}
+							_lpThreadGroupDataProcess = new GroupDataProcessThread;
+							((GroupDataProcessThread*)_lpThreadGroupDataProcess)->_MeasureProject = this;
+							((GroupDataProcessThread*)_lpThreadGroupDataProcess)->_nChannelCount = m_nTrueChannelCount;
+							_lpThreadGroupDataProcess->start();
 						}
 					}
 				}
@@ -3146,7 +3514,7 @@ void MeasureProject::writeRadFile(){
 	strPathOriginForHide += _projectName;
 	strPathOriginForHide += _projectTab;
 	strPathOriginForHide+="\\moreChannels";
-	if(m_nChannelCount==16){
+	if(m_nTrueChannelCount==16){
 		if (0 != access(strPathOriginForHide.c_str(), 0)){
 			// if this folder not exist, create a new one.
 			mkdir(strPathOriginForHide.c_str());   // 返回 0 表示创建成功，-1 表示失败
@@ -3157,16 +3525,16 @@ void MeasureProject::writeRadFile(){
 	strPathOriginForHide += _projectTab;
 	
 	int maxChannelCount;
-	if(m_nChannelCount==16){
-		maxChannelCount=m_nChannelCount+12;
-	}/*else if(m_nChannelCount==7){
-		maxChannelCount=m_nChannelCount+7;
-	}else if(m_nChannelCount==8){
-		maxChannelCount=m_nChannelCount+8;
-	}else if(m_nChannelCount==4){
-		maxChannelCount=m_nChannelCount+4;
+	if(m_nTrueChannelCount==16){
+		maxChannelCount=m_nTrueChannelCount+12;
+	}/*else if(m_nTrueChannelCount==7){
+		maxChannelCount=m_nTrueChannelCount+7;
+	}else if(m_nTrueChannelCount==8){
+		maxChannelCount=m_nTrueChannelCount+8;
+	}else if(m_nTrueChannelCount==4){
+		maxChannelCount=m_nTrueChannelCount+4;
 	}*/else{
-		maxChannelCount=m_nChannelCount;
+		maxChannelCount=m_nTrueChannelCount;
 	}
 
 	//char strPathRad[CHANNELCOUNT][300];
@@ -3179,7 +3547,7 @@ void MeasureProject::writeRadFile(){
 	}
 
 	for(int i=0;i<maxChannelCount;i++){
-		if(i<m_nChannelCount){
+		if(i<m_nTrueChannelCount){
 			strcat(strPathRad[i],strPathOrigin.c_str());
 		}else{
 			strcat(strPathRad[i],strPathOriginForHide.c_str());
@@ -3277,16 +3645,16 @@ void MeasureProject::writeRadFileForPart( int roadPart ){
 		strPathOrigin += "_";
 		strPathOrigin += strRoadPart;
 		
-		//char strPathRad[m_nChannelCountForUpload][300];
-		char **strPathRad = new char* [m_nChannelCountForUpload];
-		for(int i=0;i<m_nChannelCountForUpload;i++){
+		//char strPathRad[m_nTrueChannelCount][300];
+		char **strPathRad = new char* [m_nTrueChannelCount];
+		for(int i=0;i<m_nTrueChannelCount;i++){
 			strPathRad[i]=new char [300];
 		}
-		for(int i=0;i<m_nChannelCountForUpload;i++){
+		for(int i=0;i<m_nTrueChannelCount;i++){
 			strPathRad[i][0]='\0';
 		}
 
-		for(int i=0;i<m_nChannelCountForUpload;i++){
+		for(int i=0;i<m_nTrueChannelCount;i++){
 			strcat(strPathRad[i],strPathOrigin.c_str());
 			strcat(strPathRad[i],"_");
 		
@@ -3321,7 +3689,7 @@ void MeasureProject::writeRadFileForPart( int roadPart ){
 		}*/
 		wheelCount=m_nVecOriginWheelCountForPart[roadPart]-m_nVecOriginWheelCountForPart[roadPart-1];
 
-		for(int i=0;i<m_nChannelCountForUpload;i++){
+		for(int i=0;i<m_nTrueChannelCount;i++){
 			ofstream ofile; 
 			ofile.open(strPathRad[i]);  
 
@@ -3366,7 +3734,7 @@ void MeasureProject::writeRadFileForPart( int roadPart ){
 
 			ofile.close();//关闭文件
 		}
-		for(int i=0;i<m_nChannelCountForUpload;i++){
+		for(int i=0;i<m_nTrueChannelCount;i++){
 			delete []strPathRad[i];
 		}
 		delete []strPathRad;
@@ -3411,20 +3779,20 @@ void MeasureProject::writeRadFileForPart( int roadPart ){
 		
 		//char strPathRad[m_nChannelCountForUpload][300];
 		/*int maxChannelCount;
-		if(m_nChannelCount==16){
+		if(m_nTrueChannelCount==16){
 			maxChannelCount=28;
 		}else{
-			maxChannelCount=m_nChannelCount;
+			maxChannelCount=m_nTrueChannelCount;
 		}*/
-		char **strPathRad = new char* [m_nChannelCount];
-		for(int i=0;i<m_nChannelCount;i++){
+		char **strPathRad = new char* [m_nTrueChannelCount];
+		for(int i=0;i<m_nTrueChannelCount;i++){
 			strPathRad[i]=new char [300];
 		}
-		for(int i=0;i<m_nChannelCount;i++){
+		for(int i=0;i<m_nTrueChannelCount;i++){
 			strPathRad[i][0]='\0';
 		}
 
-		for(int i=0;i<m_nChannelCount;i++){
+		for(int i=0;i<m_nTrueChannelCount;i++){
 			/*if(i<16){
 				strcat(strPathRad[i],strPathOrigin.c_str());
 			}else{
@@ -3451,7 +3819,7 @@ void MeasureProject::writeRadFileForPart( int roadPart ){
 		
 		wheelCount=m_nVecOriginWheelCountForPart[roadPart]-m_nVecOriginWheelCountForPart[roadPart-1];
 
-		for(int i=0;i<m_nChannelCount;i++){
+		for(int i=0;i<m_nTrueChannelCount;i++){
 			ofstream ofile; 
 			ofile.open(strPathRad[i]);  
 			ofile<<"SAMPLES:"<<sampleNum<<endl;
@@ -3494,7 +3862,7 @@ void MeasureProject::writeRadFileForPart( int roadPart ){
 			ofile<<"ANTENNA FREQUENCY:"<<500<<endl;
 			ofile.close();//关闭文件
 		}
-		for(int i=0;i<m_nChannelCount;i++){
+		for(int i=0;i<m_nTrueChannelCount;i++){
 			delete []strPathRad[i];
 		}
 		delete []strPathRad;
@@ -3523,8 +3891,8 @@ void MeasureProject::writeRadFileForPart( int roadPart ){
 ////	strPathOrigin += "_";
 ////	strPathOrigin += strRoadPart;
 ////	
-////	//char strPathRad[m_nChannelCount][300];
-////	char **strPathRad = new char* [m_nChannelCount];
+////	//char strPathRad[m_nTrueChannelCount][300];
+////	char **strPathRad = new char* [m_nTrueChannelCount];
 ////	for(int i=0;i<m_nChannelCountForUpload;i++){
 ////		strPathRad[i]=new char [300];
 ////	}
@@ -3802,8 +4170,8 @@ void MeasureProject::writeRadFileForPart( int roadPart ){
 	strPathOrigin += "_";
 	strPathOrigin += strRoadPart;
 	
-	//char strPathRad[m_nChannelCount][300];
-	char **strPathRad = new char* [m_nChannelCount];
+	//char strPathRad[m_nTrueChannelCount][300];
+	char **strPathRad = new char* [m_nTrueChannelCount];
 	for(int i=0;i<m_nChannelCountForUpload;i++){
 		strPathRad[i]=new char [300];
 	}
@@ -3921,36 +4289,40 @@ void MeasureProject::writeTxtFile(){
 		ofile<<"直达波起点:"<<"0,0,0,0,0,0,0,0,0,0,0,0"<<endl;
 	}else*/ 
 
-	if(m_nChannelCount==4){
+	/*if(m_nTrueChannelCount==4){
 		ofile<<"Y向数据通道数:"<<4<<endl;
 		ofile<<"Y向数据距离间隔(厘米):"<<"0,24,48,72"<<endl;
 		ofile<<"直达波起点:"<<"0,0,0,0"<<endl;
 		//ofile<<"直达波起点:"<<startingPoint<<endl;
-	}else if(m_nChannelCount==6){
+	}else if(m_nTrueChannelCount==6){
 		ofile<<"Y向数据通道数:"<<6<<endl;
 		ofile<<"Y向数据距离间隔(厘米):"<<"0,24,48,72,96,120"<<endl;
 		//ofile<<"直达波起点:"<<"0,0,0,0,0,0"<<endl;
 		ofile<<"直达波起点:"<<startingPoint<<endl;
-	}else if(m_nChannelCount==7){
+	}else if(m_nTrueChannelCount==7){
 		ofile<<"Y向数据通道数:"<<7<<endl;
 		ofile<<"Y向数据距离间隔(厘米):"<<"0,24,48,72,96,120,144"<<endl;
 		//ofile<<"直达波起点:"<<"0,0,0,0,0,0"<<endl;
 		ofile<<"直达波起点:"<<"0,0,0,0,0,0,0"<<endl;
-	}else if(m_nChannelCount==8){
+	}else if(m_nTrueChannelCount==8){
 		ofile<<"Y向数据通道数:"<<8<<endl;
 		ofile<<"Y向数据距离p间隔(厘米):"<<"0,24,48,72,96,120,144,168"<<endl;
 		ofile<<"直达波起点:"<<"0,0,0,0,0,0,0,0"<<endl;
 		//ofile<<"直达波起点:"<<startingPoint<<endl;
-	}else if(m_nChannelCount==12){
+	}else if(m_nTrueChannelCount==12){
 		ofile<<"Y向数据通道数:"<<12<<endl;
 		ofile<<"Y向数据距离间隔(厘米):"<<"0,14,28,42,56,70,84,98,112,126,140,154"<<endl;
 		ofile<<"直达波起点:"<<"0,0,0,0,0,0,0,0,0,0,0,0"<<endl;
-	}else if(m_nChannelCount==15){
+	}else if(m_nTrueChannelCount==14){
+		ofile<<"Y向数据通道数:"<<14<<endl;
+		ofile<<"Y向数据距离间隔(厘米):"<<"0,12,24,36,48,60,72,84,96,108,120,132,144,156"<<endl;
+		ofile<<"直达波起点:"<<"0,0,0,0,0,0,0,0,0,0,0,0,0,0"<<endl;
+	}else if(m_nTrueChannelCount==15){
 		ofile<<"Y向数据通道数:"<<15<<endl;
 		ofile<<"Y向数据距离间隔(厘米):"<<"0,12,24,36,48,60,72,84,96,108,120,132,144,156,168"<<endl;
 		ofile<<"直达波起点:"<<"0,0,0,0,0,0,0,0,0,0,0,0,0,0,0"<<endl;
 		//ofile<<"直达波起点:"<<startingPoint<<endl;
-	}else if(m_nChannelCount==16){
+	}else if(m_nTrueChannelCount==16){
 		ofile<<"Y向数据通道数:"<<16<<endl;
 		ofile<<"Y向数据距离间隔(厘米):"<<"0,14,28,42,56,70,84,98,112,126,140,154,155,156,157,158"<<endl;
 		ofile<<"直达波起点:"<<"0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0"<<endl;
@@ -3958,7 +4330,39 @@ void MeasureProject::writeTxtFile(){
 		ofile<<"Y向数据通道数:"<<6<<endl;
 		ofile<<"Y向数据距离间隔(厘米):"<<"0,24,48,72,96,120"<<endl;
 		ofile<<"直达波起点:"<<0<<endl;
+	}*/
+	
+	ofile<<"Y向数据通道数:"<<m_nTrueChannelCount<<endl;
+	ofile<<"Y向数据距离间隔(厘米):0";
+	if(m_nTrueChannelCount==4||m_nTrueChannelCount==6||m_nTrueChannelCount==7||m_nTrueChannelCount==8){
+		for(int i=1;i<m_nTrueChannelCount;i++){
+			ofile<<","<<24*i;
+		}
+		ofile<<endl;
+	}else if(m_nTrueChannelCount==12){
+		for(int i=1;i<m_nTrueChannelCount;i++){
+			ofile<<","<<14*i;
+		}
+		ofile<<endl;
+	}else if(m_nTrueChannelCount==14||m_nTrueChannelCount==15){
+		for(int i=1;i<m_nTrueChannelCount;i++){
+			ofile<<","<<12*i;
+		}
+		ofile<<endl;
+	}else if(m_nTrueChannelCount==16){
+		ofile<<"0,14,28,42,56,70,84,98,112,126,140,154,155,156,157,158"<<endl;
 	}
+	ofile<<"直达波起点:0";
+	if(m_nUpload){
+		ofile<<endl;
+	}else{
+		for(int i=1;i<m_nTrueChannelCount;i++){
+			ofile<<",0";
+		}
+		ofile<<endl;
+	}
+
+
 	ofile.close();//关闭文件
 }
 
@@ -4060,6 +4464,8 @@ void MeasureProject::uploadTxtFileForGroup( int part ){
 	}
 	InternetCloseHandle(hftp);
 	InternetCloseHandle(hint);
+	hint = NULL;
+	hftp = NULL;
 }
 
 void MeasureProject::uploadGpsDataByPost(osg::Vec3d pos){
@@ -4106,7 +4512,6 @@ void MeasureProject::uploadGpsDataByPost(osg::Vec3d pos){
 		//没有收到回复参数
 	}
 	delete []gpsRecieveBuff;
-	
 	delete []gpsJsonBuff;
 	delete []gpsSendBuff;
 	closesocket(sta_socket);
@@ -4175,10 +4580,10 @@ void MeasureProject::writeNameCsvFile(){
 //16通道变28通道/1-12复制至17-28
 void MeasureProject::copyRadarData(){
 	int nCopyChannelCount;
-	if(m_nChannelCount==16){
+	if(m_nTrueChannelCount==16){
 		nCopyChannelCount=12;
 	}else{
-		nCopyChannelCount=m_nChannelCount;
+		nCopyChannelCount=m_nTrueChannelCount;
 	}
 	USES_CONVERSION;
 	std::string strPathOrigin = W2A( m_strSavePath );
@@ -4222,7 +4627,7 @@ void MeasureProject::copyRadarData(){
 		strPath+="_";
 		//int转char*
 		stringstream ssTemp;
-		ssTemp << (i+m_nChannelCount+1);
+		ssTemp << (i+m_nTrueChannelCount+1);
 		string strTemp = ssTemp.str();
 		strPath+=strTemp;
 		strPath+=".rd3";
@@ -4371,10 +4776,10 @@ void MeasureProject::copyRadarData(){
 //16通道变28通道/1-12复制至17-28
 /*void MeasureProject::copyRadarDataForPart(){
 	int needCopiedChannelCount;
-	if(m_nChannelCount==16){
+	if(m_nTrueChannelCount==16){
 		needCopiedChannelCount=12;
 	}else{
-		needCopiedChannelCount=m_nChannelCount;
+		needCopiedChannelCount=m_nTrueChannelCount;
 	}
 	for(int part=1;part<m_dRoadPart+1;part++){
 		USES_CONVERSION;
@@ -4436,7 +4841,7 @@ void MeasureProject::copyRadarData(){
 			std::string strPathOut;
 			strPathOut=strPathOriginForHide;
 			strPathOut+="_";
-			strPathOut+=intToString(i+1+m_nChannelCount);
+			strPathOut+=intToString(i+1+m_nTrueChannelCount);
 			strPathOut+=".rd3";
 			vecStrRd3PathOut.push_back(strPathOut);
 		}
@@ -4446,7 +4851,7 @@ void MeasureProject::copyRadarData(){
 			std::string strPathOut;
 			strPathOut=strPathOriginForHide;
 			strPathOut+="_";
-			strPathOut+=intToString(i+1+m_nChannelCount);
+			strPathOut+=intToString(i+1+m_nTrueChannelCount);
 			strPathOut+=".rad";
 			vecStrRadPathOut.push_back(strPathOut);
 		}
@@ -4475,10 +4880,10 @@ void MeasureProject::copyRadarData(){
 
 void MeasureProject::copyRadarDataForPart(int part){
 	int needCopiedChannelCount;
-	if(m_nChannelCount==16){
+	if(m_nTrueChannelCount==16){
 		needCopiedChannelCount=12;
 	}else{
-		needCopiedChannelCount=m_nChannelCount;
+		needCopiedChannelCount=m_nTrueChannelCount;
 	}
 	USES_CONVERSION;
 	std::string strPathOrigin = W2A( m_strSavePath );
@@ -4539,7 +4944,7 @@ void MeasureProject::copyRadarDataForPart(int part){
 		std::string strPathOut;
 		strPathOut=strPathOriginForHide;
 		strPathOut+="_";
-		strPathOut+=intToString(i+1+m_nChannelCount);
+		strPathOut+=intToString(i+1+m_nTrueChannelCount);
 		strPathOut+=".rd3";
 		vecStrRd3PathOut.push_back(strPathOut);
 	}
@@ -4549,7 +4954,7 @@ void MeasureProject::copyRadarDataForPart(int part){
 		std::string strPathOut;
 		strPathOut=strPathOriginForHide;
 		strPathOut+="_";
-		strPathOut+=intToString(i+1+m_nChannelCount);
+		strPathOut+=intToString(i+1+m_nTrueChannelCount);
 		strPathOut+=".rad";
 		vecStrRadPathOut.push_back(strPathOut);
 	}
@@ -4618,7 +5023,7 @@ void MeasureProject::StartAutoCorrection(){
 	m_nVecVecAutoCorrectionPointIndex.clear();
 	//m_nVecAutoCorrectionPointIndexCount.clear();
 	m_nVecAutoCorrectionResult.clear();
-	for(int i=0;i<m_nChannelCount;i++){
+	for(int i=0;i<m_nTrueChannelCount;i++){
 		std::vector<int> vecTemp;
 		/*for(int j=0;j<100;j++){
 			vecTemp.push_back(-1);
@@ -4638,7 +5043,7 @@ void MeasureProject::StartAutoCorrection(){
 
 //按通道号添加雷达数据添加数据到自动微调延迟线程
 void MeasureProject::addDataToAutoCorrection( RadarData *rd, int channelIndex ){
-	if(channelIndex>=m_nChannelCount){
+	if(channelIndex>=m_nTrueChannelCount){
 		return;
 	}
 
@@ -4710,7 +5115,7 @@ void MeasureProject::AutoCorrection(RadarData *rd ){
 
 	//所有通道的峰值索引值都好了就计算并发送结果
 	bool bFinished=true;
-	for(int i=0;i<m_nChannelCount;i++){
+	for(int i=0;i<m_nTrueChannelCount;i++){
 		if(m_nVecAutoCorrectionResult[i]==-1){
 			bFinished=false;
 			break;
@@ -4718,7 +5123,7 @@ void MeasureProject::AutoCorrection(RadarData *rd ){
 	}
 	if(bFinished){
 		int nMinPeakIndex=nSampleCount;
-		for(int i=0;i<m_nChannelCount;i++){//找出所有波峰所在位置的最小值
+		for(int i=0;i<m_nTrueChannelCount;i++){//找出所有波峰所在位置的最小值
 			if(m_nVecAutoCorrectionResult[i]!=0){
 				if(nMinPeakIndex>m_nVecAutoCorrectionResult[i]){
 					nMinPeakIndex=m_nVecAutoCorrectionResult[i];
@@ -4726,10 +5131,10 @@ void MeasureProject::AutoCorrection(RadarData *rd ){
 			}
 		}
 		vector<int> nVecResult;
-		for(int i=0;i<m_nChannelCount;i++){//获取每个通道的校正值
+		for(int i=0;i<m_nTrueChannelCount;i++){//获取每个通道的校正值
 			nVecResult.push_back(m_nVecAutoCorrectionResult[i]-nMinPeakIndex);
 		}
-		for(int i=0;i<m_nChannelCount;i++){//获取每个通道的校正值
+		for(int i=0;i<m_nTrueChannelCount;i++){//获取每个通道的校正值
 			if(nVecResult[i]>nSampleCount-4){
 				nVecResult[i]=0;
 			}
@@ -5076,8 +5481,8 @@ void MeasureProject::getOnlinePath(){
 ////		strLocalPath[i][0]='\0';
 ////	}*/
 ////
-////	char **vecStrRadarDataOnlinePath = new char* [m_nChannelCount];
-////	char **vecStrRadarDataLocalPath = new char* [m_nChannelCount];
+////	char **vecStrRadarDataOnlinePath = new char* [m_nTrueChannelCount];
+////	char **vecStrRadarDataLocalPath = new char* [m_nTrueChannelCount];
 ////	for(int i=0;i<m_nChannelCountForUpload;i++){
 ////		vecStrRadarDataOnlinePath[i]=new char[300];
 ////		vecStrRadarDataLocalPath[i]=new char[300];
@@ -5211,11 +5616,11 @@ void MeasureProject::getOnlinePath(){
 ////	//创建cor及rd3的本地路径
 ////	//本地上传路径	
 ////	std::string localCorFilePath;
-////	char strLocalPath[m_nChannelCount][300];
-////	for(int i=0;i<m_nChannelCount;i++){
+////	char strLocalPath[m_nTrueChannelCount][300];
+////	for(int i=0;i<m_nTrueChannelCount;i++){
 ////		strLocalPath[i][0]='\0';
 ////	}
-////	for(int i=0; i<m_nChannelCount; i++){
+////	for(int i=0; i<m_nTrueChannelCount; i++){
 ////		//==============================按part得到当前所需本地路径及线上路径==============================//
 ////		//前12道.\radarData\NameTab\NameTab_1\NameTab_1_i.rd3及.\radarData\NameTab\NameTab_1\moreChannels\NameTab_1_i.rd3变成
 ////		//前12道.\radarData\ProjectName\roadName\equipmentName\Tab\NameTab_1\NameTab_1_i.rd3及.\radarData\ProjectName\roadName\equipmentName\Tab\NameTab_1\moreChannels\NameTab_1_i.rd3
@@ -5412,22 +5817,27 @@ void MeasureProject::uploadDataForPart(int part){
 	std::string onlineCorFilePath;
 	std::string localTxtFilePath;
 	std::string onlineTxtFilePath;
-	char **vecStrRadarDataHeaderOnlinePath = new char* [m_nChannelCountForUpload];
-	char **vecStrRadarDataHeaderLocalPath = new char* [m_nChannelCountForUpload];
-	char **vecStrRadarDataOnlinePath = new char* [m_nChannelCountForUpload];
-	char **vecStrRadarDataLocalPath = new char* [m_nChannelCountForUpload];
-	for(int i=0;i<m_nChannelCountForUpload;i++){
+	/*char **vecStrRadarDataHeaderOnlinePath = new char* [m_nTrueChannelCount];
+	char **vecStrRadarDataHeaderLocalPath = new char* [m_nTrueChannelCount];
+	char **vecStrRadarDataOnlinePath = new char* [m_nTrueChannelCount];
+	char **vecStrRadarDataLocalPath = new char* [m_nTrueChannelCount];
+	for(int i=0;i<m_nTrueChannelCount;i++){
 		vecStrRadarDataHeaderOnlinePath[i]=new char[300];
 		vecStrRadarDataHeaderLocalPath[i]=new char[300];
 		vecStrRadarDataOnlinePath[i]=new char[300];
 		vecStrRadarDataLocalPath[i]=new char[300];
 	}
-	for(int i=0;i<m_nChannelCountForUpload;i++){
+	for(int i=0;i<m_nTrueChannelCount;i++){
 		vecStrRadarDataHeaderOnlinePath[i][0]='\0';
 		vecStrRadarDataHeaderLocalPath[i][0]='\0';
 		vecStrRadarDataOnlinePath[i][0]='\0';
 		vecStrRadarDataLocalPath[i][0]='\0';
-	}
+	}*/
+
+	vector<string> vecStrRadarDataHeaderOnlinePath;
+	vector<string> vecStrRadarDataHeaderLocalPath;
+	vector<string> vecStrRadarDataOnlinePath;
+	vector<string> vecStrRadarDataLocalPath;
 
 	USES_CONVERSION;
 	stringstream ssRoadPart;
@@ -5454,15 +5864,18 @@ void MeasureProject::uploadDataForPart(int part){
 	localCorFilePath=strPathOrigin+"gpsForUpload.cor";
 	localCsvFilePath=strPathOrigin+".csv";
 
-	for(int i=0;i<m_nChannelCountForUpload;i++){
-		strcat(vecStrRadarDataHeaderLocalPath[i],strPathOrigin.c_str());
+	for(int i=0;i<m_nTrueChannelCount;i++){
+		/*strcat(vecStrRadarDataHeaderLocalPath[i],strPathOrigin.c_str());
 		strcat(vecStrRadarDataHeaderLocalPath[i],"_");
 		strcat(vecStrRadarDataHeaderLocalPath[i],intToString(i+1).c_str());
 		strcat(vecStrRadarDataHeaderLocalPath[i],".rad");
 		strcat(vecStrRadarDataLocalPath[i],strPathOrigin.c_str());
 		strcat(vecStrRadarDataLocalPath[i],"_");
 		strcat(vecStrRadarDataLocalPath[i],intToString(i+1).c_str());
-		strcat(vecStrRadarDataLocalPath[i],".rd3");
+		strcat(vecStrRadarDataLocalPath[i],".rd3");*/
+
+		vecStrRadarDataHeaderLocalPath.push_back(strPathOrigin+"_"+intToString(i+1)+".rad");
+		vecStrRadarDataLocalPath.push_back(strPathOrigin+"_"+intToString(i+1)+".rd3");
 	}
 
 	//ftp端路径	
@@ -5472,21 +5885,23 @@ void MeasureProject::uploadDataForPart(int part){
 	onlineCorFilePath+="gps.cor";
 	onlineCsvFilePath=m_strFtpFolderPath;
 	onlineCsvFilePath+=".csv";
-	for(int i=0; i<m_nChannelCountForUpload; i++){
-		strcat(vecStrRadarDataHeaderOnlinePath[i],m_strFtpFolderPath.c_str());
+	for(int i=0; i<m_nTrueChannelCount; i++){
+		/*strcat(vecStrRadarDataHeaderOnlinePath[i],m_strFtpFolderPath.c_str());
 		strcat(vecStrRadarDataHeaderOnlinePath[i],"_");
 		strcat(vecStrRadarDataHeaderOnlinePath[i],intToString(i+1).c_str());
 		strcat(vecStrRadarDataHeaderOnlinePath[i],".rad");
 		strcat(vecStrRadarDataOnlinePath[i],m_strFtpFolderPath.c_str());
 		strcat(vecStrRadarDataOnlinePath[i],"_");
 		strcat(vecStrRadarDataOnlinePath[i],intToString(i+1).c_str());
-		strcat(vecStrRadarDataOnlinePath[i],".rd3");
+		strcat(vecStrRadarDataOnlinePath[i],".rd3");*/
+		vecStrRadarDataHeaderOnlinePath.push_back(m_strFtpFolderPath+"_"+intToString(i+1)+".rad");
+		vecStrRadarDataOnlinePath.push_back(m_strFtpFolderPath+"_"+intToString(i+1)+".rd3");
 	}
 	
 	//前置到thread->addData那了
 	/*
 	std::vector<bool> vecTemp;
-	for(int i=0;i<15;i++){//一共15项 txt cor csv rad*6 rd3*6
+	for(int i=0;i<m_nTrueChannelCount*2+3;i++){//一共m_nTrueChannelCount*2+3项 txt cor csv rad*通道数 rd3*通道数
 		vecTemp.push_back(true);
 	}
 	m_vecVecUploadSuccessFlag.push_back(vecTemp);
@@ -5617,13 +6032,13 @@ void MeasureProject::uploadDataForPart(int part){
 
 
 	//上传rad数据
-	for(int i=0; i<m_nChannelCountForUpload; i++){
+	for(int i=0; i<m_nTrueChannelCount; i++){
 		//if(!(fopen(vecStrRadarDataHeaderLocalPath[i],"rb")==NULL)){
-		if((fp=fopen(vecStrRadarDataHeaderLocalPath[i],"rb"))!=NULL){
+		if((fp=fopen(vecStrRadarDataHeaderLocalPath[i].c_str(),"rb"))!=NULL){
 			fclose(fp);
 			fp=NULL;
 			int failCount = 0;
-			while(!(FtpPutFileA(hftp,vecStrRadarDataHeaderLocalPath[i],vecStrRadarDataHeaderOnlinePath[i], FTP_TRANSFER_TYPE_ASCII, 0))){
+			while(!(FtpPutFileA(hftp,vecStrRadarDataHeaderLocalPath[i].c_str(),vecStrRadarDataHeaderOnlinePath[i].c_str(), FTP_TRANSFER_TYPE_ASCII, 0))){
 				failCount=failCount+1;
 				Sleep(1000);
 				if(failCount>10){
@@ -5642,6 +6057,16 @@ void MeasureProject::uploadDataForPart(int part){
 					break;
 				}
 			}
+			//20230509hjl temp
+			//1转多时补下其他数据
+			string strTemp=vecStrRadarDataHeaderOnlinePath[0].substr(0,vecStrRadarDataHeaderOnlinePath[0].length()-5);
+			for(int j=1;j<6;j++){
+				stringstream ss;
+				ss<<(j+1);
+				string strTemp2=strTemp+ss.str()+".rad";
+				FtpPutFileA(hftp,vecStrRadarDataHeaderLocalPath[i].c_str(),strTemp2.c_str(), FTP_TRANSFER_TYPE_ASCII, 0);
+			}
+
 			if(m_vecVecUploadSuccessFlag[part-1][3+i]==true){
 				m_vecVecProcessFinishedFlag[part-1][3+i]=true;
 			}
@@ -5663,13 +6088,13 @@ void MeasureProject::uploadDataForPart(int part){
 		}
 	}
 	//上传rd3数据
-	for(int i=0; i<m_nChannelCountForUpload; i++){
+	for(int i=0; i<m_nTrueChannelCount; i++){
 		//if(!(fopen(vecStrRadarDataLocalPath[i],"rb")==NULL)){
-		if((fp=fopen(vecStrRadarDataLocalPath[i],"rb"))!=NULL){
+		if((fp=fopen(vecStrRadarDataLocalPath[i].c_str(),"rb"))!=NULL){
 			fclose(fp);
 			fp=NULL;
 			int failCount = 0;
-			while(!(FtpPutFileA(hftp,vecStrRadarDataLocalPath[i],vecStrRadarDataOnlinePath[i], FTP_TRANSFER_TYPE_BINARY, 0))){
+			while(!(FtpPutFileA(hftp,vecStrRadarDataLocalPath[i].c_str(),vecStrRadarDataOnlinePath[i].c_str(), FTP_TRANSFER_TYPE_BINARY, 0))){
 				failCount=failCount+1;
 				Sleep(1000);
 				if(failCount>10){
@@ -5683,13 +6108,25 @@ void MeasureProject::uploadDataForPart(int part){
 					string localTemp=vecStrRadarDataLocalPath[i];
 					string onlineTemp=vecStrRadarDataOnlinePath[i];
 					((SaveOnlineForRepairmentThread*)_lpThreadSaveOnlineForRepairment)->addPart(localTemp,onlineTemp,part);
-					m_vecVecUploadSuccessFlag[part-1][9+i]=false;
+					m_vecVecUploadSuccessFlag[part-1][3+m_nTrueChannelCount+i]=false;
 					//AfxMessageBox(StringToCString(strTemp)); 
 					break;
 				}
 			}
-			if(m_vecVecUploadSuccessFlag[part-1][9+i]==true){
-				m_vecVecProcessFinishedFlag[part-1][9+i]=true;
+
+			//20230509hjl temp
+			//1转多时补下其他数据
+			string strTemp=vecStrRadarDataHeaderOnlinePath[0].substr(0,vecStrRadarDataHeaderOnlinePath[0].length()-5);
+			for(int j=1;j<6;j++){
+				stringstream ss;
+				ss<<(j+1);
+				string strTemp2=strTemp+ss.str()+".rd3";
+				FtpPutFileA(hftp,vecStrRadarDataHeaderLocalPath[i].c_str(),strTemp2.c_str(), FTP_TRANSFER_TYPE_ASCII, 0);
+			}
+
+
+			if(m_vecVecUploadSuccessFlag[part-1][3+m_nTrueChannelCount+i]==true){
+				m_vecVecProcessFinishedFlag[part-1][3+m_nTrueChannelCount+i]=true;
 			}
 		}else{
 			string strTemp="读取";
@@ -5700,7 +6137,7 @@ void MeasureProject::uploadDataForPart(int part){
 			string localTemp=vecStrRadarDataLocalPath[i];
 			string onlineTemp=vecStrRadarDataOnlinePath[i];
 			((SaveOnlineForRepairmentThread*)_lpThreadSaveOnlineForRepairment)->addPart(localTemp,onlineTemp,part);
-			m_vecVecUploadSuccessFlag[part-1][9+i]=false;
+			m_vecVecUploadSuccessFlag[part-1][3+m_nTrueChannelCount+i]=false;
 			//AfxMessageBox(StringToCString(strTemp)); 
 		}
 		if(fp!=NULL){
@@ -5712,8 +6149,10 @@ void MeasureProject::uploadDataForPart(int part){
 	//断开ftp句柄
 	InternetCloseHandle(hftp);
 	InternetCloseHandle(hint);
+	hint = NULL;
+	hftp = NULL;
 	
-	for(int i=0;i<m_nChannelCountForUpload;i++){
+	/*for(int i=0;i<m_nTrueChannelCount;i++){
 		delete []vecStrRadarDataHeaderOnlinePath[i];
 		delete []vecStrRadarDataHeaderLocalPath[i];
 		delete []vecStrRadarDataOnlinePath[i];
@@ -5722,7 +6161,7 @@ void MeasureProject::uploadDataForPart(int part){
 	delete []vecStrRadarDataHeaderOnlinePath;
 	delete []vecStrRadarDataHeaderLocalPath;
 	delete []vecStrRadarDataOnlinePath;
-	delete []vecStrRadarDataLocalPath;
+	delete []vecStrRadarDataLocalPath;*/
 }
 
 //根据本地路径、上传路径重新上传某个数据，并根据part来更新该部分的上传完成情况
@@ -5858,6 +6297,11 @@ void MeasureProject::uploadDataForPartForRepairment(std::string strLocalPath, st
 		processIndex=8+atoi(strLocalPath.substr(strLocalPath.length()-5,1).c_str());
 	}
 	m_vecVecProcessFinishedFlag[part-1][processIndex]=true;
+
+	InternetCloseHandle(hint);
+	InternetCloseHandle(hftp);
+	hint = NULL;
+	hftp = NULL;
 }
 
 void MeasureProject::uploadFileToFtp(std::string strLocalPath, std::string strOnlinePath, int part){
@@ -5960,7 +6404,7 @@ void MeasureProject::uploadFileToFtp(std::string strLocalPath, std::string strOn
 	//你还没弄那个上传完成数组的验证!!!!!!//得上个互斥锁
 	if(uploadSuccessFlag){
 		bool postFlag=true;
-		for(int i=0;i<15;i++){
+		for(int i=0;i<m_nTrueChannelCount*2+3;i++){
 			if(m_vecVecUploadSuccessFlag[part-1][i]==false){
 				postFlag=false;
 				break;
@@ -5971,6 +6415,11 @@ void MeasureProject::uploadFileToFtp(std::string strLocalPath, std::string strOn
 			addDataToPostFinishedMessageThread(part);
 		}
 	}
+
+	InternetCloseHandle(hint);
+	InternetCloseHandle(hftp);
+	hint = NULL;
+	hftp = NULL;
 }
 
 
@@ -6392,6 +6841,8 @@ void MeasureProject::changeFtpFolderPath(){
 
 	InternetCloseHandle(hftp);
 	InternetCloseHandle(hint);
+	hint = NULL;
+	hftp = NULL;
 }
 
 //向postFinishedMessage线程加东西
@@ -6401,7 +6852,7 @@ void MeasureProject::addDataToPostFinishedMessageThread(int part){
 	
 bool MeasureProject::isDataInPartUploaded(int part){
 	bool finishedFlag=true;
-	for(int i=0;i<15;i++){
+	for(int i=0;i<m_nTrueChannelCount*2+3;i++){
 		if(m_vecVecUploadSuccessFlag[part-1][i]==false){
 			finishedFlag=false;
 			break;

@@ -74,7 +74,7 @@ BOOL CSender::OnInitDialog()
 	CString strHz[] = {_T("0.0625"),_T("0.125"),_T("0.25"),_T("0.5"),_T("0.83"),
 		               _T("1"),_T("1.25"),_T("1.67"),_T("2"),_T("2.5"),
 					   _T("4"),_T("5"),_T("6.25"),_T("8"),_T("8.3"),
-	                   _T("10"),_T("12.5"),_T("16"),_T("25"),_T("32")
+	                   _T("10"),_T("12.5"),_T("16"),_T("25"),_T("32"),
 	                   _T("50"),_T("62.5"),_T("75"),_T("125"),_T("222")};
 	for (int i = 0; i < (sizeof(strHz)/sizeof(CString)); i++)
 	{
@@ -116,7 +116,6 @@ BOOL CSender::OnInitDialog()
 		UpdateData(false);
 
 	}
-	
 
 	return TRUE;  // return TRUE unless you set the focus to a control
 	// 异常: OCX 属性页应返回 FALSE

@@ -85,6 +85,9 @@ private:
 	int m_dWarningInterval;//º‡≤‚º‰∏Ù
 	int m_dWarningThreshold;//„–÷µ
 
+	int m_nImgInterval;
+	int m_nImgQuality;
+
 	ConfigureSet* m_pConfigureSet;
 	OpenThreads::Mutex _lock;
 

@@ -1,0 +1,465 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="头文件">
+      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
+      <Extensions>h;hpp;hxx;hm;inl;inc;xsd</Extensions>
+    </Filter>
+    <Filter Include="资源文件">
+      <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
+      <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav</Extensions>
+    </Filter>
+    <Filter Include="源文件">
+      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="ParamSet">
+      <UniqueIdentifier>{311c3404-e8aa-4170-9f6c-0e465dd0f4d2}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="CmdCenter">
+      <UniqueIdentifier>{c267fb0b-f0a1-4553-b6fb-752c07776992}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="chake">
+      <UniqueIdentifier>{2e9089ab-b52d-43dc-a703-a79bd19594aa}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="DataBase">
+      <UniqueIdentifier>{0560b701-1be5-4bf6-8868-0753bbe57cbd}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="RadarData">
+      <UniqueIdentifier>{eec889b9-7e10-4fd1-9893-09f6a08bd14e}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ProjectManager">
+      <UniqueIdentifier>{8b5df7ad-58bb-4ddb-92dd-f2e5887c0b0a}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="RadarAcquisition">
+      <UniqueIdentifier>{24f8bf99-6782-4192-8197-740efaf13d7f}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Video">
+      <UniqueIdentifier>{1526bd8d-f3b8-4658-a6a1-d0e12230ec0c}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="TER">
+      <UniqueIdentifier>{d4b63b7c-d3dc-4821-8970-68f276662859}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="BmpDC.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="DialogProjectName.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="DlgDataExport.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="GD_UPortClient.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="md5.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Include\RadarCurve\MeasureProject.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="ProcessDlg.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="RadarCurve.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="RadarCurveWnd.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Include\RadarCurve\RadarSocketClient.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="Resource.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Include\RadarCurve\SerialPort.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Include\RadarCurve\singleton.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="Vector3D.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="WaveFormWnd.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Include\RadarCurve\ConfigureSet.h">
+      <Filter>ParamSet</Filter>
+    </ClInclude>
+    <ClInclude Include="DlgRadarParameterConfig.h">
+      <Filter>ParamSet</Filter>
+    </ClInclude>
+    <ClInclude Include="DlgRadarParamSet.h">
+      <Filter>ParamSet</Filter>
+    </ClInclude>
+    <ClInclude Include="DlgWorkTypeConfiguration.h">
+      <Filter>ParamSet</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Include\RadarCurve\CmdCenter\CmdCenter.h">
+      <Filter>CmdCenter</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Include\RadarCurve\CmdCenter\CmdToRadar.h">
+      <Filter>CmdCenter</Filter>
+    </ClInclude>
+    <ClInclude Include="DlgPromptMessage.h">
+      <Filter>chake</Filter>
+    </ClInclude>
+    <ClInclude Include="GPRWriter.h">
+      <Filter>chake</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Include\RadarCurve\DataBuff.h">
+      <Filter>DataBase</Filter>
+    </ClInclude>
+    <ClInclude Include="DataCountTab.h">
+      <Filter>DataBase</Filter>
+    </ClInclude>
+    <ClInclude Include="DataTemplateTab.h">
+      <Filter>DataBase</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Include\RadarCurve\DBConnectBase.h">
+      <Filter>DataBase</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Include\RadarCurve\DBReadWriter.h">
+      <Filter>DataBase</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Include\RadarCurve\DBRow.h">
+      <Filter>DataBase</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Include\RadarCurve\DBTable.h">
+      <Filter>DataBase</Filter>
+    </ClInclude>
+    <ClInclude Include="OracleWrapper.h">
+      <Filter>DataBase</Filter>
+    </ClInclude>
+    <ClInclude Include="DBAccess\OtlConnect.h">
+      <Filter>DataBase</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Include\RadarCurve\otldef.h">
+      <Filter>DataBase</Filter>
+    </ClInclude>
+    <ClInclude Include="DBAccess\OtlRecordset.h">
+      <Filter>DataBase</Filter>
+    </ClInclude>
+    <ClInclude Include="ProjectNameTab.h">
+      <Filter>DataBase</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Include\RadarCurve\RecordSetBase.h">
+      <Filter>DataBase</Filter>
+    </ClInclude>
+    <ClInclude Include="VideoTemplateTab.h">
+      <Filter>DataBase</Filter>
+    </ClInclude>
+    <ClInclude Include="GPRHeader.h">
+      <Filter>RadarData</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Include\RadarCurve\GpsData.h">
+      <Filter>RadarData</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Include\RadarCurve\GpsReader.h">
+      <Filter>RadarData</Filter>
+    </ClInclude>
+    <ClInclude Include="MyMacro.h">
+      <Filter>RadarData</Filter>
+    </ClInclude>
+    <ClInclude Include="Radar3DWnd.h">
+      <Filter>RadarData</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Include\RadarCurve\RadarData.h">
+      <Filter>RadarData</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Include\RadarCurve\RadarDataRader.h">
+      <Filter>RadarData</Filter>
+    </ClInclude>
+    <ClInclude Include="SGYHeader.h">
+      <Filter>RadarData</Filter>
+    </ClInclude>
+    <ClInclude Include="SGYWriter.h">
+      <Filter>RadarData</Filter>
+    </ClInclude>
+    <ClInclude Include="DialogHistoryCurve.h">
+      <Filter>ProjectManager</Filter>
+    </ClInclude>
+    <ClInclude Include="DialogProject.h">
+      <Filter>ProjectManager</Filter>
+    </ClInclude>
+    <ClInclude Include="DialogProject_Export.h">
+      <Filter>ProjectManager</Filter>
+    </ClInclude>
+    <ClInclude Include="DialogRoadJanCe.h">
+      <Filter>ProjectManager</Filter>
+    </ClInclude>
+    <ClInclude Include="DlgProjectManager.h">
+      <Filter>ProjectManager</Filter>
+    </ClInclude>
+    <ClInclude Include="DlgWorkDetection.h">
+      <Filter>ProjectManager</Filter>
+    </ClInclude>
+    <ClInclude Include="HistoryCurveWnd.h">
+      <Filter>ProjectManager</Filter>
+    </ClInclude>
+    <ClInclude Include="MeasureLine.h">
+      <Filter>ProjectManager</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Include\RadarCurve\RadarManager.h">
+      <Filter>ProjectManager</Filter>
+    </ClInclude>
+    <ClInclude Include="DialogCurCurve.h">
+      <Filter>RadarAcquisition</Filter>
+    </ClInclude>
+    <ClInclude Include="DialogTERDisplay.h">
+      <Filter>RadarAcquisition</Filter>
+    </ClInclude>
+    <ClInclude Include="DialogThreeView.h">
+      <Filter>RadarAcquisition</Filter>
+    </ClInclude>
+    <ClInclude Include="GD_VideoBack.h">
+      <Filter>Video</Filter>
+    </ClInclude>
+    <ClInclude Include="GD_VideoShow.h">
+      <Filter>Video</Filter>
+    </ClInclude>
+    <ClInclude Include="C_SamplingParam.h">
+      <Filter>TER</Filter>
+    </ClInclude>
+    <ClInclude Include="Receive.h">
+      <Filter>TER</Filter>
+    </ClInclude>
+    <ClInclude Include="Sender.h">
+      <Filter>TER</Filter>
+    </ClInclude>
+    <ClInclude Include="SheetBase.h">
+      <Filter>TER</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Include\RadarCurve\TERData.h">
+      <Filter>TER</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Include\RadarCurve\TERDataReader.h">
+      <Filter>TER</Filter>
+    </ClInclude>
+    <ClInclude Include="TERDataWriter.h">
+      <Filter>TER</Filter>
+    </ClInclude>
+    <ClInclude Include="TERDisplayWnd.h">
+      <Filter>TER</Filter>
+    </ClInclude>
+    <ClInclude Include="UepBlock.h">
+      <Filter>TER</Filter>
+    </ClInclude>
+    <ClInclude Include="UepHeader.h">
+      <Filter>TER</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Include\RadarCurve\export.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="stdafx.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="RadarCurve.rc">
+      <Filter>资源文件</Filter>
+    </ResourceCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="res\RadarCurve.rc2">
+      <Filter>资源文件</Filter>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <Image Include="toolbar1.bmp">
+      <Filter>资源文件</Filter>
+    </Image>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="BmpDC.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="DialogProjectName.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="DlgDataExport.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="GD_UPortClient.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="md5.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="MeasureProject.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="ProcessDlg.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="RadarSocketClient.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="SerialPort.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="stdafx.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="ConfigureSet.cpp">
+      <Filter>ParamSet</Filter>
+    </ClCompile>
+    <ClCompile Include="DlgRadarParameterConfig.cpp">
+      <Filter>ParamSet</Filter>
+    </ClCompile>
+    <ClCompile Include="DlgRadarParamSet.cpp">
+      <Filter>ParamSet</Filter>
+    </ClCompile>
+    <ClCompile Include="DlgWorkTypeConfiguration.cpp">
+      <Filter>ParamSet</Filter>
+    </ClCompile>
+    <ClCompile Include="CmdCenter.cpp">
+      <Filter>CmdCenter</Filter>
+    </ClCompile>
+    <ClCompile Include="CmdToRadar.cpp">
+      <Filter>CmdCenter</Filter>
+    </ClCompile>
+    <ClCompile Include="DlgPromptMessage.cpp">
+      <Filter>chake</Filter>
+    </ClCompile>
+    <ClCompile Include="GPRWriter.cpp">
+      <Filter>chake</Filter>
+    </ClCompile>
+    <ClCompile Include="DataCountTab.cpp">
+      <Filter>DataBase</Filter>
+    </ClCompile>
+    <ClCompile Include="DataTemplateTab.cpp">
+      <Filter>DataBase</Filter>
+    </ClCompile>
+    <ClCompile Include="DBAccess\DBConnectBase.cpp">
+      <Filter>DataBase</Filter>
+    </ClCompile>
+    <ClCompile Include="DBReadWriter.cpp">
+      <Filter>DataBase</Filter>
+    </ClCompile>
+    <ClCompile Include="DBRow.cpp">
+      <Filter>DataBase</Filter>
+    </ClCompile>
+    <ClCompile Include="DBTable.cpp">
+      <Filter>DataBase</Filter>
+    </ClCompile>
+    <ClCompile Include="OracleWrapper.cpp">
+      <Filter>DataBase</Filter>
+    </ClCompile>
+    <ClCompile Include="DBAccess\OtlConnect.cpp">
+      <Filter>DataBase</Filter>
+    </ClCompile>
+    <ClCompile Include="DBAccess\OtlRecordset.cpp">
+      <Filter>DataBase</Filter>
+    </ClCompile>
+    <ClCompile Include="ProjectNameTab.cpp">
+      <Filter>DataBase</Filter>
+    </ClCompile>
+    <ClCompile Include="DBAccess\RecordSetBase.cpp">
+      <Filter>DataBase</Filter>
+    </ClCompile>
+    <ClCompile Include="VideoTemplateTab.cpp">
+      <Filter>DataBase</Filter>
+    </ClCompile>
+    <ClCompile Include="GpsData.cpp">
+      <Filter>RadarData</Filter>
+    </ClCompile>
+    <ClCompile Include="GpsReader.cpp">
+      <Filter>RadarData</Filter>
+    </ClCompile>
+    <ClCompile Include="Radar3DWnd.cpp">
+      <Filter>RadarData</Filter>
+    </ClCompile>
+    <ClCompile Include="RadarCurve.cpp">
+      <Filter>RadarData</Filter>
+    </ClCompile>
+    <ClCompile Include="RadarCurveWnd.cpp">
+      <Filter>RadarData</Filter>
+    </ClCompile>
+    <ClCompile Include="RadarData.cpp">
+      <Filter>RadarData</Filter>
+    </ClCompile>
+    <ClCompile Include="RadarDataRader.cpp">
+      <Filter>RadarData</Filter>
+    </ClCompile>
+    <ClCompile Include="SGYWriter.cpp">
+      <Filter>RadarData</Filter>
+    </ClCompile>
+    <ClCompile Include="WaveFormWnd.cpp">
+      <Filter>RadarData</Filter>
+    </ClCompile>
+    <ClCompile Include="DialogHistoryCurve.cpp">
+      <Filter>ProjectManager</Filter>
+    </ClCompile>
+    <ClCompile Include="DialogProject.cpp">
+      <Filter>ProjectManager</Filter>
+    </ClCompile>
+    <ClCompile Include="DialogProject_Export.cpp">
+      <Filter>ProjectManager</Filter>
+    </ClCompile>
+    <ClCompile Include="DialogRoadJanCe.cpp">
+      <Filter>ProjectManager</Filter>
+    </ClCompile>
+    <ClCompile Include="DlgProjectManager.cpp">
+      <Filter>ProjectManager</Filter>
+    </ClCompile>
+    <ClCompile Include="DlgWorkDetection.cpp">
+      <Filter>ProjectManager</Filter>
+    </ClCompile>
+    <ClCompile Include="HistoryCurveWnd.cpp">
+      <Filter>ProjectManager</Filter>
+    </ClCompile>
+    <ClCompile Include="MeasureLine.cpp">
+      <Filter>ProjectManager</Filter>
+    </ClCompile>
+    <ClCompile Include="RadarManager.cpp">
+      <Filter>ProjectManager</Filter>
+    </ClCompile>
+    <ClCompile Include="DialogCurCurve.cpp">
+      <Filter>RadarAcquisition</Filter>
+    </ClCompile>
+    <ClCompile Include="DialogTERDisplay.cpp">
+      <Filter>RadarAcquisition</Filter>
+    </ClCompile>
+    <ClCompile Include="DialogThreeView.cpp">
+      <Filter>RadarAcquisition</Filter>
+    </ClCompile>
+    <ClCompile Include="GD_VideoBack.cpp">
+      <Filter>Video</Filter>
+    </ClCompile>
+    <ClCompile Include="GD_VideoShow.cpp">
+      <Filter>Video</Filter>
+    </ClCompile>
+    <ClCompile Include="C_SamplingParam.cpp">
+      <Filter>TER</Filter>
+    </ClCompile>
+    <ClCompile Include="Receive.cpp">
+      <Filter>TER</Filter>
+    </ClCompile>
+    <ClCompile Include="Sender.cpp">
+      <Filter>TER</Filter>
+    </ClCompile>
+    <ClCompile Include="SheetBase.cpp">
+      <Filter>TER</Filter>
+    </ClCompile>
+    <ClCompile Include="TERData.cpp">
+      <Filter>TER</Filter>
+    </ClCompile>
+    <ClCompile Include="TERDataReader.cpp">
+      <Filter>TER</Filter>
+    </ClCompile>
+    <ClCompile Include="TERDataWriter.cpp">
+      <Filter>TER</Filter>
+    </ClCompile>
+    <ClCompile Include="TERDisplayWnd.cpp">
+      <Filter>TER</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="ReadMe.txt" />
+  </ItemGroup>
+</Project>

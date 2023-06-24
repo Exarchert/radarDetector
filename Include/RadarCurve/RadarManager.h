@@ -85,6 +85,7 @@ public:
 	void addRadarDataToDisplay( RadarData *d, int index );//hjl 20210418参数设置波形显示
 	void addRadarDataToThreeViewDialog( RadarData *d, int index );//数据加入三视图
 	void addRadarDataToProject( RadarData *d, int index );//采集模式的新数据加入
+	void addRadarDataTo3DProject( RadarData *d, int index );//三维采集模式的新数据加入
 	void deleteRadarDataFromProject( int index );//去除数据显示窗口中的数据
 
 
@@ -211,6 +212,10 @@ public:
 
 	GD_VideoShow* m_gdVideoPlay;
 	GD_VideoBack* m_gdVideoBack;
+	std::string m_strImageSaveDocumentPath;
+	int m_nAddDataCount;
+	int m_nImageSaveInterval;
+	int m_nImageSaveQuality;
 
 	void InitVideo(CString strImagePath,CWnd* wnd);
 	void VideoPlay();
@@ -236,17 +241,21 @@ public:
 	float GetPrecratioFromPreclenAndAccuracy(float fCLen,float fAccuracy);
 	int GetTrueCmdIndexFromPreclenAndAccuracy(float fCLen,float fAccuracy);
 	float GetTrueAccuracyFromPreclenAndPrecindex(float fCLen,float fAccuracy);
+	float GetTrueInterval(float fWheelCircumference, float fSettingInterval, int nWheelPulse);
 
 	//TER
 	bool m_bTERWorking;//TER工作
 	osg::ref_ptr<MeasureProject> m_MPTERCurProject;
 	TERDataReader m_TERReader;
 	//osg::ref_ptr<MeasureProject> _lpTERCurProject;
+	void TERParameterConfiguration();
 	void TERSetting();
 	void showTERDisplay();
 	bool TERStartWork();
 	void addTERDataToProject( TERData *d );//采集模式的新数据加入
 	bool TERStopWork();
+	void TERSocketConnect();
+	void TERSocketDisconnect();
 	void TERSendParameter(int index);
 public:
 	enum WorkType//usb还是网口
@@ -300,7 +309,7 @@ protected:
 	bool _exportGps;//输出gps
 	bool _exportKml;//输出kml
 
-	
+	bool m_bIsGpsConnected;
 
 	CDialog *_loadProcess;
 

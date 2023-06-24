@@ -28,7 +28,7 @@ private:
 	CComboBox m_sampCombo;
 	CComboBox m_gainCombo;
 	CString m_channelEdit;
-	CString m_delayEdit;
+	CString m_cstrReceiveDelayEdit;
 	CString m_stackFoldEdit;
 public:
 	virtual BOOL OnInitDialog();

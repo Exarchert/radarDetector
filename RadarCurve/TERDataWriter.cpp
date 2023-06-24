@@ -177,7 +177,7 @@ bool TERDataWriter::openUep( std::string const& filePath ){
 	m_fSampleRate =  atoi( cfg->get("receive", "samplingRate").c_str());//采样率
 
 	//int precRatio = atoi( cfg->get("radar", "precratio").c_str() );
-	int precRatio = RadarManager::Instance()->getPrecRatio(atoi( cfg->get("radar", "precRatio").c_str()));//脉冲数
+	int precRatio = RadarManager::Instance()->getPrecRatio(atoi( cfg->get("send", "WheelPulse").c_str()));//脉冲数
 	float precLen = atoi ( cfg->get("radar", "preclen").c_str() );
 	//int precIndex = atoi( cfg->get("radar", "precindex").c_str() );
 	int iDielectric = atoi( cfg->get("radar", "dielectric").c_str() );
@@ -185,10 +185,9 @@ bool TERDataWriter::openUep( std::string const& filePath ){
 	
 	m_dTimeWnd = 1.0 / m_fSampleRate * m_nSampleNum;//时窗
 
-	//float fJihuaAccuracy = RadarManager::Instance()->GetJihuaAccuracy(precIndex);
-	float fJihuaAccuracy = (float)atoi( cfg->get("radar", "precision").c_str() );
-	float fp = RadarManager::Instance()->GetTrueAccuracyFromPreclenAndPrecindex(precLen,fJihuaAccuracy);
-	m_dPrecValue = fp / 100.0;
+	//float fJihuaAccuracy = (float)atoi( cfg->get("radar", "precision").c_str() );
+	//float fp = RadarManager::Instance()->GetTrueAccuracyFromPreclenAndPrecindex(precLen,fJihuaAccuracy);
+	//m_dPrecValue = fp / 100.0;
 	
 
 	return true;
@@ -298,7 +297,7 @@ void TERDataWriter::writeUepHead(){
 	}else{
 		uepHeadBlock.m_sample_param_pos=1000+(m_nSampleNum*4+88)*m_nDataCount;
 	}
-	uepHeadBlock.m_sample_param_size=540;
+	uepHeadBlock.m_sample_param_size=sizeof(C_SamplingParam);
 	uepHeadBlock.m_has_tags=1;
 	if(RadarManager::Instance()->getExportGpsPos()){
 		uepHeadBlock.m_tags_pos=1000+(m_nSampleNum*4+88+32)*m_nDataCount+540;
@@ -454,6 +453,22 @@ void TERDataWriter::writeUepData( TERData *lpData ){
 		return;
 	}
 	if(m_lpTERDataFile){
+		/*int nRecordWheelCount=lpData->getRecordWheelCount();
+		if(nRecordWheelCount>m_nDataCount+1){//丢道时补充
+			int nVirtualDataSize=0;
+			if(RadarManager::Instance()->getExportGpsPos()){
+				nVirtualDataSize=nVirtualDataSize+32;
+			}
+			nVirtualDataSize=nVirtualDataSize+88;
+			nVirtualDataSize=nVirtualDataSize+m_nSampleNum*4;
+			unsigned char *temp = new unsigned char[nVirtualDataSize];
+			for(int i=0;i<nVirtualDataSize;i++){
+				temp[i]='0';
+			}
+			for(int i=0;i<nRecordWheelCount-m_nDataCount-1;i++){//补0
+				fwrite( (char*)temp, sizeof(char), nVirtualDataSize, m_lpTERDataFile);
+			}
+		}*/
 		/*gps体*/
 		if(RadarManager::Instance()->getExportGpsPos()){
 			UEP_GpsBlock uepGpsBlock;
@@ -473,7 +488,8 @@ void TERDataWriter::writeUepData( TERData *lpData ){
 		fwrite( (char*)temp, sizeof(char), 88, m_lpTERDataFile);
 		/*数据体*/
 		fwrite( lpBuff, sizeof(float), m_nSampleNum, m_lpTERDataFile);//写入数据
-		m_nDataCount=m_nDataCount+1;
+		//m_nDataCount=m_nDataCount+1;
+		m_nDataCount=lpData->getRecordWheelCount();
 	}
 
 	/*for(int i=0;i<m_nSampleNum;i++){
@@ -535,7 +551,7 @@ void TERDataWriter::copyUepData(){
 }
 
 void TERDataWriter::writeUepTail(){
-	unsigned char *temp = new unsigned char[540];
+	unsigned char *temp = new unsigned char[sizeof(C_SamplingParam)];
 	/*for(int i=0;i<540;i++){
 		temp[i]=0;
 	}*/
@@ -1141,7 +1157,7 @@ void TERDataWriter::writeUepTail(){
 	uepSamplingParamBlock.m_elec_gps_start_time.wMinute=0;
 	uepSamplingParamBlock.m_elec_gps_start_time.wSecond=0;
 	uepSamplingParamBlock.m_elec_gps_start_time.wMilliseconds=0;
-	uepSamplingParamBlock.m_elec_wheelpulse_times=RadarManager::Instance()->getPrecRatio(atoi( cfg->get("radar", "precRatio").c_str()))*4;//512*4
+	uepSamplingParamBlock.m_elec_wheelpulse_times=RadarManager::Instance()->getPrecRatio(atoi( cfg->get("send", "wheelPulse").c_str()))*4;//512*4
 	uepSamplingParamBlock.m_elec_gps_sync_cycle=320;
 	uepSamplingParamBlock.m_elec_start_longitude=0.0;
 	uepSamplingParamBlock.m_elec_start_EW_longitude=0;
@@ -1172,9 +1188,12 @@ void TERDataWriter::writeUepTail(){
 
 	uepSamplingParamBlock.m_device_type=0;
 	uepSamplingParamBlock.m_device_childtype=0;
+	uepSamplingParamBlock.m_eq_velocity_vs=2000;
+	uepSamplingParamBlock.m_uep_velocity=300; 
+	uepSamplingParamBlock.m_wheel_step_length_per_trigger=uepSamplingParamBlock.m_wheel_forward_length*uepSamplingParamBlock.m_pluses_per_trigger/uepSamplingParamBlock.m_elec_wheelpulse_times*4;//道间距
 
-	//fwrite( (char*)&uepSamplingParamBlock, sizeof(UEP_SamplingParamBlock), 1, m_lpTERDataFile);
-	fwrite( (char*)&uepSamplingParamBlock, 540, 1, m_lpTERDataFile);
+	fwrite( (char*)&uepSamplingParamBlock, sizeof(C_SamplingParam), 1, m_lpTERDataFile);
+	//fwrite( (char*)&uepSamplingParamBlock, 540, 1, m_lpTERDataFile);
 }
 
 bool TERDataWriter::closeUep(){

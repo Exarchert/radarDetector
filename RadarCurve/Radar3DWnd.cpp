@@ -240,12 +240,12 @@ void Radar3DWnd::OnPaint()
 		if(myTime-m_nStartTime>5){
 			m_nStartTime=myTime;
 			m_dChannelIndex=m_dChannelIndex+1;
-			/*if(m_nChannelCount==16){
+			/*if(m_nTrueChannelCount==16){
 				if(m_dChannelIndex==28){
 					m_dChannelIndex=0;
 				}
 			}else{
-				if(m_dChannelIndex==m_nChannelCount){
+				if(m_dChannelIndex==m_nTrueChannelCount){
 					m_dChannelIndex=0;
 				}
 			}*/
@@ -1883,7 +1883,7 @@ void Radar3DWnd::drawFrontView( CDC *lpDC, int channelIndex, int depthIndex ){
 		nChannelX=channelIndex*8+m_dFrontViewSectionMinX-1;
 	}else if(m_nTrueChannelCount==12){//12*1+11*4=56
 		nChannelX=channelIndex*5+m_dFrontViewSectionMinX;
-	}else if(m_nTrueChannelCount==15){//14*1+13*3=52
+	}else if(m_nTrueChannelCount==14){//14*1+13*3=52
 		nChannelX=channelIndex*4+m_dFrontViewSectionMinX;
 	}else if(m_nTrueChannelCount==15){//15*1+14*3=56
 		nChannelX=channelIndex*4+m_dFrontViewSectionMinX;

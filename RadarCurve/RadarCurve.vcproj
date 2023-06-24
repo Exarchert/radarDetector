@@ -742,6 +742,14 @@
 				>
 			</File>
 			<File
+				RelativePath=".\DlgTERParameterConfig.cpp"
+				>
+			</File>
+			<File
+				RelativePath=".\DlgTERParameterConfig.h"
+				>
+			</File>
+			<File
 				RelativePath=".\Receive.cpp"
 				>
 			</File>
@@ -795,6 +803,14 @@
 			</File>
 			<File
 				RelativePath=".\TERDisplayWnd.h"
+				>
+			</File>
+			<File
+				RelativePath=".\TERParaWnd.cpp"
+				>
+			</File>
+			<File
+				RelativePath=".\TERParaWnd.h"
 				>
 			</File>
 			<File

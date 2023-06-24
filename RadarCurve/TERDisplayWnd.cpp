@@ -665,7 +665,7 @@ void TERDisplayWnd::DrawSection( CDC *lpDC, int newData )
 			lpDC->MoveTo( x, staffBaseLineY );
 			lpDC->LineTo( x, _staffMinY  + STAFF_HEIGHT / 4.0f * 3);
 			CString str;
-			str.Format( L"%0.2f", r*0.05 );//获取要绘制的距离 "%0.2f"保留两位小数
+			str.Format( L"%0.2f", rd->getPrecLen() );//获取要绘制的距离 "%0.2f"保留两位小数
 			CRect rtext( x - 25, _staffMinY + 10, x + 25,_staffMinY  + STAFF_HEIGHT / 4.0f * 3 );//（left,below,right,top）
 			lpDC->DrawText( str, rtext, DT_CENTER | DT_BOTTOM);//绘制距离
 		}

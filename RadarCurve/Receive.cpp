@@ -17,7 +17,7 @@ IMPLEMENT_DYNAMIC(CReceive, CPropertyPage)
 CReceive::CReceive()
 	: CPropertyPage(CReceive::IDD)
 	, m_channelEdit(_T("330"))
-	, m_delayEdit(_T("0"))
+	, m_cstrReceiveDelayEdit(_T("0"))
 	, m_stackFoldEdit(_T("0"))
 {
 
@@ -33,7 +33,7 @@ void CReceive::DoDataExchange(CDataExchange* pDX)
 	DDX_Control(pDX, IDC_SAMPCOMBO, m_sampCombo);
 	DDX_Control(pDX, IDC_GAINCOMBO, m_gainCombo);
 	DDX_Text(pDX, IDC_CHANNELEDIT, m_channelEdit);
-	DDX_Text(pDX, IDC_DELAYEDIT, m_delayEdit);
+	DDX_Text(pDX, IDC_DELAYEDIT, m_cstrReceiveDelayEdit);
 	DDX_Text(pDX, IDC_STACKFOLDEDIT, m_stackFoldEdit);
 }
 
@@ -79,7 +79,7 @@ BOOL CReceive::OnInitDialog()
 		str = pConfigureSet->get("receive","sampleCount");
 		m_channelEdit = CString(str.c_str());
 		str = pConfigureSet->get("receive","delay");
-		m_delayEdit = CString(str.c_str());
+		m_cstrReceiveDelayEdit = CString(str.c_str());
 		str = pConfigureSet->get("receive","stackingFold");
 		m_stackFoldEdit = CString(str.c_str());
 		str = pConfigureSet->get("receive","gain");
@@ -101,7 +101,7 @@ void CReceive::setConfigure()
 	pConfigureSet->set("receive","samplingRate",str.str());
 	std::string strs = CT2A(m_channelEdit.GetString());
 	pConfigureSet->set("receive","sampleCount",strs);
-	strs = CT2A(m_delayEdit.GetString());
+	strs = CT2A(m_cstrReceiveDelayEdit.GetString());
 	pConfigureSet->set("receive","delay",strs);
 	strs = CT2A(m_stackFoldEdit.GetString());
 	pConfigureSet->set("receive","stackingFold",strs);

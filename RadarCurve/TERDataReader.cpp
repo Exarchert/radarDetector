@@ -51,56 +51,84 @@ void ReceiveTERDataThread::run(){
 			_lpReader->parseData();
 		}
 	}
-	/*switch (RadarManager::Instance()->GetRadarWorkType()){
-		case RADAR_WORK_TYPE_ONE_USB:
-			while( !testCancel() ){
-				_lpReader->initU();
-				if (false == _lpReader->ReadUData()){
-					continue;
-				}
-				_lpReader->ParseUDataOneUSB();
-			}
-			break;
-		case RADAR_WORK_TYPE_DOUBLE_USB:
-			while( !testCancel() ){
-				_lpReader->initU();
-				if (false == _lpReader->ReadUData()){
-					continue;
-				}
-				_lpReader->ParseUsbTwoChannelData();
-			}
-			break;
-		case RADAR_WORK_TYPE_DOUBLE_USB_OLD:
-			while( !testCancel() ){
-				_lpReader->initU();
-				if (false == _lpReader->ReadUData()){
-					continue;
-				}
-				_lpReader->ParseUsbTwoChannelDataOld();
-			}
-			break;
-		case RADAR_WORK_TYPE_FOUR_USB:
-			while( !testCancel() ){
-				_lpReader->initU();
-				if (false == _lpReader->ReadUData()){
-					continue;
-				}
-				_lpReader->ParseUsbFourChannelData();
-			}
-			break;
-		case RADAR_WORK_TYPE_EIGHT:
-			
-			break;
-		default:
-			break;
-	}*/
 }
+
+class ProcessTERDataThread : public OpenThreads::Thread{
+public:
+	ProcessTERDataThread( TERDataReader* lpReader )
+	{
+		_lpReader = lpReader;
+	}
+	~ProcessTERDataThread(){}
+
+	void run(){
+		while( !testCancel() ){
+			std::vector<unsigned char *> tempQueue;
+			{
+				OpenThreads::ScopedLock<OpenThreads::Mutex> lock(_mutex);
+				tempQueue.swap( _charDataQueue );//swap操作实现交换两个容器内所有元素的功能
+			}
+			if ( tempQueue.size() > 0 ){
+				//unsigned long startTime = GetTickCount();
+				//std::vector<std::vector<osg::ref_ptr<RadarData>>>::reverse_iterator it;
+				//std::vector<std::vector<osg::ref_ptr<RadarData>>> m_vecRadarGroupData
+				for ( std::vector<unsigned char *>::iterator it = tempQueue.begin(); it != tempQueue.end(); it++ ){
+					unsigned char *pCData = *it;
+					if ( pCData ){
+						if (_lpReader){
+							_lpReader->ProcessData(pCData);
+						}
+						pCData = NULL;
+					}
+				}
+			}
+			if ( _charDataQueue.size() == 0 ){
+				_block.reset();
+				_block.block();
+			}
+			if ( !testCancel() ){
+				continue;
+			}
+		}
+	};
+
+	int cancel(){
+		OpenThreads::Thread::cancel();
+		//清空队列
+		std::vector<unsigned char *> tempQueue;
+		{
+			OpenThreads::ScopedLock<OpenThreads::Mutex> lock(_mutex);
+			tempQueue.swap( _charDataQueue );//swap操作实现交换两个容器内所有元素的功能
+		}
+		if ( isRunning() ){
+			_block.reset();
+			_block.release();
+			join();
+		}
+		return 0;
+	};
+
+	void addData( unsigned char *data ){
+		OpenThreads::ScopedLock<OpenThreads::Mutex> lock(_mutex);
+		_charDataQueue.push_back( data );
+
+		_block.reset();
+		_block.release();
+	};
+
+public:
+	TERDataReader *_lpReader;
+	OpenThreads::Mutex _mutex;
+	OpenThreads::Block _block;
+	std::vector<unsigned char *> _charDataQueue;
+};
 
 
 TERDataReader::TERDataReader(void)
 {
 	_recvBuff = new unsigned char[MAX_RECV];
-	_lpReadThread = NULL;
+	_lpTERReceiveThread = NULL;
+	_lpTERProcessThread = NULL;
 
 	_channelCount = MAX_CHANNEL;
 
@@ -116,7 +144,8 @@ TERDataReader::TERDataReader(void)
 	m_iReadNULLTime = 0;
 	
 	m_bIsDataOne=true;
-	m_nDataCount=0;
+	m_nTERDataCount=0;
+	m_bIsConnected=false;
 	for (int i =0; i<16;i++){
 		_latestChannelRadarData[i] = new unsigned char[_sampleCount*2];
 		for ( int j=10;j<_sampleCount*2;j++){
@@ -128,23 +157,25 @@ TERDataReader::TERDataReader(void)
 
 TERDataReader::~TERDataReader(void)
 {
-	if ( !_lpReadThread )
+
+	if ( !_lpTERReceiveThread )
 	{
 		delete []_recvBuff;
 		return;
 	}
-	if ( _lpReadThread->isRunning() )
+	if ( _lpTERReceiveThread->isRunning() )
 	{
-		_lpReadThread->cancel();
+		_lpTERReceiveThread->cancel();
 	}
-
 
 	if (m_uPort)
 	{
 		delete m_uPort;
 		m_uPort = NULL;
 	}
-	delete _lpReadThread;
+
+	delete _lpTERProcessThread;
+	delete _lpTERReceiveThread;
 
 	delete []_recvBuff;
 }
@@ -155,6 +186,10 @@ void TERDataReader::setParam( unsigned char addr, unsigned char value)
 	unsigned short tmpValue = ( 0X00FFFF & ( addr << 8 ) ) | value;
 	unsigned short revnValue = htons(tmpValue);
 
+	if(!m_bIsConnected){
+		AfxMessageBox(_T("请先对瞬变电磁雷达进行通信连接"));
+		return;
+	}
 	_client.Send( (unsigned char *)&revnValue, sizeof( revnValue ) );
 }
 
@@ -216,9 +251,12 @@ void TERDataReader::init()
 	_precValue = fp / 100.0;*/
 
 	m_nSampleCount = atoi ( cs->get("receive", "sampleCount" ).c_str() );
-	m_fSampleRatio = atoi ( cs->get("receive", "samplingRate" ).c_str() );
-	m_fInterval = 1.0/(float)atoi( cs->get("send", "measuringWheelPointPerMeter" ).c_str() );
-
+	m_nSampleRatioIndex = atoi ( cs->get("receive", "samplingRate").c_str() );
+	m_fSettingInterval = 100/(float)atoi( cs->get("send", "measuringWheelPointPerMeter" ).c_str() );//单位厘米
+	float fWheelCircumference = atof(cs->get("send","perimeter").c_str())*100;//米转厘米
+	//m_fTrueInterval = RadarManager::Instance()->GetTrueAccuracyFromPreclenAndPrecindex(fWheelCircumference,m_fSettingInterval)/100;
+	int nWheelPulse = RadarManager::Instance()->getPrecRatio(atoi(cs->get("send","wheelPulse").c_str()));
+	m_fTrueInterval = RadarManager::Instance()->GetTrueInterval(fWheelCircumference,m_fSettingInterval,nWheelPulse)/100;
 	m_iReadNULLTime = 0;
 	_hadInit = true;
 }
@@ -243,6 +281,10 @@ void TERDataReader::init()
 
 void TERDataReader::sendData( unsigned char *buff, int len )
 {
+	if(!m_bIsConnected){
+		AfxMessageBox(_T("请先对瞬变电磁雷达进行通信连接"));
+		return;
+	}
 	_client.Send( buff, len );
 }
 
@@ -336,11 +378,11 @@ void TERDataReader::sendData( unsigned char *buff, int len )
 //	{
 //		//init();
 //		_hadInit = false;
-//		if ( _lpReadThread )
+//		if ( _lpTERReceiveThread )
 //		{
-//			_lpReadThread->cancel();
-//			delete _lpReadThread;
-//			_lpReadThread = NULL;
+//			_lpTERReceiveThread->cancel();
+//			delete _lpTERReceiveThread;
+//			_lpTERReceiveThread = NULL;
 //		}
 //		setParam( 0X00, 0X00 );//发送参数给硬件
 // 		int recvNum = 0;
@@ -368,13 +410,37 @@ void TERDataReader::sendData( unsigned char *buff, int len )
 //		_dataBuf.clear();
 //// 		sendData( 0XFA );
 //// 		sendData( 0X88 );
-//		//_lpReadThread = new ReceiveTERDataThread( this );
-//		//_lpReadThread->start();
+//		//_lpTERReceiveThread = new ReceiveTERDataThread( this );
+//		//_lpTERReceiveThread->start();
 //	}
 //	return value;
 //}
 
+void TERDataReader::SocketConnect( std::string const& targetIP, unsigned int port ){
+	//m_nTERDataCount=0;
+	_client.setServerIP( targetIP );
+	_client.setServerPort( port );
+	bool value = _client.Connect();//创建无线网络通信是否成功
+	m_bIsConnected=value;
+	if ( value ){
+		AfxMessageBox(_T("瞬变电磁雷达进行通信连接成功"));
+	}else{
+		AfxMessageBox(_T("瞬变电磁雷达进行通信连接失败"));
+	}
+}
+
+void TERDataReader::SocketDisconnect(){
+	if(m_bIsConnected){
+		_client.CloseDevice();
+		m_bIsConnected=false;
+	}
+}
+
 bool TERDataReader::SetSenderFree(){
+	if(!m_bIsConnected){
+		AfxMessageBox(_T("请先对瞬变电磁雷达进行通信连接"));
+		return false;
+	}
 	unsigned char *temp = new unsigned char[6];
 	temp[0]=0x02;
 	temp[1]=0x21;
@@ -383,13 +449,17 @@ bool TERDataReader::SetSenderFree(){
 	temp[4]=0x01;
 	temp[5]=0x02;
 	_client.Send( temp, 6 );
-	_client.Recv( _recvBuff, 4 );
+	_client.Recv( _recvBuff, 5 );
 	if(!(_recvBuff[0]==0x06/*&&_recvBuff[1]==0x21&&_recvBuff[2]==0x55&&_recvBuff[3]==0x55*/)){
 		return false;
 	}
 	return true;
 }
 bool TERDataReader::SetSenderParameter(){//02 20 55 55 05 01 0d 0a 00 00 e7 03 cc 00 40 01 03 00 00 00//0620
+	if(!m_bIsConnected){
+		AfxMessageBox(_T("请先对瞬变电磁雷达进行通信连接"));
+		return false;
+	}
 	ConfigureSet *cs = RadarManager::Instance()->getConfigureSet();
 	if ( !cs ){
 		return false;
@@ -419,7 +489,7 @@ bool TERDataReader::SetSenderParameter(){//02 20 55 55 05 01 0d 0a 00 00 e7 03 c
 	//测量轮脉冲次数 触发间隔
 	//temp[12]=0xcc;//12*8+12=108
 	//temp[13]=0x00;
-	int nPulse = RadarManager::Instance()->getPrecRatio(atoi( cs->get("radar", "precRatio").c_str()));
+	int nPulse = RadarManager::Instance()->getPrecRatio(atoi( cs->get("send", "wheelPulse").c_str()));
 	int nPointPerMeter=atoi(cs->get("send", "measuringWheelPointPerMeter").c_str());
 	double dPerimeter=atof(cs->get("send", "perimeter").c_str());
 	short sInterval=(short)((float)nPulse*4.0/((float)nPointPerMeter*dPerimeter));
@@ -443,13 +513,17 @@ bool TERDataReader::SetSenderParameter(){//02 20 55 55 05 01 0d 0a 00 00 e7 03 c
 	temp[18]=*((unsigned char*)&sStackingFold);
 	temp[19]=*((unsigned char*)&sStackingFold+1);
 	_client.Send( temp, 20 );
-	_client.Recv( _recvBuff, 4 );
+	_client.Recv( _recvBuff, 5 );
 	if(!(_recvBuff[0]==0x06/*&&_recvBuff[1]==0x20&&_recvBuff[2]==0x55&&_recvBuff[3]==0x55*/)){
 		return false;
 	}
 	return true;
 }
 bool TERDataReader::SetSenderReady(){//02 21 55 55 01 03
+	if(!m_bIsConnected){
+		AfxMessageBox(_T("请先对瞬变电磁雷达进行通信连接"));
+		return false;
+	}
 	unsigned char *temp = new unsigned char[6];
 	temp[0]=0x02;
 	temp[1]=0x21;
@@ -458,13 +532,17 @@ bool TERDataReader::SetSenderReady(){//02 21 55 55 01 03
 	temp[4]=0x01;
 	temp[5]=0x03;
 	_client.Send( temp, 6 );
-	_client.Recv( _recvBuff, 4 );
+	_client.Recv( _recvBuff, 5);
 	if(!(_recvBuff[0]==0x06/*&&_recvBuff[1]==0x21&&_recvBuff[2]==0x55&&_recvBuff[3]==0x55*/)){
 		return false;
 	}
 	return true;
 }
 bool TERDataReader::SetSenderStart(){//02 21 55 55 01 05
+	if(!m_bIsConnected){
+		AfxMessageBox(_T("请先对瞬变电磁雷达进行通信连接"));
+		return false;
+	}
 	unsigned char *temp = new unsigned char[6];
 	temp[0]=0x02;
 	temp[1]=0x21;
@@ -473,13 +551,17 @@ bool TERDataReader::SetSenderStart(){//02 21 55 55 01 05
 	temp[4]=0x01;
 	temp[5]=0x05;
 	_client.Send( temp, 6 );
-	_client.Recv( _recvBuff, 4 );
+	_client.Recv( _recvBuff, 5);
 	if(!(_recvBuff[0]==0x06/*&&_recvBuff[1]==0x21&&_recvBuff[2]==0x55&&_recvBuff[3]==0x55*/)){
 		return false;
 	}
 	return true;
 }
 bool TERDataReader::SetSenderStop(){//02 21 55 55 01 06 
+	if(!m_bIsConnected){
+		AfxMessageBox(_T("请先对瞬变电磁雷达进行通信连接"));
+		return false;
+	}
 	unsigned char *temp = new unsigned char[6];
 	temp[0]=0x02;
 	temp[1]=0x21;
@@ -488,13 +570,18 @@ bool TERDataReader::SetSenderStop(){//02 21 55 55 01 06
 	temp[4]=0x01;
 	temp[5]=0x06;
 	_client.Send( temp, 6 );
-	_client.Recv( _recvBuff, 4 );
-	if(!(_recvBuff[0]==0x06/*&&_recvBuff[1]==0x21&&_recvBuff[2]==0x55&&_recvBuff[3]==0x55*/)){
+	Sleep(200);
+	_client.Recv( _recvBuff, 5);
+	if(!(_recvBuff[0]==0x06&&_recvBuff[1]==0x21&&_recvBuff[2]==0x55&&_recvBuff[3]==0x55&&_recvBuff[4]==0x06)){
 		return false;
 	}
 	return true;
 }
 bool TERDataReader::SetReceiverFree(){//02 03 55 55 09 02
+	if(!m_bIsConnected){
+		AfxMessageBox(_T("请先对瞬变电磁雷达进行通信连接"));
+		return false;
+	}
 	unsigned char *temp = new unsigned char[6];
 	temp[0]=0x02;
 	temp[1]=0x03;
@@ -503,13 +590,17 @@ bool TERDataReader::SetReceiverFree(){//02 03 55 55 09 02
 	temp[4]=0x09;
 	temp[5]=0x02;
 	_client.Send( temp, 6 );
-	_client.Recv( _recvBuff, 4 );
+	_client.Recv( _recvBuff, 5);
 	if(!(_recvBuff[0]==0x06/*&&_recvBuff[1]==0x21&&_recvBuff[2]==0x55&&_recvBuff[3]==0x55*/)){
 		return false;
 	}
 	return true;
 }
 bool TERDataReader::SetReceiverParameter(){//02 01 55 55 05 05 03 4a 01 01 00 00 40 0d 50 00 0d 0a 40 01
+	if(!m_bIsConnected){
+		AfxMessageBox(_T("请先对瞬变电磁雷达进行通信连接"));
+		return false;
+	}
 	ConfigureSet *cs = RadarManager::Instance()->getConfigureSet();
 	if ( !cs ){
 		return false;
@@ -560,13 +651,17 @@ bool TERDataReader::SetReceiverParameter(){//02 01 55 55 05 05 03 4a 01 01 00 00
 	temp[18]=*((unsigned char*)&sGPS);
 	temp[19]=*((unsigned char*)&sGPS+1);
 	_client.Send( temp, 20 );
-	_client.Recv( _recvBuff, 4 );
+	_client.Recv( _recvBuff, 5);
 	if(!(_recvBuff[0]==0x06/*&&_recvBuff[1]==0x20&&_recvBuff[2]==0x55&&_recvBuff[3]==0x55*/)){
 		return false;
 	}
 	return true;
 }
 bool TERDataReader::SetReceiverReady(){//02 03 55 55 09 03
+	if(!m_bIsConnected){
+		AfxMessageBox(_T("请先对瞬变电磁雷达进行通信连接"));
+		return false;
+	}
 	unsigned char *temp = new unsigned char[6];
 	temp[0]=0x02;
 	temp[1]=0x03;
@@ -575,13 +670,17 @@ bool TERDataReader::SetReceiverReady(){//02 03 55 55 09 03
 	temp[4]=0x09;
 	temp[5]=0x03;
 	_client.Send( temp, 6 );
-	_client.Recv( _recvBuff, 4 );
+	_client.Recv( _recvBuff, 5);
 	if(!(_recvBuff[0]==0x06/*&&_recvBuff[1]==0x03&&_recvBuff[2]==0x55&&_recvBuff[3]==0x55*/)){
 		return false;
 	}
 	return true;
 }
 bool TERDataReader::SetReceiverStart(){//02 02 55 55 06 05
+	if(!m_bIsConnected){
+		AfxMessageBox(_T("请先对瞬变电磁雷达进行通信连接"));
+		return false;
+	}
 	unsigned char *temp = new unsigned char[6];
 	temp[0]=0x02;
 	temp[1]=0x02;
@@ -590,13 +689,17 @@ bool TERDataReader::SetReceiverStart(){//02 02 55 55 06 05
 	temp[4]=0x06;
 	temp[5]=0x05;
 	_client.Send( temp, 6 );
-	_client.Recv( _recvBuff, 4 );
+	_client.Recv( _recvBuff, 5);
 	if(!(_recvBuff[0]==0x06/*&&_recvBuff[1]==0x03&&_recvBuff[2]==0x55&&_recvBuff[3]==0x55*/)){
 		return false;
 	}
 	return true;
 }
 bool TERDataReader::SetReceiverStop(){//02 02 55 55 06 06
+	if(!m_bIsConnected){
+		AfxMessageBox(_T("请先对瞬变电磁雷达进行通信连接"));
+		return false;
+	}
 	unsigned char *temp = new unsigned char[6];
 	temp[0]=0x02;
 	temp[1]=0x02;
@@ -605,54 +708,67 @@ bool TERDataReader::SetReceiverStop(){//02 02 55 55 06 06
 	temp[4]=0x06;
 	temp[5]=0x06;
 	_client.Send( temp, 6 );
-	_client.Recv( _recvBuff, 4 );
-	//if(!(_recvBuff[0]==0x06/*&&_recvBuff[1]==0x04&&_recvBuff[2]==0x55&&_recvBuff[3]==0x55*/)){
-	//	return false;
-	//}
+	Sleep(200);
+	_client.Recv( _recvBuff, 5);
+	if(!(_recvBuff[0]==0x06&&_recvBuff[1]==0x02&&_recvBuff[2]==0x55&&_recvBuff[3]==0x55&&_recvBuff[4]==0x06)){
+		return false;
+	}
 	return true;
 }
 
 bool TERDataReader::open( std::string const& targetIP, unsigned int port )
 {
-	m_nDataCount=0;
-
-	_client.setServerIP( targetIP );
-	_client.setServerPort( port );
-	bool value = _client.Connect();//创建无线网络通信是否成功
+	m_nTERDataCount=0;
+	bool value = m_bIsConnected;
+	if(!m_bIsConnected){
+		_client.setServerIP( targetIP );
+		_client.setServerPort( port );
+		value = _client.Connect();//创建无线网络通信是否成功
+		m_bIsConnected=value;
+	}
 	if ( value )
 	{
 		//init();
 		_hadInit = false;
-		if ( _lpReadThread )
+		if ( _lpTERReceiveThread )
 		{
-			_lpReadThread->cancel();
-			delete _lpReadThread;
-			_lpReadThread = NULL;
+			_lpTERReceiveThread->cancel();
+			delete _lpTERReceiveThread;
+			_lpTERReceiveThread = NULL;
+		}
+
+		if ( _lpTERProcessThread )
+		{
+			_lpTERProcessThread->cancel();
+			delete _lpTERProcessThread;
+			_lpTERProcessThread = NULL;
 		}
 
 		//雷达空闲02 21 55 55 01 02
-		Sleep(1000);
+		Sleep(500);
 		SetSenderFree();
-		Sleep(1000);
+		Sleep(500);
 		SetSenderParameter();
-		Sleep(1000);
+		Sleep(500);
 		SetSenderReady();
-		Sleep(1000);
-		while(!SetSenderStart()){
-			Sleep(1000);
-			SetSenderStart();
+		Sleep(500);
+		bool bSetSenderStartSuccess=SetSenderStart();
+		while(!bSetSenderStartSuccess){
+			Sleep(500);
+			bSetSenderStartSuccess=SetSenderStart();
 		}	
  		
-		Sleep(1000);
+		Sleep(500);
 		SetReceiverFree();
-		Sleep(1000);
+		Sleep(500);
 		SetReceiverParameter();
-		Sleep(1000);
+		Sleep(500);
 		SetReceiverReady();
-		Sleep(2000);
-		while(!SetReceiverStart()){
-			Sleep(1000);
-			SetReceiverStart();
+		Sleep(1000);
+		bool bSetReceiverStartSuccess=SetReceiverStart();
+		while(!bSetReceiverStartSuccess){
+			Sleep(500);
+			bSetReceiverStartSuccess=SetReceiverStart();
 		}	
  		
 		int recvNum = 0;
@@ -672,14 +788,23 @@ void TERDataReader::ReadThreadStart(bool flag /*= true*/)
 {
 	if (true == flag )
 	{
-		if( NULL != _lpReadThread)
+		if( NULL != _lpTERReceiveThread)
 		{
-			_lpReadThread->cancel();
-			delete _lpReadThread;
-			_lpReadThread = NULL;
+			_lpTERReceiveThread->cancel();
+			delete _lpTERReceiveThread;
+			_lpTERReceiveThread = NULL;
 		}
-		_lpReadThread = new ReceiveTERDataThread( this );
-		_lpReadThread->start();
+		_lpTERReceiveThread = new ReceiveTERDataThread( this );
+		_lpTERReceiveThread->start();
+
+		if( NULL != _lpTERProcessThread)
+		{
+			_lpTERProcessThread->cancel();
+			delete _lpTERProcessThread;
+			_lpTERProcessThread = NULL;
+		}
+		_lpTERProcessThread = new ProcessTERDataThread( this );
+		_lpTERProcessThread->start();
 	}
 }
 
@@ -815,19 +940,92 @@ void TERDataReader::parseHeadData( char *buff, int len )
 }
 
 bool TERDataReader::close(){
-	if ( !_lpReadThread )
+	if(!m_bIsConnected){
+		//AfxMessageBox(_T("请先对瞬变电磁雷达进行通信连接"));
+		return false;
+	}
+	if ( !_lpTERReceiveThread )
 	{
 		SetReceiverStop();
-		Sleep(1000);
+		Sleep(2000);
 		SetSenderStop();
-		Sleep(1000);
+		Sleep(2000);
 		SetSenderStop();//保证关成功
-		Sleep(1000);
+		Sleep(2000);
 		_client.CloseDevice();
 		return true;
 	}
+
+	if ( _lpTERProcessThread )
+	{
+		_lpTERProcessThread->cancel();
+		delete _lpTERProcessThread;
+		_lpTERProcessThread = NULL;
+	}
+
+	if ( _lpTERReceiveThread )
+	{
+		_lpTERReceiveThread->cancel();
+		delete _lpTERReceiveThread;
+		_lpTERReceiveThread = NULL;
+	}
+
+	Sleep(500);
+	bool bIsSuccessed;
+	int nSetCount;
+
+	bIsSuccessed=SetSenderStop();
+	nSetCount=0;
+	while(!bIsSuccessed){
+		bIsSuccessed=SetSenderStop();
+		nSetCount=nSetCount+1;
+		Sleep(200);
+		if(nSetCount>10){
+			AfxMessageBox(_T("自动停止发射机失败，请手动停止"));
+			break;
+		}
+	}
+	/*bIsSuccessed=false;
+	nSetCount=0;
+	while(bIsSuccessed){
+		bIsSuccessed=SetSenderStop();
+		nSetCount=nSetCount+1;
+		Sleep(200);
+		if(nSetCount>10){
+			AfxMessageBox(_T("自动停止发射机失败，请手动停止"));
+			break;
+		}
+	}*/
+
 	Sleep(1000);
-	while(!SetReceiverStop()){
+
+	bIsSuccessed=SetReceiverStop();
+	nSetCount=0;
+	while(!bIsSuccessed){
+		bIsSuccessed=SetReceiverStop();
+		nSetCount=nSetCount+1;
+		Sleep(200);
+		if(nSetCount>20){
+			AfxMessageBox(_T("自动停止接收机失败，请手动停止"));
+			break;
+		}
+	}
+	/*bIsSuccessed=false;
+	nSetCount=0;
+	while(bIsSuccessed){
+		bIsSuccessed=SetReceiverStop();
+		nSetCount=nSetCount+1;
+		Sleep(200);
+		if(nSetCount>10){
+			AfxMessageBox(_T("自动停止接收机失败，请手动停止"));
+			break;
+		}
+	}*/
+
+	
+
+
+	/*while(!SetReceiverStop()){
 		SetReceiverStop();
 		Sleep(1000);
 	}
@@ -845,14 +1043,11 @@ bool TERDataReader::close(){
 	while(!SetSenderStop()){//保证关成功
 		SetSenderStop();
 		Sleep(1000);
-	}
-	if ( _lpReadThread )
-	{
-		_lpReadThread->cancel();
-		delete _lpReadThread;
-		_lpReadThread = NULL;
-	}
+	}*/
+	
+	
 	_client.CloseDevice();
+	m_bIsConnected=false;
 	return true;
 }
 
@@ -946,7 +1141,8 @@ extern float GetFloatFromPack( unsigned char* in_lp_num , char in_bits_flag ){
 
 void TERDataReader::parseData()
 {
-	int channelData = /*_channelCount * */m_nSampleCount * 3 + 8;
+	//int channelData = /*_channelCount * */m_nSampleCount * 3 + 8;
+	int channelData = /*_channelCount * */m_nSampleCount * 3 + 10;
 	int len = _dataBuf.getDataLen();
 
 	if ( len < channelData ){
@@ -968,30 +1164,35 @@ void TERDataReader::parseData()
 				break;
 			}
 		}
-
 		if ( !findHead ){
 			break;
 		}
-
 		if ( startPos + channelData > _dataBuf.getDataLen() ){
 			break;
 		}
 
-		
-	
+		unsigned char *tempBuff=new unsigned char[channelData];
+		for(int i=0;i<channelData;i++){
+			tempBuff[i]=lpDataBuff[startPos+i];
+		}	
+		((ProcessTERDataThread*)_lpTERProcessThread)->addData(tempBuff);
 
+		/*
 		//处理裸数据
 		for(int i=0;i<m_nSampleCount;i++){
 			if(m_bIsDataOne){
-				m_vecfDataOne.push_back(GetFloatFromPack(lpDataBuff+startPos+6+i*3,24));
+				//m_vecfDataOne.push_back(GetFloatFromPack(lpDataBuff+startPos+6+i*3,24));
+				m_vecfDataOne.push_back(GetFloatFromPack(lpDataBuff+startPos+8+i*3,24));
 			}else{
-				m_vecfDataTwo.push_back(GetFloatFromPack(lpDataBuff+startPos+6+i*3,24));
+				//m_vecfDataTwo.push_back(GetFloatFromPack(lpDataBuff+startPos+6+i*3,24))
+				m_vecfDataTwo.push_back(GetFloatFromPack(lpDataBuff+startPos+8+i*3,24));
 			}
 		}
 
 		if(m_bIsDataOne==false){
-			//获取道号
-			short sRecordWheelCount=(lpDataBuff[4] + lpDataBuff[5] * 256)/2;
+			//获取道号 不再是short 现在是int
+			//short sRecordWheelCount=(lpDataBuff[4] + lpDataBuff[5] * 256)/2;
+			int nRecordWheelCount=(lpDataBuff[4] + lpDataBuff[5] * 256 +  lpDataBuff[6] * 65536 + lpDataBuff[7] * 16777216)/2+1;
 
 			float *fTempBuff = new float[m_nSampleCount];
 			for(int i=0;i<m_nSampleCount;i++){
@@ -1007,23 +1208,109 @@ void TERDataReader::parseData()
 
 			osg::ref_ptr<TERData> data = new TERData;
 			data->setSampleCount( m_nSampleCount );
-			data->setSampleRatio( m_fSampleRatio );
+			data->setSampleRatio( m_nSampleRatioIndex );
 			data->setData( (unsigned char*)fTempBuff, m_nSampleCount*sizeof(float) );
-			data->setPrecLen( m_fInterval*sRecordWheelCount );
-			data->setRecordWheelCount(sRecordWheelCount);
-			//m_nDataCount=m_nDataCount+1;
+			data->setPrecLen( m_fTrueInterval*nRecordWheelCount );
+			data->setRecordWheelCount(nRecordWheelCount);
+			
+			//丢道时补空数据
+			if(nRecordWheelCount>m_nTERDataCount+1){
+				int nEmptyTERDataCount=nRecordWheelCount-m_nTERDataCount-1;
+				for(int i=0;i<nEmptyTERDataCount;i++){
+					int nTempWheelCount=m_nTERDataCount+1+i;
+					osg::ref_ptr<TERData> data = new TERData;
+					data->setSampleCount( m_nSampleCount );
+					data->setSampleRatio( m_nSampleRatioIndex );
+					float *fEmptyBuff = new float[m_nSampleCount];
+					for(int j=0;j<m_nSampleCount;j++){
+						fEmptyBuff[i]=0;
+					}
+					data->setData( (unsigned char*)fEmptyBuff, m_nSampleCount*sizeof(float) );
+					data->setPrecLen( m_fTrueInterval*nTempWheelCount );
+					data->setRecordWheelCount(0);//用来作为空数据的标识
+					RadarManager::Instance()->addTERDataToProject( data.get() );
+				}
+			}
+
 
 			RadarManager::Instance()->addTERDataToProject( data.get() );
+			m_nTERDataCount=nRecordWheelCount;
 		}
 		if(m_bIsDataOne==true){
 			m_bIsDataOne=false;
 		}else{
 			m_bIsDataOne=true;
-		}
+		}*/
 		startPos += channelData;
 	}
 	_dataBuf.remove( startPos );
 }
+
+void TERDataReader::ProcessData(unsigned char *lpDataBuff){
+	for(int i=0;i<m_nSampleCount;i++){
+		if(m_bIsDataOne){
+			//m_vecfDataOne.push_back(GetFloatFromPack(lpDataBuff+startPos+6+i*3,24));
+			m_vecfDataOne.push_back(GetFloatFromPack(lpDataBuff+8+i*3,24));
+		}else{
+			//m_vecfDataTwo.push_back(GetFloatFromPack(lpDataBuff+startPos+6+i*3,24))
+			m_vecfDataTwo.push_back(GetFloatFromPack(lpDataBuff+8+i*3,24));
+		}
+	}
+
+	if(m_bIsDataOne==false){
+		//获取道号 不再是short 现在是int
+		//short sRecordWheelCount=(lpDataBuff[4] + lpDataBuff[5] * 256)/2;
+		int nRecordWheelCount=(lpDataBuff[4] + lpDataBuff[5] * 256 +  lpDataBuff[6] * 65536 + lpDataBuff[7] * 16777216)/2+1;
+
+		float *fTempBuff = new float[m_nSampleCount];
+		for(int i=0;i<m_nSampleCount;i++){
+			fTempBuff[i]=m_vecfDataOne[i]-m_vecfDataTwo[i];
+			if(fTempBuff[i]<-2.5){
+				fTempBuff[i]=-2.5;
+			}else if(fTempBuff[i]>2.5){
+				fTempBuff[i]=2.5;
+			}
+		}
+		m_vecfDataOne.clear();
+		m_vecfDataTwo.clear();
+
+		osg::ref_ptr<TERData> data = new TERData;
+		data->setSampleCount( m_nSampleCount );
+		data->setSampleRatio( m_nSampleRatioIndex );
+		data->setData( (unsigned char*)fTempBuff, m_nSampleCount*sizeof(float) );
+		data->setPrecLen( m_fTrueInterval*nRecordWheelCount );
+		data->setRecordWheelCount(nRecordWheelCount);
+		
+		//丢道时补空数据
+		if(nRecordWheelCount>m_nTERDataCount+1){
+			int nEmptyTERDataCount=nRecordWheelCount-m_nTERDataCount-1;
+			for(int i=0;i<nEmptyTERDataCount;i++){
+				int nTempWheelCount=m_nTERDataCount+1+i;
+				osg::ref_ptr<TERData> data = new TERData;
+				data->setSampleCount( m_nSampleCount );
+				data->setSampleRatio( m_nSampleRatioIndex );
+				float *fEmptyBuff = new float[m_nSampleCount];
+				for(int j=0;j<m_nSampleCount;j++){
+					fEmptyBuff[i]=0;
+				}
+				data->setData( (unsigned char*)fEmptyBuff, m_nSampleCount*sizeof(float) );
+				data->setPrecLen( m_fTrueInterval*nTempWheelCount );
+				data->setRecordWheelCount(0);//用来作为空数据的标识
+				RadarManager::Instance()->addTERDataToProject( data.get() );
+			}
+		}
+
+
+		RadarManager::Instance()->addTERDataToProject( data.get() );
+		m_nTERDataCount=nRecordWheelCount;
+	}
+	if(m_bIsDataOne==true){
+		m_bIsDataOne=false;
+	}else{
+		m_bIsDataOne=true;
+	}
+}
+
 
 void TERDataReader::parseDataToDisplay()
 {

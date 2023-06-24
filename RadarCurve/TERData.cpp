@@ -12,7 +12,7 @@ TERData::TERData(void)
 	_receiveTime = GetTickCount();
 	m_recordWheelCount = 0;
 	_sampleCount = 0;
-	_sampleRatio = 0;
+	_sampleRatioIndex = 0;
 	_precLen = 0.0;
 	_mark = false;
 	_len = 0.0f;
@@ -92,15 +92,15 @@ int TERData::getSampleCount()const
 }
 
 //设置采样率
-void TERData::setSampleRatio( float value )
+void TERData::setSampleRatio( int value )
 {
-	_sampleRatio = value;
+	_sampleRatioIndex = value;
 }
 
 //获取采样率
 float TERData::getSampleRatio()const
 {
-	return _sampleRatio;
+	return _sampleRatioIndex;
 }
 
 //设置gps长度
@@ -137,7 +137,7 @@ float TERData::getIndexData( int index, float *t )
 
 	if ( t )
 	{
-		*t = _receiveTime + ( getDataCount() - index ) * 1.0f /*/ _sampleRatio */* DIV_G;
+		*t = _receiveTime + ( getDataCount() - index ) * 1.0f /*/ _sampleRatioIndex */* DIV_G;
 	}
 
 	return value;

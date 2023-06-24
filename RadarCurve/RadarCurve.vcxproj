@@ -1,0 +1,294 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|Win32">
+      <Configuration>Debug</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|Win32">
+      <Configuration>Release</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <ProjectGuid>{9CAB2600-3CA3-422A-A895-8DCC9DEBF31A}</ProjectGuid>
+    <RootNamespace>RadarCurve</RootNamespace>
+    <Keyword>MFCDLLProj</Keyword>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <PlatformToolset>v141</PlatformToolset>
+    <UseOfMfc>false</UseOfMfc>
+    <CharacterSet>Unicode</CharacterSet>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
+    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <PlatformToolset>v141</PlatformToolset>
+    <UseOfMfc>false</UseOfMfc>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings">
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup>
+    <_ProjectFileVersion>15.0.28307.799</_ProjectFileVersion>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <OutDir>$(SolutionDir)$(Configuration)\</OutDir>
+    <IntDir>$(Configuration)\</IntDir>
+    <LinkIncremental>true</LinkIncremental>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <OutDir>$(SolutionDir)$(Configuration)\</OutDir>
+    <IntDir>$(Configuration)\</IntDir>
+    <LinkIncremental>false</LinkIncremental>
+    <GenerateManifest>true</GenerateManifest>
+  </PropertyGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <Midl>
+      <PreprocessorDefinitions>_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <MkTypLibCompatible>false</MkTypLibCompatible>
+    </Midl>
+    <ClCompile>
+      <Optimization>Disabled</Optimization>
+      <AdditionalIncludeDirectories>$(OSG_SDK)\include;..\include;$(OSG_SDK)\OCI\include;$(OSG_SDK)\3rdparty\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>WIN32;_WINDOWS;_DEBUG;_USRDLL;_AFXDLL;RADAR_CURVE_LIBRARY;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <MinimalRebuild>true</MinimalRebuild>
+      <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
+      <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
+      <PrecompiledHeader>Use</PrecompiledHeader>
+      <WarningLevel>Level3</WarningLevel>
+      <DebugInformationFormat>EditAndContinue</DebugInformationFormat>
+    </ClCompile>
+    <ResourceCompile>
+      <PreprocessorDefinitions>_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <Culture>0x0804</Culture>
+      <AdditionalIncludeDirectories>$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    </ResourceCompile>
+    <Link>
+      <AdditionalDependencies>mfc80ud.lib;mfcm80ud.lib;osgd.lib;osgapexd.lib;OpenThreadsd.lib;tinyxmld.lib;Kerneld.lib;Comd.lib;Datad.lib;Objectd.lib;oci.lib;CyAPI.lib;LibXIStream2d.lib;LibXIPropertyd.lib;osgDBd.lib;osgUtild.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <OutputFile>..\Bin\Debug\$(ProjectName)d.dll</OutputFile>
+      <AdditionalLibraryDirectories>$(OSG_SDK)\lib;..\lib;$(OSG_SDK)\3rdparty\Awesomium SDK\1.7.1.0\build\lib;$(OSG_SDK)\OCI\lib\MSVC;$(OSG_SDK)\3rdparty\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <IgnoreSpecificDefaultLibraries>LIBCMT.lib;%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
+      <ModuleDefinitionFile />
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <ProgramDatabaseFile>..\Bin\Debug\$(TargetName).pdb</ProgramDatabaseFile>
+      <SubSystem>Windows</SubSystem>
+      <ImportLibrary>..\lib\RadarCurved.lib</ImportLibrary>
+      <TargetMachine>MachineX86</TargetMachine>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <Midl>
+      <PreprocessorDefinitions>NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <MkTypLibCompatible>false</MkTypLibCompatible>
+    </Midl>
+    <ClCompile>
+      <Optimization>Disabled</Optimization>
+      <AdditionalIncludeDirectories>$(OSG_SDK)\include;..\include;$(OSG_SDK)\3rdparty\include;$(OSG_SDK)\OCI\include;..\TSW\Include;..\TSW\DX9SDK\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>WIN32;_WINDOWS;NDEBUG;_USRDLL;_AFXDLL;RADAR_CURVE_LIBRARY;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
+      <PrecompiledHeader>Use</PrecompiledHeader>
+      <WarningLevel>Level3</WarningLevel>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+    </ClCompile>
+    <ResourceCompile>
+      <PreprocessorDefinitions>NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <Culture>0x0804</Culture>
+      <AdditionalIncludeDirectories>$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    </ResourceCompile>
+    <Link>
+      <AdditionalDependencies>mfc80u.lib;mfcm80u.lib;osg.lib;osgapex.lib;OpenThreads.lib;tinyxml.lib;Kernel.lib;Com.lib;Object.lib;Data.lib;oci.lib;CyAPI.lib;LibXIStream2.lib;LibXIProperty.lib;osgDB.lib;osgUtil.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <OutputFile>..\Bin\Release\$(ProjectName).dll</OutputFile>
+      <AdditionalLibraryDirectories>$(OSG_SDK)\lib;$(OSG_SDK)\3rdparty\lib;$(OSG_SDK)\3rdparty\Awesomium SDK\1.7.1.0\build\lib;$(OSG_SDK)\OCI\lib\MSVC;..\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <IgnoreSpecificDefaultLibraries>LIBCMT.lib;%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
+      <ModuleDefinitionFile />
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <ProgramDatabaseFile>..\Bin\Release\$(TargetName).pdb</ProgramDatabaseFile>
+      <SubSystem>Windows</SubSystem>
+      <OptimizeReferences>true</OptimizeReferences>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <ImportLibrary>..\lib\$(TargetName).lib</ImportLibrary>
+      <TargetMachine>MachineX86</TargetMachine>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <ClInclude Include="..\Include\RadarCurve\CmdCenter\CmdCenter.h" />
+    <ClInclude Include="..\Include\RadarCurve\CmdCenter\CmdToRadar.h" />
+    <ClInclude Include="..\Include\RadarCurve\ConfigureSet.h" />
+    <ClInclude Include="..\Include\RadarCurve\DataBuff.h" />
+    <ClInclude Include="..\Include\RadarCurve\DBConnectBase.h" />
+    <ClInclude Include="..\Include\RadarCurve\DBReadWriter.h" />
+    <ClInclude Include="..\Include\RadarCurve\DBRow.h" />
+    <ClInclude Include="..\Include\RadarCurve\DBTable.h" />
+    <ClInclude Include="..\Include\RadarCurve\export.h" />
+    <ClInclude Include="..\Include\RadarCurve\GpsData.h" />
+    <ClInclude Include="..\Include\RadarCurve\GpsReader.h" />
+    <ClInclude Include="..\Include\RadarCurve\MeasureProject.h" />
+    <ClInclude Include="..\Include\RadarCurve\otldef.h" />
+    <ClInclude Include="..\Include\RadarCurve\RadarData.h" />
+    <ClInclude Include="..\Include\RadarCurve\RadarDataRader.h" />
+    <ClInclude Include="..\Include\RadarCurve\RadarManager.h" />
+    <ClInclude Include="..\Include\RadarCurve\RadarSocketClient.h" />
+    <ClInclude Include="..\Include\RadarCurve\RecordSetBase.h" />
+    <ClInclude Include="..\Include\RadarCurve\SerialPort.h" />
+    <ClInclude Include="..\Include\RadarCurve\singleton.h" />
+    <ClInclude Include="..\Include\RadarCurve\TERData.h" />
+    <ClInclude Include="..\Include\RadarCurve\TERDataReader.h" />
+    <ClInclude Include="BmpDC.h" />
+    <ClInclude Include="C_SamplingParam.h" />
+    <ClInclude Include="DataCountTab.h" />
+    <ClInclude Include="DataTemplateTab.h" />
+    <ClInclude Include="DBAccess\OtlConnect.h" />
+    <ClInclude Include="DBAccess\OtlRecordset.h" />
+    <ClInclude Include="DialogCurCurve.h" />
+    <ClInclude Include="DialogHistoryCurve.h" />
+    <ClInclude Include="DialogProject.h" />
+    <ClInclude Include="DialogProjectName.h" />
+    <ClInclude Include="DialogProject_Export.h" />
+    <ClInclude Include="DialogRoadJanCe.h" />
+    <ClInclude Include="DialogTERDisplay.h" />
+    <ClInclude Include="DialogThreeView.h" />
+    <ClInclude Include="DlgDataExport.h" />
+    <ClInclude Include="DlgProjectManager.h" />
+    <ClInclude Include="DlgPromptMessage.h" />
+    <ClInclude Include="DlgRadarParameterConfig.h" />
+    <ClInclude Include="DlgRadarParamSet.h" />
+    <ClInclude Include="DlgWorkDetection.h" />
+    <ClInclude Include="DlgWorkTypeConfiguration.h" />
+    <ClInclude Include="GD_UPortClient.h" />
+    <ClInclude Include="GD_VideoBack.h" />
+    <ClInclude Include="GD_VideoShow.h" />
+    <ClInclude Include="GPRHeader.h" />
+    <ClInclude Include="GPRWriter.h" />
+    <ClInclude Include="HistoryCurveWnd.h" />
+    <ClInclude Include="md5.h" />
+    <ClInclude Include="MeasureLine.h" />
+    <ClInclude Include="MyMacro.h" />
+    <ClInclude Include="OracleWrapper.h" />
+    <ClInclude Include="ProcessDlg.h" />
+    <ClInclude Include="ProjectNameTab.h" />
+    <ClInclude Include="Radar3DWnd.h" />
+    <ClInclude Include="RadarCurve.h" />
+    <ClInclude Include="RadarCurveWnd.h" />
+    <ClInclude Include="Receive.h" />
+    <ClInclude Include="Resource.h" />
+    <ClInclude Include="Sender.h" />
+    <ClInclude Include="SGYHeader.h" />
+    <ClInclude Include="SGYWriter.h" />
+    <ClInclude Include="SheetBase.h" />
+    <ClInclude Include="stdafx.h" />
+    <ClInclude Include="TERDataWriter.h" />
+    <ClInclude Include="TERDisplayWnd.h" />
+    <ClInclude Include="UepBlock.h" />
+    <ClInclude Include="UepHeader.h" />
+    <ClInclude Include="Vector3D.h" />
+    <ClInclude Include="VideoTemplateTab.h" />
+    <ClInclude Include="WaveFormWnd.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="RadarCurve.rc" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="res\RadarCurve.rc2" />
+  </ItemGroup>
+  <ItemGroup>
+    <Image Include="toolbar1.bmp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="BmpDC.cpp" />
+    <ClCompile Include="CmdCenter.cpp" />
+    <ClCompile Include="CmdToRadar.cpp" />
+    <ClCompile Include="ConfigureSet.cpp" />
+    <ClCompile Include="C_SamplingParam.cpp" />
+    <ClCompile Include="DataCountTab.cpp" />
+    <ClCompile Include="DataTemplateTab.cpp" />
+    <ClCompile Include="DBAccess\DBConnectBase.cpp" />
+    <ClCompile Include="DBAccess\OtlConnect.cpp" />
+    <ClCompile Include="DBAccess\OtlRecordset.cpp" />
+    <ClCompile Include="DBAccess\RecordSetBase.cpp" />
+    <ClCompile Include="DBReadWriter.cpp" />
+    <ClCompile Include="DBRow.cpp" />
+    <ClCompile Include="DBTable.cpp" />
+    <ClCompile Include="DialogCurCurve.cpp" />
+    <ClCompile Include="DialogHistoryCurve.cpp" />
+    <ClCompile Include="DialogProject.cpp" />
+    <ClCompile Include="DialogProjectName.cpp" />
+    <ClCompile Include="DialogProject_Export.cpp" />
+    <ClCompile Include="DialogRoadJanCe.cpp" />
+    <ClCompile Include="DialogTERDisplay.cpp" />
+    <ClCompile Include="DialogThreeView.cpp" />
+    <ClCompile Include="DlgDataExport.cpp" />
+    <ClCompile Include="DlgProjectManager.cpp" />
+    <ClCompile Include="DlgPromptMessage.cpp" />
+    <ClCompile Include="DlgRadarParameterConfig.cpp" />
+    <ClCompile Include="DlgRadarParamSet.cpp" />
+    <ClCompile Include="DlgWorkDetection.cpp" />
+    <ClCompile Include="DlgWorkTypeConfiguration.cpp" />
+    <ClCompile Include="GD_UPortClient.cpp" />
+    <ClCompile Include="GD_VideoBack.cpp" />
+    <ClCompile Include="GD_VideoShow.cpp" />
+    <ClCompile Include="GPRWriter.cpp" />
+    <ClCompile Include="GpsData.cpp" />
+    <ClCompile Include="GpsReader.cpp" />
+    <ClCompile Include="HistoryCurveWnd.cpp" />
+    <ClCompile Include="md5.cpp" />
+    <ClCompile Include="MeasureLine.cpp" />
+    <ClCompile Include="MeasureProject.cpp" />
+    <ClCompile Include="OracleWrapper.cpp" />
+    <ClCompile Include="ProcessDlg.cpp" />
+    <ClCompile Include="ProjectNameTab.cpp" />
+    <ClCompile Include="Radar3DWnd.cpp" />
+    <ClCompile Include="RadarCurve.cpp" />
+    <ClCompile Include="RadarCurveWnd.cpp" />
+    <ClCompile Include="RadarData.cpp" />
+    <ClCompile Include="RadarDataRader.cpp" />
+    <ClCompile Include="RadarManager.cpp" />
+    <ClCompile Include="RadarSocketClient.cpp" />
+    <ClCompile Include="Receive.cpp" />
+    <ClCompile Include="Sender.cpp" />
+    <ClCompile Include="SerialPort.cpp" />
+    <ClCompile Include="SGYWriter.cpp" />
+    <ClCompile Include="SheetBase.cpp" />
+    <ClCompile Include="stdafx.cpp">
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Create</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="TERData.cpp" />
+    <ClCompile Include="TERDataReader.cpp" />
+    <ClCompile Include="TERDataWriter.cpp" />
+    <ClCompile Include="TERDisplayWnd.cpp" />
+    <ClCompile Include="VideoTemplateTab.cpp" />
+    <ClCompile Include="WaveFormWnd.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="ReadMe.txt" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\COM\COM.vcxproj">
+      <Project>{297185b2-3728-4e04-a8d4-6decafcdc93a}</Project>
+      <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
+    </ProjectReference>
+    <ProjectReference Include="..\Kernel\Kernel.vcxproj">
+      <Project>{40ccfd76-7cab-462f-af66-fde255030f56}</Project>
+      <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
+    </ProjectReference>
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets">
+  </ImportGroup>
+  <ProjectExtensions>
+    <VisualStudio>
+      <UserProperties RESOURCE_FILE="RadarCurve.rc" />
+    </VisualStudio>
+  </ProjectExtensions>
+</Project>

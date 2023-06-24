@@ -25,7 +25,7 @@ public:
 
 	void setData( unsigned char *buff,  int len );//设置雷达数据
 	void setSampleCount( int value );//设置采样点数
-	void setSampleRatio( float value );//设置采样率
+	void setSampleRatio( int value );//设置采样率
 	void setLen( float value );//设置gps距离
 	void setMark( bool value );//设置是否作为标记
 
@@ -67,7 +67,7 @@ protected:
 
 	int _sampleCount;//采样点数
 
-	float _sampleRatio;//采样率
+	float _sampleRatioIndex;//采样率
 
 	float _len;//gps距离
 

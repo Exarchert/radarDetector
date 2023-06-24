@@ -175,7 +175,7 @@ BOOL CDialogTERDisplay::OnInitDialog()
 	ConfigureSet *lpSet = RadarManager::Instance()->getConfigureSet();
 
 	int nSampleCount = atoi ( lpSet->get("receive", "sampleCount").c_str());
-	int nSampleRateIndex = atoi ( lpSet->get("receive", "samplingRate" ).c_str() );
+	int nSampleRateIndex = atoi ( lpSet->get("receive", "samplingRate").c_str() );
 	
 	m_TERDisplayWnd.SetSampleCount(nSampleCount);
 	m_TERDisplayWnd.SetSampleRatio(RadarManager::Instance()->getSampRatio( nSampleRateIndex, 0 ));
@@ -215,8 +215,14 @@ void CDialogTERDisplay::AddTERData( TERData *lpData ){
 		return;
 	}*/
 	//以下为计算丢道情况;
-	m_nRecordTotalWheelCount = lpData->getRecordWheelCount();
-	m_nRealTotalWheelCount = m_nRealTotalWheelCount+1;
+	
+	if(lpData->getRecordWheelCount()!=0){
+		m_nRecordTotalWheelCount = lpData->getRecordWheelCount();
+		m_nRealTotalWheelCount = m_nRealTotalWheelCount+1;
+	}else{
+		m_nRecordTotalWheelCount=m_nRecordTotalWheelCount+1;
+		lpData->setRecordWheelCount(m_nRecordTotalWheelCount);
+	}
 
 	m_TERDisplayWnd.addTERData( lpData );
 
